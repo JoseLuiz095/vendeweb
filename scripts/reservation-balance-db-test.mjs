@@ -50,6 +50,7 @@ try {
     'food_commit_order_inventory','food_release_order_inventory','food_reserve_inventory_on_item_insert',
     'food_confirm_order_payment_v1','food_commit_inventory_on_fulfillment']) await db.exec(fn(name));
   await db.exec(fixSql);
+  await db.exec(readFileSync('supabase/migrations/20261102183415_food_full_future_reservation_balance.sql', 'utf8'));
   await db.exec(`
     create trigger sync_location after update of stock_quantity,stock_reserved_quantity,track_stock on food_products
       for each row execute function food_sync_default_location_stock();
@@ -129,5 +130,22 @@ try {
   equal(balance.stock_quantity,0,'entrega baixa físico uma vez');
   equal(balance.stock_reserved_quantity,0,'entrega encerra reserva sem baixa duplicada');
   equal((await one('select count(*) n from food_order_stock_movements where order_id=$1', [edited])).n,1,'movimento de venda único');
+  const fiado = randomUUID();
+  await query("insert into food_orders(id,store_id,status,inventory_status,payment_status,total,stock_location_id) values ($1,$2,'received','not_tracked','pending',30,$3)", [fiado,store,pointB]);
+  await query('insert into food_order_items(order_id,product_id,quantity) values ($1,$2,2)', [fiado,product]);
+  await query("update food_orders set status='delivered' where id=$1", [fiado]);
+  await query("update food_orders set status='delivered' where id=$1", [fiado]);
+  const fiadoOrder = await one('select payment_status,inventory_status from food_orders where id=$1', [fiado]);
+  assert.equal(fiadoOrder.payment_status,'pending','fiado entregue permanece a pagar'); checks++;
+  assert.equal(fiadoOrder.inventory_status,'committed','fiado entregue baixa estoque'); checks++;
+  equal((await one('select count(*) n from food_order_stock_movements where order_id=$1', [fiado])).n,1,'fiado não gera saída duplicada');
+  const deficit = randomUUID();
+  await query("insert into food_orders(id,store_id,status,inventory_status,payment_status,total,stock_location_id,scheduled_for) values ($1,$2,'received','not_tracked','pending',30,$3,now()+interval '2 days')", [deficit,store,pointA]);
+  await query('insert into food_order_items(order_id,product_id,quantity) values ($1,$2,12)', [deficit,product]);
+  equal((await one('select stock_quantity-stock_reserved_quantity available from food_products where id=$1',[product])).available,-2,'reserva futura deixa agregado negativo visível');
+  const mobile = randomUUID();
+  await query("insert into food_orders(id,store_id,status,inventory_status,payment_status,total,stock_location_id) values ($1,$2,'received','not_tracked','pending',30,$3)", [mobile,store,pointB]);
+  await query('insert into food_order_items(order_id,product_id,quantity) values ($1,$2,1)', [mobile,product]);
+  equal((await one('select stock_quantity-stock_reserved_quantity available from food_product_location_stock where location_id=$1 and product_id=$2',[pointB,product])).available,9,'carga móvel mantém saldo próprio apesar do déficit no principal');
   console.log(`OK: ${checks} verificações de reservas e baixa por local.`);
 } finally { await db.close(); }
