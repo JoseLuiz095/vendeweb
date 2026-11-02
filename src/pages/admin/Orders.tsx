@@ -1,4 +1,5 @@
 import './orders-settings-navigation.css';
+import './food-order-actions.css';
 import {orderSchedulePresentation} from '../../utils/orderSchedulePresentation';
 import './orders-future.css';
 import { createOrderPaymentLink, paymentLinksEnabled } from '../../services/orderPaymentApi';
@@ -104,7 +105,7 @@ const historyStatuses = new Set<OrderStatus>(['delivered', 'cancelled']);
 const isHistoryOrder = (order: Pick<Order, 'status'>) => historyStatuses.has(order.status);
 // A entrega não equivale à conferência bancária da declaração do cliente.
 const needsPaymentReview = (order: Pick<Order, 'status' | 'paymentStatus' | 'paymentReportedByCustomer'>) =>
-  order.status !== 'cancelled' && (order.paymentReportedByCustomer === true || (!isHistoryOrder(order) && order.paymentStatus !== 'paid'));
+  order.status !== 'cancelled' && (order.paymentReportedByCustomer === true || order.paymentStatus !== 'paid');
 
 /** Saldo que ainda pode ser usado por um novo pedido. A reserva de pedidos
  * pendentes também precisa ser descontada para que o avulso ofereça
@@ -115,7 +116,7 @@ const availableStock = (product: { trackStock: boolean; stockQuantity?: number; 
     : Number.POSITIVE_INFINITY;
 
 const productNeedsFutureScheduling = (product: { availabilityStatus: string; stockStatus: string; trackStock: boolean; stockQuantity?: number; stockReservedQuantity?: number }, quantity = 1) =>
-  product.availabilityStatus !== 'available'
+  product.availabilityStatus === 'unavailable'
   || product.stockStatus === 'unavailable'
   || availableStock(product) < quantity;
 
@@ -211,7 +212,7 @@ export default function OrdersAdmin() {
     return { ...product, stockQuantity: Number(balance?.stock_quantity || 0), stockReservedQuantity: Number(balance?.stock_reserved_quantity || 0) };
   };
   const manualStockLabel = (product: (typeof products)[number]) => !product.trackStock ? 'sem controle de estoque'
-    : manualLocationsLoading ? 'consultando saldo…' : `${availableStock(productAtLocation(product))} disponíveis no ponto`;
+    : manualLocationsLoading ? 'consultando saldo…' : `${Number(productAtLocation(product).stockQuantity || 0) - Number(productAtLocation(product).stockReservedQuantity || 0)} disponíveis no ponto`;
 
   useEffect(() => {
     let cancelled = false;
@@ -262,6 +263,15 @@ export default function OrdersAdmin() {
     const unavailable = productNeedsFutureScheduling(productAtLocation(product), item.quantity);
     return unavailable ? { item, product } : null;
   }).find(Boolean) || null, [manualItems, products, locationBalances, manualLocationId]);
+  const alternateMobileStocks = useMemo(() => manualUnavailableItem ? stockLocations.filter((location) =>
+    location.id !== manualLocationId && location.active && location.location_type === 'vehicle'
+    && manualItems.every((item) => {
+      const product = products.find((candidate) => candidate.id === item.productId);
+      if (!product) return false;
+      const balance = locationBalances.find((row) => row.product_id === item.productId && row.location_id === location.id);
+      return !productNeedsFutureScheduling({ ...product, stockQuantity: Number(balance?.stock_quantity || 0), stockReservedQuantity: Number(balance?.stock_reserved_quantity || 0) }, item.quantity);
+    })
+  ) : [], [manualUnavailableItem, stockLocations, manualLocationId, manualItems, products, locationBalances]);
 
   const manualPixPreview = useMemo(() => {
     if (!manualPixChargeNow || manualOrder.paymentMethod !== 'pix') return { payload: '', error: '' };
@@ -341,26 +351,11 @@ export default function OrdersAdmin() {
     if (!manualProductId || manualItems.some((item) => item.productId === manualProductId)) return;
     const quantity = Math.max(1, Math.min(99, Number(manualQuantityDraft) || 1));
     const product = manualProducts.find((current) => current.id === manualProductId);
-    const needsFutureSchedule = product ? productNeedsFutureScheduling(productAtLocation(product), quantity) : false;
     setManualItems((items) => [...items, { productId: manualProductId, quantity, options: [] }]);
     // A venda rápida mantém o status escolhido (Entregue por padrão).
     // A sugestão do produto só se aplica a encomendas, que ainda terão preparo.
     if (manualOrderMode === 'scheduled' && !manualItems.length && product?.defaultOrderStatus) {
       setManualOrder((current) => ({ ...current, status: product.defaultOrderStatus!, received: product.defaultOrderStatus === 'cancelled' ? false : current.received }));
-    }
-    // Ao adicionar um item sem saldo, já preparamos a encomenda para amanhã.
-    // O operador ainda pode ajustar o horário, mas não precisa descobrir a
-    // regra de estoque depois de preencher todo o lançamento.
-    if (needsFutureSchedule) {
-      setManualOrderMode('scheduled');
-      setManualOrder((current) => current.scheduledFor ? current : {
-        ...current,
-        customerName: current.customerName === 'Venda anônima' ? '' : current.customerName,
-        status: 'received',
-        received: false,
-        scheduledFor: localDateTimeInputValue(current.fulfillment === 'delivery' ? nextDeliveryWindow(settings.deliveryStartTime) : tomorrowStart()),
-      });
-      setManualPixChargeNow(false);
     }
     setManualProductId('');
     setManualQuantityDraft(1);
@@ -368,7 +363,9 @@ export default function OrdersAdmin() {
 
   const scheduleManualRestock = () => {
     setManualFormError('');
-    setManualOrder((current) => ({ ...current, scheduledFor: localDateTimeInputValue(current.fulfillment === 'delivery' ? nextDeliveryWindow(settings.deliveryStartTime) : tomorrowStart()) }));
+    setManualOrderMode('scheduled');
+    setManualPixChargeNow(false);
+    setManualOrder((current) => ({ ...current, customerName: current.customerName === 'Venda anônima' ? '' : current.customerName, status: 'received', received: false, scheduledFor: localDateTimeInputValue(current.fulfillment === 'delivery' ? nextDeliveryWindow(settings.deliveryStartTime) : tomorrowStart()) }));
   };
 
   const updateManualItem = (productId: string, patch: Partial<ManualOrderItemInput>) => {
@@ -711,6 +708,12 @@ export default function OrdersAdmin() {
     }
   };
 
+  const markDeliveredToPay = async (order: Order) => {
+    if (!window.confirm(`Pedido #${formatOrderNumber(order.orderNumber)} · ${order.customerName}\n\nConfirmar que os produtos já foram entregues e que ${currency.format(order.total)} ainda está a pagar? A baixa física será feita no estoque do pedido. Nenhum recebimento será registrado.`)) return;
+    const completed = await changeStatus(order.id, 'delivered');
+    if (completed) showToast('Entregue · A pagar: estoque baixado e recebimento pendente.', 'success');
+  };
+
   useEffect(() => { if (!loading && !lastUpdatedAt) setLastUpdatedAt(new Date()); }, [loading, lastUpdatedAt]);
   useEffect(() => {
     try {
@@ -952,7 +955,7 @@ export default function OrdersAdmin() {
       <td><div className="order-customer"><strong>{order.deliveryType === 'delivery' ? 'Delivery' : 'Retirada'}</strong>{order.deliveryType === 'delivery' && order.deliveryZoneName ? <span>{order.deliveryZoneName}{order.deliveryFee ? ` · ${currency.format(order.deliveryFee)}` : ''}</span> : null}{scheduleInfo(order)&&<span className={`order-schedule-label ${scheduleInfo(order)?.future?'is-future':''}`}>{scheduleInfo(order)?.label}<small>Horário da loja · {scheduleInfo(order)?.timezone}</small></span>}{order.preparationEstimateMinutes ? <span>Estimativa: até {order.preparationEstimateMinutes} min</span> : null}</div></td>
       <td><div className="order-customer"><strong>{paymentLabel[order.paymentMethod]}</strong>{order.paymentMethod === 'cash' && order.needsChange && order.changeFor ? <span>Troco para {currency.format(order.changeFor)}</span> : null}</div></td>
       <td><strong>{currency.format(order.total)}</strong>{order.deliveryFee ? <small className="order-fee-note">inclui {currency.format(order.deliveryFee)} de entrega</small> : null}</td>
-       <td>{order.paymentStatus === 'paid' ? <span className="order-payment-received"><CheckCircle2 size={15}/><span><strong>{order.paymentReportedByCustomer?'Pago informado pelo cliente':'Recebido'}</strong>{order.paymentReceivedAt ? <small>{formatDateTimeBR(order.paymentReceivedAt)}</small> : null}</span></span> : order.status === 'cancelled' ? <span className="order-payment-cancelled">Pedido cancelado</span> : <><span className="order-payment-pending"><CircleDollarSign size={15}/><strong>A receber do cliente</strong></span><small className={`order-inventory-note order-inventory-note--${order.inventoryStatus || 'not_tracked'}`}>{order.inventoryStatus === 'awaiting_restock' ? 'Aguardando reposição' : order.inventoryStatus === 'reserved' ? 'Estoque reservado' : order.inventoryStatus === 'committed' ? 'Estoque baixado' : 'A confirmação fica na área Financeiro acima.'}</small></>}</td>
+       <td>{order.paymentStatus === 'paid' ? <span className="order-payment-received"><CheckCircle2 size={15}/><span><strong>{order.paymentReportedByCustomer?'Pago informado pelo cliente':'Recebido'}</strong>{order.paymentReceivedAt ? <small>{formatDateTimeBR(order.paymentReceivedAt)}</small> : null}</span></span> : order.status === 'cancelled' ? <span className="order-payment-cancelled">Pedido cancelado</span> : <><span className="order-payment-pending"><CircleDollarSign size={15}/><strong>{order.status === 'delivered' || order.status === 'picked_up' ? 'Entregue · A pagar' : 'A receber do cliente'}</strong></span><small className={`order-inventory-note order-inventory-note--${order.inventoryStatus || 'not_tracked'}`}>{order.inventoryStatus === 'awaiting_restock' ? 'Aguardando reposição' : order.inventoryStatus === 'reserved' ? 'Estoque reservado' : order.inventoryStatus === 'committed' ? 'Estoque baixado' : 'A confirmação fica na área Financeiro acima.'}</small></>}</td>
        <td><div className="order-status-actions-v061"><label className={`order-status-control order-status-control--${draftStatus} ${statusDrafts[order.id] ? 'is-draft' : ''}`}><span>{statusDrafts[order.id] ? 'Alteração pendente' : statusLabel[order.status]}</span><select value={draftStatus} disabled={batchSaving || updatingId === order.id} onChange={(event) => setOrderStatusDraft(order, event.target.value as OrderStatus)} aria-label={`Status do pedido ${order.orderNumber || order.id}`}>{operationalStatuses(order).map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>{settings.kdsNotifyCustomer && order.customerPhone && whatsappButton(order, 'status')}</div></td>
       <td>{formatDateTimeBR(order.createdAt)}</td>
        <td><button type="button" className="order-inline-action" onClick={() => setDetailsOrderId(order.id)}><Eye size={14}/>Detalhes</button></td>
@@ -968,7 +971,7 @@ export default function OrdersAdmin() {
       <div className="orders-mobile-card__top"><label className="order-select-checkbox"><input type="checkbox" checked={selected} onChange={() => toggleOrderSelection(order.id)} aria-label={`Selecionar pedido ${order.orderNumber || order.id}`} /><strong>#{order.orderNumber ? formatOrderNumber(order.orderNumber) : order.id.slice(0, 8)}</strong></label><span>{formatDateTimeBR(order.createdAt)}</span></div>
       <div className="orders-mobile-card__customer"><strong>{order.customerName}</strong><span>{order.customerPhone || 'Sem telefone informado'}</span>{order.customerInstagram ? <small>{order.customerInstagram}</small> : null}</div>
       <div className="orders-mobile-card__facts"><span><small>Recebimento</small><strong>{order.deliveryType === 'delivery' ? 'Delivery' : 'Retirada'}</strong>{scheduleInfo(order)&&<em className={`order-schedule-label ${scheduleInfo(order)?.future?'is-future':''}`}>{scheduleInfo(order)?.label}<small>Horário da loja · {scheduleInfo(order)?.timezone}</small></em>}</span><span><small>Pagamento</small><strong>{paymentLabel[order.paymentMethod]}</strong><strong className="orders-mobile-card__total">{currency.format(order.total)}</strong></span></div>
-       <div className="orders-mobile-card__status"><label><small>{statusDrafts[order.id] ? 'Alteração pendente' : 'Status do pedido'}</small><select className={statusDrafts[order.id] ? 'is-draft' : ''} value={draftStatus} disabled={batchSaving || updatingId === order.id} onChange={(event) => setOrderStatusDraft(order, event.target.value as OrderStatus)} aria-label={`Status do pedido ${order.orderNumber || order.id}`}>{operationalStatuses(order).map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>{awaitingPayment ? <span className="orders-mobile-card__payment-pending"><CircleDollarSign size={15}/>A confirmar no Financeiro</span> : <span className="orders-mobile-card__received"><CheckCircle2 size={15}/>{order.status === 'cancelled' ? 'Pedido cancelado' : order.paymentReportedByCustomer?'Pago informado pelo cliente':'Pagamento recebido'}</span>}</div>
+       <div className="orders-mobile-card__status"><label><small>{statusDrafts[order.id] ? 'Alteração pendente' : 'Status do pedido'}</small><select className={statusDrafts[order.id] ? 'is-draft' : ''} value={draftStatus} disabled={batchSaving || updatingId === order.id} onChange={(event) => setOrderStatusDraft(order, event.target.value as OrderStatus)} aria-label={`Status do pedido ${order.orderNumber || order.id}`}>{operationalStatuses(order).map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>{awaitingPayment ? <span className="orders-mobile-card__payment-pending"><CircleDollarSign size={15}/>{order.status === 'delivered' || order.status === 'picked_up' ? 'Entregue · A pagar' : 'A confirmar no Financeiro'}</span> : <span className="orders-mobile-card__received"><CheckCircle2 size={15}/>{order.status === 'cancelled' ? 'Pedido cancelado' : order.paymentReportedByCustomer?'Pago informado pelo cliente':'Pagamento recebido'}</span>}</div>
        <div className="orders-mobile-card__actions"><button type="button" className="order-inline-action" onClick={() => setDetailsOrderId(order.id)}><Eye size={14}/>Ver detalhes e editar</button></div>
     </article>;
   };
@@ -1008,9 +1011,9 @@ export default function OrdersAdmin() {
     {settings.kdsEnabled && <section className="kds-board-v061"><div className="kds-board-v061__heading"><div><span className="eyebrow">COZINHA / KDS</span><h2><ChefHat size={21}/>Fila operacional</h2><InfoHint>O quadro é opcional e usa os mesmos pedidos da operação, sem uma nova tela ou permissão.</InfoHint></div><span>{kdsOrders.length} em andamento</span></div><div className="kds-columns-v061">{kdsStatuses.map((status) => <section key={status}><header><strong>{statusLabel[status]}</strong><span>{kdsOrders.filter((order) => order.status === status).length}</span></header><div>{kdsOrders.filter((order) => order.status === status).map((order) => <article key={order.id}><strong>#{formatOrderNumber(order.orderNumber)} · {order.customerName}</strong><span>{currency.format(order.total)} · {order.deliveryType === 'delivery' ? 'Delivery' : 'Retirada'}</span><div className="kds-status-buttons-v062">{operationalStatuses(order).filter((option)=>option.value !== 'cancelled').map((option)=><button type="button" key={option.value} className={order.status===option.value?'active':''} disabled={updatingId===order.id || order.status===option.value} onClick={()=>void changeStatusWithCustomerDraft(order,option.value)}>{option.label}</button>)}</div><button type="button" className="kds-cancel-v062" disabled={updatingId===order.id || order.status==='cancelled'} onClick={()=>void changeStatus(order.id,'cancelled')}>Cancelar</button>{settings.kdsNotifyCustomer && whatsappButton(order, 'status')}</article>)}</div></section>)}</div></section>}
 
     {(!queue||queue==='payment')&&<section id="orders-payment" className="admin-card orders-payment-inbox" aria-labelledby="orders-payment-inbox-title">
-      <div className="orders-payment-inbox__heading"><div><span className="eyebrow">FINANCEIRO</span><h2 id="orders-payment-inbox-title">Recebimentos a conferir</h2><InfoHint>Confirme somente depois de conferir o pagamento. A confirmação registra a entrada no Financeiro. Conclua entrega ou retirada separadamente para baixar o estoque.</InfoHint></div><strong>{awaitingPaymentOrders.length}</strong></div>
+      <div className="orders-payment-inbox__heading"><div><span className="eyebrow">FINANCEIRO</span><h2 id="orders-payment-inbox-title">Recebimentos a conferir</h2><InfoHint>Confirme recebimento somente depois de conferir o pagamento. Para uma entrega fiada, use “Entregue · A pagar”: a saída física é registrada e o valor permanece pendente.</InfoHint></div><strong>{awaitingPaymentOrders.length}</strong></div>
       {awaitingPaymentOrders.length ? <div className="orders-payment-inbox__list">{awaitingPaymentOrders.map((order) => {
-        return <article key={order.id} className={scheduleInfo(order)?.future?'order-payment-future':''}><div>{order.paymentReportedByCustomer&&<strong>Pago informado pelo cliente · conferir</strong>}<strong>#{formatOrderNumber(order.orderNumber)} · {order.customerName}</strong><span>{paymentLabel[order.paymentMethod]} · {currency.format(order.total)} · {formatDateTimeBR(order.createdAt)}</span><small>{scheduleInfo(order)?.label || 'Pedido aguardando conferência do recebimento'}</small></div><div className="orders-payment-inbox__actions">{order.paymentReportedByCustomer&&<button type="button" className="secondary-button compact-button" onClick={()=>void returnReceipt(order)}>Voltar para A receber</button>}<button type="button" className="secondary-button compact-button" onClick={() => setDetailsOrderId(order.id)}><Eye size={15}/>Detalhes / editar</button>{order.paymentMethod === 'pix' && <button type="button" className="secondary-button compact-button" onClick={() => openPaymentPix(order)}><QrCode size={15}/>Mostrar QR Code</button>}<button type="button" className="orders-payment-cancel-button" onClick={() => void cancelOrderFromPaymentCard(order.id)}><Ban size={15}/>Cancelar pedido</button><button type="button" className="order-payment-confirm-button order-payment-confirm-button--prominent" disabled={confirmingPaymentId === order.id} onClick={() => void confirmPayment(order.id, order.orderNumber, order.total)}><CircleDollarSign size={16}/>{confirmingPaymentId === order.id ? 'Confirmando...' : 'Confirmar recebimento'}</button></div></article>;
+        return <article key={order.id} className={scheduleInfo(order)?.future?'order-payment-future':''}><div>{order.paymentReportedByCustomer&&<strong>Pago informado pelo cliente · conferir</strong>}<strong>#{formatOrderNumber(order.orderNumber)} · {order.customerName}</strong><span>{paymentLabel[order.paymentMethod]} · {currency.format(order.total)} · {formatDateTimeBR(order.createdAt)}</span><small>{order.status === 'delivered' || order.status === 'picked_up' ? 'Entregue · A pagar · estoque baixado' : scheduleInfo(order)?.label || 'Pedido aguardando conferência do recebimento'}</small></div><div className="orders-payment-inbox__actions">{order.paymentReportedByCustomer&&<button type="button" className="secondary-button compact-button" onClick={()=>void returnReceipt(order)}>Voltar para A receber</button>}<button type="button" className="secondary-button compact-button" onClick={() => setDetailsOrderId(order.id)}><Eye size={15}/>Detalhes / editar</button>{order.paymentMethod === 'pix' && <button type="button" className="secondary-button compact-button" onClick={() => openPaymentPix(order)}><QrCode size={15}/>Mostrar QR Code</button>}<button type="button" className="orders-payment-cancel-button" onClick={() => void cancelOrderFromPaymentCard(order.id)}><Ban size={15}/>Cancelar pedido</button>{!order.paymentReportedByCustomer && !['delivered', 'picked_up'].includes(order.status) && <button type="button" className="secondary-button compact-button" disabled={updatingId === order.id || confirmingPaymentId === order.id} onClick={() => void markDeliveredToPay(order)}><ShoppingBag size={16}/>Entregue · A pagar</button>}<button type="button" className="order-payment-confirm-button order-payment-confirm-button--prominent" disabled={confirmingPaymentId === order.id || updatingId === order.id} onClick={() => void confirmPayment(order.id, order.orderNumber, order.total)}><CircleDollarSign size={16}/>{confirmingPaymentId === order.id ? 'Confirmando...' : 'Confirmar recebimento'}</button></div></article>;
       })}</div> : <div className="orders-payment-inbox__empty"><CheckCircle2 size={18}/>Nenhum pedido pendente de recebimento.</div>}
     </section>}
 
@@ -1083,7 +1086,7 @@ export default function OrdersAdmin() {
 
         <section>
           <h3>Produtos</h3>
-          {manualUnavailableItem && <div className={`manual-stock-schedule-card ${manualOrder.scheduledFor ? 'is-scheduled' : ''}`} role="status" aria-live="polite"><AlertCircle size={18}/><div><strong>{manualUnavailableItem.product.name} precisa de reposição</strong><span>{manualOrder.scheduledFor ? `Encomenda sob demanda preparada para ${new Date(manualOrder.scheduledFor).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}. O estoque só será baixado após a reposição e confirmação.` : 'Registre como encomenda futura e o estoque só será baixado após a reposição e confirmação.'}</span></div>{!manualOrder.scheduledFor && <button type="button" className="secondary-button" onClick={scheduleManualRestock}>Agendar amanhã</button>}</div>}
+          {manualUnavailableItem && <div className={`manual-stock-schedule-card ${manualOrder.scheduledFor ? 'is-scheduled' : ''}`} role="status" aria-live="polite"><AlertCircle size={18}/><div><strong>{manualUnavailableItem.product.name}: saldo insuficiente em {stockLocations.find(location => location.id === manualLocationId)?.name || 'este ponto'}</strong><span>Solicitado: {manualUnavailableItem.item.quantity} · disponível: {availableStock(productAtLocation(manualUnavailableItem.product))}. {manualOrder.scheduledFor ? `Agendado para ${new Date(manualOrder.scheduledFor).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}; a reserva aparecerá no saldo do ponto.` : 'Escolha uma carga móvel para entrega imediata ou agende no ponto selecionado.'}</span>{alternateMobileStocks.length > 0 && !manualOrder.scheduledFor && <div className="manual-stock-alternatives">{alternateMobileStocks.map(location => <button type="button" className="secondary-button compact-button" key={location.id} onClick={() => { if (!window.confirm(`Usar o estoque de ${location.name} para todos os itens e registrar a entrega agora?`)) return; setManualLocationId(location.id); setManualOrder(current => ({ ...current, scheduledFor: undefined, status: 'delivered' })); setManualFormError(''); }}>Usar {location.name} · {availableStock({ ...manualUnavailableItem.product, stockQuantity: Number(locationBalances.find(row => row.product_id === manualUnavailableItem.product.id && row.location_id === location.id)?.stock_quantity || 0), stockReservedQuantity: Number(locationBalances.find(row => row.product_id === manualUnavailableItem.product.id && row.location_id === location.id)?.stock_reserved_quantity || 0) })} disponíveis</button>)}</div>}</div>{!manualOrder.scheduledFor && <button type="button" className="secondary-button" onClick={scheduleManualRestock}>Não, agendar</button>}</div>}
           <div className="manual-product-quick-add">
             <label className="manual-product-quick-add__product">Adicionar produto<select value={manualProductId} onChange={(event) => setManualProductId(event.target.value)}><option value="">Selecione</option>{manualProducts.filter((product) => !manualItems.some((item) => item.productId === product.id)).map((product) => <option key={product.id} value={product.id}>{product.name} · {currency.format(product.promotionalPrice ?? product.price)} · {manualStockLabel(product)}{product.availabilityStatus !== 'available' || product.stockStatus === 'unavailable' ? ' · encomenda' : ''}</option>)}</select></label>
             <div className="manual-product-quick-add__quantity"><span>Qtd.</span><QuantityControl value={manualQuantityDraft} onChange={setManualQuantityDraft}/></div>
