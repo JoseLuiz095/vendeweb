@@ -27,6 +27,7 @@ export function FitnessOffersAdmin({ store }: { store: string }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  const [orderFilter, setOrderFilter] = useState<'pending' | 'all'>('pending');
 
   const reload = useCallback(async () => {
     const [nextOffers, nextOrders, nextWorkouts, nextServices, nextStaff] = await Promise.all([
@@ -75,6 +76,8 @@ export function FitnessOffersAdmin({ store }: { store: string }) {
   const publicationAvailable = draft.kind === 'workout';
   const serviceKind = professionalKind;
   const activeServices = services.filter(item => item.active && item.kind === serviceKind && item.professional_user_id === draft.professional_user_id);
+  const pendingOrders = orders.filter(order => order.state === 'pending');
+  const visibleOrders = orderFilter === 'pending' ? pendingOrders : orders;
 
   return <section className="business-card fitness-workouts" aria-label="Ofertas e pedidos Fitness">
     <h2>Produtos, serviços e fichas</h2>
@@ -98,8 +101,10 @@ export function FitnessOffersAdmin({ store }: { store: string }) {
       <p>{kindLabels[item.kind]} · {money(item.price_cents)} · {item.professional_name}</p>
       <button type="button" className="secondary-button" onClick={() => { setDraft({ ...item }); setPrice(String(item.price_cents / 100)); }}>Editar</button>
     </article>)}</div>}
-    <h3>Pedidos Pix manual</h3>
-    {orders.length === 0 ? <p className="business-muted">Nenhum pedido recebido.</p> : <div className="fitness-workout-list">{orders.map(order => <article className="fitness-workout-card" key={order.id}>
+    <div className="business-card-heading"><h3>Pagamentos a conferir</h3><span className="business-badge">{pendingOrders.length} pendente{pendingOrders.length === 1 ? '' : 's'}</span></div>
+    <p>A conferência exige crédito identificado no extrato e sessão Admin com MFA. O envio de comprovante pelo aluno não confirma pagamento.</p>
+    <div className="fitness-catalog-filters" role="group" aria-label="Filtrar pedidos"><button type="button" aria-pressed={orderFilter === 'pending'} onClick={() => setOrderFilter('pending')}>Pendentes ({pendingOrders.length})</button><button type="button" aria-pressed={orderFilter === 'all'} onClick={() => setOrderFilter('all')}>Todos ({orders.length})</button></div>
+    {visibleOrders.length === 0 ? <p className="business-muted">{orderFilter === 'pending' ? 'Nenhum pagamento aguardando conferência.' : 'Nenhum pedido recebido.'}</p> : <div className="fitness-workout-list">{visibleOrders.map(order => <article className="fitness-workout-card" key={order.id}>
       <div className="business-card-heading"><h4>{order.offer_name}</h4><span className="business-badge">{order.state}</span></div>
       <p>{order.student_name} · {money(order.price_cents)} · Ref. {order.id}</p>
       {order.state === 'pending' && <button className="primary-button" disabled={busy} onClick={() => void confirm(order, 'confirm')}>Conferi o Pix: liberar acesso</button>}
