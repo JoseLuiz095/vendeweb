@@ -11,7 +11,8 @@ export function useReceiptSourceCode(storeId:string,homePath:string){
   if(!receiptContactsEnabled||!storeId)return;
   const params=new URLSearchParams(location.search),raw=params.get('ponto');
   const home=location.pathname.replace(/\/$/,'')===homePath.replace(/\/$/,'');
-  const code=raw!==null?(/^[A-Z0-9-]{3,16}$/.test(raw)?raw:'__INVALID__'):home?'':memory.current.key===key?memory.current.code:read(key);
+  const normalized=raw?.toUpperCase();
+  const code=raw!==null?(/^[A-Z0-9-]{3,16}$/.test(normalized||'')?normalized!:'__INVALID__'):home?'':memory.current.key===key?memory.current.code:read(key);
   memory.current={key,code};setState({key,code});try{if(code)sessionStorage.setItem(key,code);else sessionStorage.removeItem(key)}catch{/* A sessão ainda funciona em memória. */}
  },[storeId,key,homePath,location.pathname,location.search]);
  return receiptContactsEnabled&&state.key===key?state.code:'';

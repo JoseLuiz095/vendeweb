@@ -335,7 +335,7 @@ export default function Checkout() {
 
   const validate = () => {
     if (!items.length) return 'Seu carrinho está vazio.';
-    if(receiptContactsEnabled&&receiptSourceCode){if(pickup.pointsLoading)return 'Aguarde a consulta do ponto de origem do comprovante.';if(pickup.pointsError||!pickup.points.some(p=>p.short_code===receiptSourceCode))return 'O ponto do link está indisponível. Abra o link geral da loja ou confira outro link antes de confirmar.';}
+    if(receiptContactsEnabled&&receiptSourceCode){if(pickup.pointsLoading)return 'Aguarde a consulta do ponto de origem do comprovante.';if(pickup.pointsError||!pickup.points.some(p=>p.short_code.toUpperCase()===receiptSourceCode))return 'O ponto do link está indisponível. Abra o link geral da loja ou confira outro link antes de confirmar.';}
     if (form.fulfillment === 'pickup' && pickup.pointsLoading) return 'Aguarde a consulta dos pontos de retirada.';
     if (form.fulfillment === 'pickup' && pickup.pointsError) return pickup.pointsError;
     if (form.fulfillment === 'pickup' && pickup.points.length && !pickup.selectedPoint) return 'Selecione um ponto de retirada disponível.';
@@ -392,7 +392,7 @@ export default function Checkout() {
       }
       // A Doce Lua não exibe o checkbox de revisão no piloto, mas o registro
       // continua marcado como revisado para manter compatibilidade com o demo.
-      const payloadForm: CheckoutData = { ...form, receiptPickupLocationId: receiptContactsEnabled ? pickup.points.find(p=>p.short_code===receiptSourceCode)?.id : undefined, pickupLocationId: form.fulfillment === 'pickup' ? pickup.selectedPoint?.id : undefined, deliveryFee, reviewConfirmed: form.reviewConfirmed || isDoceLuaPilot };
+      const payloadForm: CheckoutData = { ...form, receiptPickupLocationId: receiptContactsEnabled ? pickup.points.find(p=>p.short_code.toUpperCase()===receiptSourceCode)?.id : undefined, pickupLocationId: form.fulfillment === 'pickup' ? pickup.selectedPoint?.id : undefined, deliveryFee, reviewConfirmed: form.reviewConfirmed || isDoceLuaPilot };
       const result = await registerOrder(settings, items, payloadForm, subtotal, {
         turnstileToken,
         analyticsSessionId: getAnalyticsSessionId(settings.id),
