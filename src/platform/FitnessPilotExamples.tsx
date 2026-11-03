@@ -1,19 +1,20 @@
 import { createElement, useState } from 'react';
 import { normalizeText } from '../utils/text';
+import { FitnessNutritionExample } from './FitnessNutritionExample';
 import './fitness.css';
 
 const programs = [
-  { level: 'Iniciante', title: 'Ficha iniciante', price: 'R$ 49,00', focus: 'Primeiros movimentos', muscles: 'Pernas, costas e glúteos', equipment: 'Banco, elástico e solo', tone: 'basic', exercises: [
+  { level: 'Iniciante', title: 'Ficha iniciante', focus: 'Primeiros movimentos', muscles: 'Pernas, costas e glúteos', equipment: 'Banco, elástico e solo', tone: 'basic', exercises: [
     { name: 'Sentar e levantar de banco', dose: '2 séries · 8 a 10 repetições · 90 s', alternative: 'Agachamento assistido' },
     { name: 'Remada com elástico', dose: '2 séries · 8 a 12 repetições · 90 s', alternative: 'Remada sentada em máquina' },
     { name: 'Ponte de quadril', dose: '2 séries · 8 a 12 repetições · 60 s', alternative: 'Extensão de quadril em pé' },
   ] },
-  { level: 'Intermediário', title: 'Ficha intermediária', price: 'R$ 79,00', focus: 'Força e controle', muscles: 'Pernas, costas e glúteos', equipment: 'Halteres e banco', tone: 'medium', exercises: [
+  { level: 'Intermediário', title: 'Ficha intermediária', focus: 'Força e controle', muscles: 'Pernas, costas e glúteos', equipment: 'Halteres e banco', tone: 'medium', exercises: [
     { name: 'Agachamento com halter', dose: '3 séries · 8 a 12 repetições · 90 s', alternative: 'Agachamento com peso corporal' },
     { name: 'Remada unilateral', dose: '3 séries · 8 a 12 por lado · 90 s', alternative: 'Remada sentada' },
     { name: 'Terra romeno com halteres', dose: '3 séries · 8 a 10 repetições · 120 s', alternative: 'Ponte de quadril' },
   ] },
-  { level: 'Avançado', title: 'Ficha avançada', price: 'R$ 119,00', focus: 'Progressão supervisionada', muscles: 'Pernas, costas e glúteos', equipment: 'Barra e halteres', tone: 'advanced', exercises: [
+  { level: 'Avançado', title: 'Ficha avançada', focus: 'Progressão supervisionada', muscles: 'Pernas, costas e glúteos', equipment: 'Barra e halteres', tone: 'advanced', exercises: [
     { name: 'Agachamento com barra', dose: '3 séries · 6 a 10 repetições · 150 s', alternative: 'Agachamento com halter' },
     { name: 'Remada curvada', dose: '3 séries · 8 a 10 repetições · 120 s', alternative: 'Remada apoiada' },
     { name: 'Avanço com halteres', dose: '3 séries · 8 a 10 por lado · 120 s', alternative: 'Avanço sem carga' },
@@ -21,10 +22,10 @@ const programs = [
 ] as const;
 
 const demoOffers = [
-  { name: 'Avaliação física', price: 'R$ 120,00', detail: 'Agendamento com o profissional, após confirmação da compra.' },
-  { name: 'Avaliação + ficha personalizada', price: 'R$ 229,00', detail: 'Avaliação e elaboração individual após atendimento.' },
-  { name: 'Consulta nutricional', price: 'R$ 150,00', detail: 'Atendimento por nutricionista habilitada.' },
-  { name: 'Plano alimentar personalizado', price: 'R$ 190,00', detail: 'Preparado pela nutricionista após avaliação.' },
+  { name: 'Avaliação física', detail: 'Agendamento com o profissional, após confirmação da compra.' },
+  { name: 'Avaliação + ficha personalizada', detail: 'Avaliação e elaboração individual após atendimento.' },
+  { name: 'Consulta nutricional', detail: 'Atendimento por nutricionista habilitada.' },
+  { name: 'Plano alimentar personalizado', detail: 'Preparado pela nutricionista após avaliação.' },
 ] as const;
 
 /** Original schematic illustration: no third-party exercise footage or imagery. */
@@ -50,6 +51,7 @@ export function FitnessPilotExamples({ query = '' }: { query?: string }) {
   const [view3d, setView3d] = useState(false);
   const [loading3d, setLoading3d] = useState(false);
   const [error3d, setError3d] = useState('');
+  const [motion, setMotion] = useState(() => !window.matchMedia('(prefers-reduced-motion: reduce)').matches);
   const open3d = async () => {
     if (loading3d || view3d) return;
     setLoading3d(true); setError3d('');
@@ -76,7 +78,7 @@ export function FitnessPilotExamples({ query = '' }: { query?: string }) {
       <div className="fitness-example-programs">
         {filtered.length === 0 && <p role="status" className="business-muted">Nenhuma ficha de exemplo corresponde à busca ou aos filtros.</p>}
         {filtered.map(program => <article className="fitness-example-program" key={program.level}>
-          <div className="fitness-example-program-top"><span className={'fitness-level fitness-level--' + program.tone}>{program.level}</span><strong>{program.price}</strong></div>
+          <div className="fitness-example-program-top"><span className={'fitness-level fitness-level--' + program.tone}>{program.level}</span><strong>Exemplo fictício</strong></div>
           <h3>{program.title}</h3><p>{program.focus}</p><small>{program.muscles} · {program.equipment}</small>
           <details><summary>Ver exercícios de exemplo</summary><ol>{program.exercises.map(item => <li key={item.name}><strong>{item.name}</strong><span>{item.dose}</span><small>Alternativa: {item.alternative}</small></li>)}</ol></details>
         </article>)}
@@ -88,12 +90,13 @@ export function FitnessPilotExamples({ query = '' }: { query?: string }) {
         {view3d ? <div className="fitness-demo-viewer">
           {createElement('model-viewer', {
             src: '/assets/fitness-demo-squat.glb',
-            'camera-controls': true, autoplay: true,
+            'camera-controls': true, autoplay: motion,
             'animation-name': 'Agachamento ilustrativo',
             'shadow-intensity': '0.4',
             alt: 'Modelo 3D esquemático e animado de agachamento, giratório com toque ou mouse.',
             'aria-label': 'Modelo 3D demonstrativo de agachamento',
           })}
+          <button type="button" className="secondary-button" aria-pressed={motion} onClick={() => setMotion(value => !value)}>{motion ? 'Pausar animação' : 'Reproduzir animação'}</button>
           <button type="button" className="secondary-button" onClick={() => setView3d(false)}>Fechar 3D</button>
         </div> : <button type="button" className="secondary-button" onClick={() => void open3d()} disabled={loading3d}>
           {loading3d ? 'Carregando visualizador…' : 'Abrir demonstração 3D interativa'}
@@ -103,7 +106,8 @@ export function FitnessPilotExamples({ query = '' }: { query?: string }) {
       </div>
     </div>
     <div className="fitness-example-services"><h3>Também previstos para a loja</h3><div>{demoOffers.map(item => <article key={item.name}>
-      <div><strong>{item.name}</strong><span>{item.price}</span></div><p>{item.detail}</p>
-    </article>)}</div><p>Preços fictícios. Avaliação, combo e nutrição estão em preparação e não podem ser comprados nesta etapa.</p></div>
+      <div><strong>{item.name}</strong><span>Exemplo</span></div><p>{item.detail}</p>
+    </article>)}</div><p>Avaliação, combo e nutrição estão em preparação e não podem ser comprados nesta etapa. Preços reais aparecem somente nas ofertas publicadas pela loja.</p></div>
+    <FitnessNutritionExample/>
   </section>;
 }

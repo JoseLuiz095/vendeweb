@@ -10,11 +10,11 @@ export function FitnessOfferCheckout({ store, token, selected }: { store: string
   const [orders, setOrders] = useState<FitnessOfferOrder[]>([]);
   const [notifications, setNotifications] = useState<FitnessOrderNotification[]>([]);
   const [pix, setPix] = useState<Pix>({});
-  const [consent, setConsent] = useState(false);
+  const [consent, setConsent] = useState<Record<string, boolean>>({});
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
-  const request = useRef<string | null>(null);
+  const request = useRef<{offer: string; key: string} | null>(null);
   useEffect(() => {
     let active = true;
     setOffers([]); setOrders([]); setNotifications([]); setPix({}); setError('');
@@ -27,16 +27,16 @@ export function FitnessOfferCheckout({ store, token, selected }: { store: string
     return () => { active = false; };
   }, [store, token]);
   const buy = async (offer: FitnessOffer) => {
-    if (!consent || busy) return;
+    if (!consent[offer.id] || busy) return;
     setBusy(true); setError(''); setNotice('');
     try {
       const purpose = offer.kind.startsWith('nutrition') ? 'nutrition' : 'training';
       await fitnessOffersApi.authorize(store, offer.professional_user_id, purpose, token);
-      const idempotencyKey = request.current || crypto.randomUUID();
-      request.current = idempotencyKey;
+      const idempotencyKey = request.current?.offer === offer.id ? request.current.key : crypto.randomUUID();
+      request.current = { offer: offer.id, key: idempotencyKey };
       const order = await fitnessOffersApi.buy(store, offer.id, idempotencyKey, token);
-      request.current = null;
       setOrders(await fitnessOffersApi.mine(store, token));
+      request.current = null;
       setNotice(`Pedido ${order.id} criado por ${money(order.price_cents)}. Pague ao titular indicado e informe a referência ao profissional. O acesso será liberado somente após a conferência do crédito.`);
     } catch (cause) { setError((cause as Error).message); }
     finally { setBusy(false); }
@@ -50,17 +50,19 @@ export function FitnessOfferCheckout({ store, token, selected }: { store: string
       : <div className="fitness-workout-list">{offers.filter(offer => !selected || offer.id === selected).map(offer => <article className="fitness-workout-card" key={offer.id}>
         <div className="business-card-heading"><h3>{offer.name}</h3><strong>{money(offer.price_cents)}</strong></div>
         <p>{offer.description}</p><small>Responsável: {offer.professional_name} · {offer.professional_council}</small>
-        <label className="fitness-check"><input type="checkbox" checked={consent} onChange={e => setConsent(e.target.checked)}/><span>Autorizo {offer.professional_name} a acompanhar esta compra e a ficha ou atendimento nesta loja. Posso revogar essa autorização nas preferências do aluno.</span></label>
-        <button className="primary-button" disabled={busy || !consent || (!pix.pix_key && !pix.pix_copy_paste)} onClick={() => void buy(offer)}>{busy ? 'Aguarde…' : 'Gerar pedido Pix'}</button>
+        <label className="fitness-check"><input type="checkbox" checked={Boolean(consent[offer.id])} onChange={e => setConsent(previous => ({ ...previous, [offer.id]: e.target.checked }))}/><span>Autorizo {offer.professional_name} a acompanhar esta compra e a ficha ou atendimento nesta loja. Posso revogar essa autorização nas preferências do aluno.</span></label>
+        <button className="primary-button" disabled={busy || !consent[offer.id] || (!pix.pix_key && !pix.pix_copy_paste)} onClick={() => void buy(offer)}>{busy ? 'Aguarde…' : 'Gerar pedido Pix'}</button>
       </article>)}</div>}
-    {(pix.pix_key || pix.pix_copy_paste) ? <div className="fitness-workout-card">
-      <h3>Pix da loja</h3><p>Titular: <strong>{pix.holder_name || 'Confira no aplicativo do banco'}</strong></p>
-      {pix.pix_copy_paste ? <p>Copia e cola: <code>{pix.pix_copy_paste}</code></p> : <p>Chave: <code>{pix.pix_key}</code></p>}
-      <p>Confira o recebedor e o valor do pedido no aplicativo do banco. Informe a referência do pedido à loja; comprovante e retorno da tela não liberam acesso.</p>
-    </div> : <p className="business-muted">A loja ainda precisa configurar o Pix para receber pedidos.</p>}
+    {orders.some(order => order.state === 'pending') && (pix.pix_key || pix.pix_copy_paste) && <div className="fitness-workout-card">
+      <h3>Pix dos pedidos pendentes</h3><p>Titular: <strong>{pix.holder_name || 'Confira no aplicativo do banco'}</strong></p>
+      <p>Copie o código e confira no banco o titular e o valor exato do pedido. Informe a referência à loja. O comprovante ou retorno da tela não libera o acesso.</p>
+      <code>{pix.pix_copy_paste || pix.pix_key}</code>
+      <button type="button" className="secondary-button" onClick={() => void (async () => { try { await navigator.clipboard.writeText((pix.pix_copy_paste || pix.pix_key)!); setNotice('Pix copiado. Confira o valor e o recebedor antes de pagar.'); } catch { setError('Não foi possível copiar automaticamente. Selecione o código para copiar.'); } })()}>Copiar Pix</button>
+    </div>}
+    {!pix.pix_key && !pix.pix_copy_paste && <p className="business-muted">A loja ainda precisa configurar o Pix para receber pedidos.</p>}
     <h3>Minhas compras</h3>
     {orders.length === 0 ? <p className="business-muted">Nenhuma compra registrada.</p> : <ul className="fitness-records">{orders.map(order => <li key={order.id}>
-      <strong>{order.offer_name} · {money(order.price_cents)}</strong><span>{order.state === 'paid' ? 'Acesso liberado' : order.state === 'pending' ? 'Aguardando confirmação do Pix' : order.state === 'refunded' ? 'Reembolsado' : 'Cancelado'}</span>
+      <strong>{order.offer_name} · {money(order.price_cents)}</strong><span>{order.state === 'paid' ? 'Pagamento confirmado; confira a ficha atribuída' : order.state === 'pending' ? 'Aguardando conferência do crédito pela loja; ainda sem acesso' : order.state === 'refunded' ? 'Reembolsado' : 'Cancelado'}</span>
       <small>Referência: {order.id}</small>
     </li>)}</ul>}
     <h3>Avisos da loja</h3>

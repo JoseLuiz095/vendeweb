@@ -9,11 +9,11 @@ test('fila nova mantém declarações a conferir e não volta a limitar doze ped
  await page.route(/\/rest\/v1\/food_orders(?:\?|$)/,r=>r.fulfill({json:rows}));
  await page.goto('/admin/pedidos');
  const inbox=page.getByRole('region',{name:'Recebimentos a conferir'});
- await expect(inbox.locator('.orders-payment-inbox__list > article')).toHaveCount(15);
+ await expect(inbox.locator('.orders-payment-inbox__list > article')).toHaveCount(16);
  await expect(inbox).toContainText('Pessoa fictícia 15');
- await expect(inbox).not.toContainText('Pessoa fictícia 16');
+ await expect(inbox).toContainText('Pessoa fictícia 16');
  await expect(inbox).not.toContainText('Pessoa fictícia 17');
- await expect(page.getByRole('button',{name:/Conferir pagamento/})).toContainText('15');
+ await expect(page.getByRole('button',{name:/Conferir pagamento/})).toContainText('16');
  await page.getByRole('button',{name:/Conferir pagamento/}).click();
  await expect(page.locator('#orders-payment')).toBeVisible();
 });

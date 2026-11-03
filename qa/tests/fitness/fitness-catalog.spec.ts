@@ -9,6 +9,19 @@ const productRow = { id:'30000000-0000-4000-8000-000000000001', store_id:store, 
 const trainer = {user_id:'40000000-0000-4000-8000-000000000001',name:'Profissional de Educação Física',council:'CREF',registration:'000001-G/ES'};
 const nutritionist = {user_id:'40000000-0000-4000-8000-000000000002',name:'Profissional de Nutrição',council:'CRN',registration:'000001/ES'};
 
+for (const width of [320, 390, 768, 1280]) test(`Fitness examples separate fictional content from prices at ${width}px`, async ({page}) => {
+  await page.setViewportSize({width,height:900});
+  await mockStore(page, []);
+  await page.goto('/fabriciofitness');
+  await expect(page.getByRole('heading',{name:'Exemplos de treinos e atendimentos'})).toBeVisible();
+  await expect(page.getByRole('heading',{name:'Como seria a leitura de um plano alimentar'})).toBeVisible();
+  await expect(page.getByText('Exemplo fictício',{exact:true})).toHaveCount(3);
+  await expect(page.getByText('R$ 49,00')).toHaveCount(0);
+  await expect(page.getByText('R$ 120,00')).toHaveCount(0);
+  await expect(page.getByRole('img',{name:'Prato ilustrativo com três grupos de alimentos'})).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBeTruthy();
+});
+
 async function mockStore(page:Page, products:unknown[] = [productRow], services:unknown[] = [], links:unknown[] = [], storeOverride:Record<string,unknown> = {}) {
   await page.route('https://*.supabase.co/**', route => {
     const path = new URL(route.request().url()).pathname;
@@ -23,11 +36,11 @@ for (const width of [320, 390, 768, 1366]) test(`Fitness catalog is read only an
   await page.setViewportSize({width,height:900});
   await mockStore(page);
   await page.goto('/fabriciofitness');
-  await expect(page.getByRole('heading',{name:'Produtos da loja'})).toBeVisible();
+  await expect(page.getByRole('heading',{name:'Treinos, serviços e produtos'})).toBeVisible();
   await expect(page.getByRole('link',{name:/Produto publicado/})).toBeVisible();
-  await page.getByPlaceholder('Buscar produtos, serviços e conteúdos').fill('inexistente');
-  await expect(page.getByText('Nenhum produto corresponde à busca.')).toBeVisible();
-  await page.getByPlaceholder('Buscar produtos, serviços e conteúdos').fill('publicado');
+  await page.getByRole('searchbox',{name:'Buscar no catálogo'}).fill('inexistente');
+  await expect(page.getByText(/Nenhum produto corresponde à busca/)).toBeVisible();
+  await page.getByRole('searchbox',{name:'Buscar no catálogo'}).fill('publicado');
   await page.getByRole('link',{name:/Produto publicado/}).click();
   await expect(page.getByRole('heading',{name:'Produto publicado'})).toBeVisible();
   await expect(page.getByText('Compra online ainda não disponível para este item.')).toBeVisible();
@@ -40,7 +53,7 @@ for (const width of [320, 390, 768, 1366]) test(`Fitness catalog is read only an
 test('draft products and missing products never display a purchasable detail', async ({page}) => {
   await mockStore(page, []);
   await page.goto('/fabriciofitness');
-  await expect(page.getByText('Ainda não há produtos publicados nesta loja.')).toBeVisible();
+  await expect(page.getByText('Produtos físicos ainda não publicados nesta loja.')).toBeVisible();
   await page.goto('/fabriciofitness/produto/produto-publicado');
   await expect(page.getByRole('heading',{name:'Produto indisponível'})).toBeVisible();
 });

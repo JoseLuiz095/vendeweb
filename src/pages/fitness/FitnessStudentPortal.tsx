@@ -8,6 +8,7 @@ import { isFitnessStoreId } from '../../services/fitnessAccessApi';
 import { fitnessApi, type FitnessStudentAccess } from '../../services/fitnessApi';
 import { FitnessStudentWorkouts } from '../../platform/FitnessWorkouts';
 import { FitnessOfferCheckout } from '../../platform/FitnessOfferCheckout';
+import { FitnessStudentAgenda } from '../../platform/FitnessStudentAgenda';
 import '../../platform/fitness.css';
 
 const messageOf = (error: unknown) => error instanceof Error ? error.message : 'Não foi possível concluir. Tente novamente.';
@@ -222,11 +223,11 @@ export default function FitnessStudentPortal() {
   const identityPhone = session?.user.phone || phone;
   const secondsToResend = Math.max(0, Math.ceil((resendAt - clock) / 1000));
 
-  return <div className="auth-recovery-page">
+  return <div className="auth-recovery-page fitness-portal-page">
     <div className="auth-recovery-brand"><img className="platform-brand-icon" src="/assets/vendeweb-mark.svg" alt=""/><strong>VendeWeb Fitness</strong></div>
     <main className="auth-recovery-card">
       <span className="eyebrow">ÁREA DO ALUNO</span>
-      <h1>Entre nos seus treinos</h1>
+      <h1>Meu espaço Fitness</h1>
       {!validStore ? <div className="form-error" role="alert">O link da loja é inválido. Peça ao profissional o endereço correto.</div>
         : initializing ? <p role="status">Verificando a sessão Fitness…</p>
         : !auth ? <div className="form-error" role="alert">O acesso ao Supabase não está configurado neste ambiente.</div>
@@ -252,12 +253,14 @@ export default function FitnessStudentPortal() {
           <button className="primary-button full-button" disabled={busy || name.trim().length < 2}>{busy ? 'Salvando…' : 'Continuar'}</button>
         </form>
         : authorized && student ? <>
-          <p>Olá, <strong>{student.name}</strong>. A sessão Fitness está autorizada nesta loja.</p>
-          <p>Telefone confirmado: <strong>{identityPhone.replace(/\d(?=\d{4})/g, '•')}</strong></p>
-          <FitnessOfferCheckout store={storeId} token={session.access_token} selected={searchParams.get('oferta')}/>
-          <FitnessStudentWorkouts store={storeId} accessToken={session.access_token}/>
-          <p className="auth-security-note">A autorização vale para esta conta, aluno e loja. Ela não identifica o aparelho de forma infalível.</p>
-          <button className="secondary-button full-button" disabled={busy} onClick={() => void signOutLocal(true)}>Sair do Fitness</button>
+          <nav className="fitness-portal-nav" aria-label="Áreas do aluno"><a href="#fitness-portal-home">Início</a><a href="#fitness-portal-workouts">Meus treinos</a><a href="#fitness-portal-nutrition">Minha alimentação</a><a href="#fitness-portal-agenda">Agenda</a><a href="#fitness-portal-messages">Mensagens</a><a href="#fitness-portal-profile">Perfil</a></nav>
+          <section id="fitness-portal-home" className="fitness-portal-intro" aria-labelledby="fitness-portal-welcome"><h2 id="fitness-portal-welcome">Olá, {student.name}</h2><p>Seu telefone foi confirmado nesta loja. Consulte suas compras e as próximas ações abaixo.</p></section>
+          <div id="fitness-portal-purchases"><FitnessOfferCheckout store={storeId} token={session.access_token} selected={searchParams.get('oferta')}/></div>
+          <div id="fitness-portal-workouts"><FitnessStudentWorkouts store={storeId} accessToken={session.access_token}/></div>
+          <section id="fitness-portal-nutrition" className="business-card" aria-labelledby="fitness-portal-nutrition-title"><h2 id="fitness-portal-nutrition-title">Minha alimentação</h2><p>Nenhum plano alimentar individual está disponível neste portal. A publicação exige nutricionista habilitada, sua autorização específica e revisão profissional.</p></section>
+          <FitnessStudentAgenda store={storeId} token={session.access_token}/>
+          <section id="fitness-portal-messages" className="business-card" aria-labelledby="fitness-portal-messages-title"><h2 id="fitness-portal-messages-title">Mensagens</h2><p>Mensagens e preferências de canal serão exibidas quando o serviço de comunicação da loja estiver habilitado. Consulte o profissional pelos canais informados pela loja.</p></section>
+          <section id="fitness-portal-profile" className="business-card" aria-labelledby="fitness-portal-profile-title"><h2 id="fitness-portal-profile-title">Perfil e segurança</h2><p>Telefone confirmado: <strong>{identityPhone.replace(/\d(?=\d{4})/g, '•')}</strong></p><p>A autorização vale para esta conta, aluno e loja. Ela não identifica o aparelho de forma infalível.</p><button className="secondary-button" disabled={busy} onClick={() => void signOutLocal(true)}>Sair do Fitness</button></section>
         </> : student ? <>
           <p role="alert">{blockedReason === 'SESSION_LIMIT'
             ? 'Já existe outra sessão Fitness autorizada para este aluno nesta loja. Peça ao profissional para liberar a troca. Se esta já for uma sessão nova, toque em verificar liberação; caso contrário, saia e entre novamente por SMS.'

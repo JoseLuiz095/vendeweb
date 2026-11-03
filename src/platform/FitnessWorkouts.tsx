@@ -1,6 +1,7 @@
 import { InfoHint } from '../components/ui/InfoHint';
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { fitnessApi, type FitnessStudent, type FitnessWorkout } from '../services/fitnessApi';
+import { FitnessWorkoutSession } from './FitnessWorkoutSession';
 
 const levels: Record<FitnessWorkout['level'],string> = { basic:'Básico',medium:'Médio',advanced:'Avançado' };
 
@@ -114,7 +115,7 @@ export function FitnessStudentWorkouts({store,accessToken}:{store:string;accessT
     <h2>Minhas fichas de treino</h2>
     {loading?<p role="status">Consultando fichas atribuídas…</p>:error?<p role="alert">Não foi possível consultar suas fichas: {error}</p>:workouts.length===0?<p>Nenhuma ficha foi atribuída pelo Personal Trainer.</p>:<div className="fitness-workout-list">{workouts.map(workout=><article className="fitness-workout-card" key={workout.id}>
       <h3>{levels[workout.level]} · {workout.title}</h3><p>{workout.description}</p>{workout.professional&&<p className="business-provider">Responsável: <strong>{workout.professional.name}</strong> · {workout.professional.council} {workout.professional.registration}</p>}
-      <ol>{workout.exercises.map(exercise=><li key={exercise.id}><strong>{exercise.name}</strong><span>{exercise.sets} séries · {exercise.repetitions} repetições · {exercise.rest_seconds}s de descanso</span><span>Carga/esforço: {exercise.load_or_effort}</span><span>Instruções: {exercise.instructions}</span><span>Alternativa: {exercise.alternative}</span></li>)}</ol>
+      <FitnessWorkoutSession workout={workout}/>
     </article>)}</div>}
   </section>;
 }
