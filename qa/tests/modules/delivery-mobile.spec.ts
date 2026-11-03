@@ -26,5 +26,5 @@ test('delivery mobile preserves contact/address on reload and shows fee before o
  await expect(page.getByLabel('Código Pix',{exact:true})).toHaveValue(/^000201/);
  await page.getByRole('button',{name:'Copiar código Pix'}).click();
  expect(await page.evaluate(()=>navigator.clipboard.readText())).toContain('540515.00');
- await expect(page.getByText(/Aguardando confirmação do pagamento pela loja\./)).toBeVisible();
+ await expect(page.getByRole('button',{name:'Já fiz o PIX · enviar comprovante'})).toBeVisible();
 });

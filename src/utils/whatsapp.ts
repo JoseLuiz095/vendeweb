@@ -66,7 +66,7 @@ export const buildWhatsAppMessage = (
 
 export const buildPostOrderWhatsAppMessage = (confirmation: OrderConfirmation) => {
   if (confirmation.paymentMethod === 'pix') {
-    return [confirmation.orderMessage, '', '*PAGAMENTO PIX*', `Pedido #${formatOrderNumber(confirmation.orderNumber)} · ${currency.format(confirmation.total)}`, 'Se necessário, enviarei o comprovante nesta conversa.'].join('\n');
+    return [confirmation.orderMessage, '', '*PAGAMENTO PIX*', `Pedido #${formatOrderNumber(confirmation.orderNumber)} · ${currency.format(confirmation.total)}`, 'Vou anexar o comprovante do PIX nesta conversa.'].join('\n');
   }
   if (confirmation.paymentMethod === 'card') {
     return [confirmation.orderMessage, '', '*PAGAMENTO POR CARTÃO*', `Pedido #${formatOrderNumber(confirmation.orderNumber)} · ${currency.format(confirmation.total)}`, 'Pagamento por cartão na entrega/retirada.'].join('\n');

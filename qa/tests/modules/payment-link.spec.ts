@@ -17,7 +17,7 @@ for(const width of [320,390,768]) test(`payment link opens in fresh browser, cop
  await page.getByRole('button',{name:'Copiar código Pix'}).click();
  await expect(page.getByRole('status').filter({hasText:'Código Pix copiado'})).toBeVisible();
  expect(await page.evaluate(()=>navigator.clipboard.readText())).toBe(payload);
- await page.getByText('Mostrar QR Code').click();
+ await page.getByText('Prefiro pagar com QR Code').click();
  await expect(page.getByRole('img',{name:/QR Code Pix/})).toBeVisible();
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
  const button=await page.getByRole('button',{name:'Copiar código Pix'}).boundingBox();expect(button!.height).toBeGreaterThanOrEqual(44);

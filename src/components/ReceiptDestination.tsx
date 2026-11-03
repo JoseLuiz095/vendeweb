@@ -4,9 +4,9 @@ import { getReceiptDestinations, receiptContactsEnabled, type ReceiptDestination
 import { getWhatsAppUrl } from '../utils/whatsapp';
 import './receipt-contacts.css';
 /** Encaminha comprovantes e só registra a declaração quando o cliente confirma o envio. */
-export default function ReceiptDestination({storeId,pointId,destinations,legacyPhone='',message,onOpen,opened=false,receiptToken,onReported}:{storeId?:string;pointId?:string;destinations?:ReceiptDestinations;legacyPhone?:string;message:string;onOpen?:()=>void;opened?:boolean;receiptToken?:string;onReported?:(autoPickedUp:boolean)=>void}){
+export default function ReceiptDestination({storeId,pointId,destinations,legacyPhone='',message,onOpen,receiptToken,onReported}:{storeId?:string;pointId?:string;destinations?:ReceiptDestinations;legacyPhone?:string;message:string;onOpen?:()=>void;receiptToken?:string;onReported?:(autoPickedUp:boolean)=>void}){
  const [reporting,setReporting]=useState(false),[reported,setReported]=useState(false),[localOpened,setLocalOpened]=useState(false),[autoPickedUp,setAutoPickedUp]=useState(false),[reportError,setReportError]=useState('');const inFlight=useRef(false);
- const isOpened=opened||localOpened;
+ const isOpened=localOpened;
  const key=`${storeId||''}:${pointId||''}:${receiptToken||''}`;
  const activeKey=useRef(key);activeKey.current=key;
  const [attempt,setAttempt]=useState(0),[choice,setChoice]=useState({key:'',slot:0});
@@ -21,7 +21,7 @@ export default function ReceiptDestination({storeId,pointId,destinations,legacyP
  const data=state.key===key?state.data:undefined;
  const contacts=data?.contacts||[];
  const selected=contacts.length===1?contacts[0]:contacts.find(c=>choice.key===key&&choice.slot===c.slot);
- const fallback=data?.mode==='general'&&contacts.length===0&&/^[1-9][0-9]{9,14}$/.test(legacyPhone.replace(/\D/g,''))?legacyPhone:'';
+ const fallback=(data?.mode==='general'||data?.mode==='unassigned')&&contacts.length===0&&/^[1-9][0-9]{9,14}$/.test(legacyPhone.replace(/\D/g,''))?legacyPhone:'';
  const phone=selected?.phone||fallback;
  const openReceipt=()=>{setLocalOpened(true);onOpen?.();};
  const confirmReceiptSent=async()=>{
@@ -34,10 +34,10 @@ export default function ReceiptDestination({storeId,pointId,destinations,legacyP
  return <section className="receipt-destination" aria-label="Enviar comprovante"><h2>Envie o comprovante à loja</h2>
  {state.key!==key||state.loading?<p role="status">Consultando contato…</p>:state.error?<><p role="alert">{state.error}</p><button type="button" className="secondary-button" onClick={()=>setAttempt(x=>x+1)}>Tentar consultar contatos</button></>:<>
  {data?.mode==='unavailable'?<p>O contato deste ponto não está disponível. Fale com a loja para conferir o destino antes de enviar.</p>:<>
- {data?.mode==='unassigned'&&<p>Este ponto ainda não tem contato definido. Solicite o número correto ao local antes de enviar o comprovante.</p>}
- {contacts.length>1&&<label>Para qual contato deseja enviar?<select value={selected?.slot||''} onChange={e=>setChoice({key,slot:Number(e.target.value)})}><option value="">Selecione um contato</option>{contacts.map(c=><option key={c.slot} value={c.slot}>{c.name}</option>)}</select></label>}
+ {data?.mode==='unassigned'&&<p>{fallback?'Este ponto não tem WhatsApp exclusivo. O comprovante será enviado ao WhatsApp da loja.':'Este ponto ainda não tem contato definido. Solicite o número correto ao local antes de enviar o comprovante.'}</p>}
+ {contacts.length>1&&<label>Para qual contato deseja enviar?<select value={selected?.slot||''} onChange={e=>{setChoice({key,slot:Number(e.target.value)});setLocalOpened(false);}}><option value="">Selecione um contato</option>{contacts.map(c=><option key={c.slot} value={c.slot}>{c.name}</option>)}</select></label>}
  {selected&&<p>Destino: <strong>{selected.name}</strong> · +{selected.phone}</p>}
- {phone?<a href={getWhatsAppUrl(phone,message)} target="_blank" rel="noopener noreferrer" onClick={openReceipt}>Abrir WhatsApp e enviar comprovante</a>:contacts.length>1?<p>Selecione um contato para abrir a conversa.</p>:<p>A loja ainda não cadastrou um destino para comprovantes.</p>}
+ {phone?<a href={getWhatsAppUrl(phone,message)} target="_blank" rel="noopener noreferrer" onClick={openReceipt}>Abrir WhatsApp e enviar comprovante</a>:contacts.length>1?<button type="button" disabled>Selecione um contato para enviar o comprovante</button>:data?.mode!=='unassigned'&&<p>A loja ainda não cadastrou um destino para comprovantes.</p>}
  {receiptToken&&phone&&isOpened&&!reported&&<button type="button" className="primary-button" disabled={reporting} onClick={()=>void confirmReceiptSent()}>{reporting?'Registrando…':'Já enviei o comprovante'}</button>}
  </>}
  </>}

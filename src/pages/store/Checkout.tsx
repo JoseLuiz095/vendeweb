@@ -439,7 +439,7 @@ export default function Checkout() {
       const confirmation: OrderConfirmation = {
         storeId: settings.id, receiptToken:result.receiptToken, receiptPickupLocationId: receiptContactsEnabled ? result.receiptPickupLocationId || undefined : undefined,
         orderId: result.orderId, orderNumber: result.orderNumber, total: result.total, paymentMethod: form.paymentMethod, customerName: form.customerName,
-        fulfillment: form.fulfillment, storeName: settings.name, storeWhatsapp: settings.showWhatsApp !== false ? settings.whatsapp : '', pixEnabled: settings.pixEnabled,
+        fulfillment: form.fulfillment, storeName: settings.name, storeWhatsapp: settings.whatsapp, pixEnabled: settings.pixEnabled,
         pickupPointName: form.fulfillment === 'pickup' ? pickup.selectedPoint?.name : undefined,
         pickupPointAddress: form.fulfillment === 'pickup' ? pickup.selectedPoint?.address : undefined,
         pixReceiptMode, pixKeyType: settings.pixKeyType, pixKey: settings.pixKey, pixCopyPaste, pixPayload: pixPayload || undefined, pixGenerationError: pixGenerationError || undefined,
