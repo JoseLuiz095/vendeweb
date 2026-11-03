@@ -53,10 +53,25 @@ alter table public.food_fitness_workout_assignments add column purchase_id uuid 
 create index food_fitness_orders_admin on public.food_fitness_offer_orders(store_id,created_at desc);
 create index food_fitness_orders_student on public.food_fitness_offer_orders(store_id,student_user_id,created_at desc);
 
+-- Portal delivery is committed with the payment transition. External channels remain optional.
+create table public.food_fitness_order_notifications (
+  id uuid primary key default gen_random_uuid(),
+  store_id uuid not null,
+  order_id uuid not null,
+  student_user_id uuid not null,
+  event_kind text not null check (event_kind in ('paid','refunded')),
+  created_at timestamptz not null default now(),
+  unique (order_id,event_kind),
+  foreign key (order_id,store_id) references public.food_fitness_offer_orders(id,store_id),
+  foreign key (store_id,student_user_id) references public.food_fitness_students(store_id,user_id)
+);
+create index food_fitness_order_notifications_student on public.food_fitness_order_notifications(store_id,student_user_id,created_at desc);
+
 alter table public.food_fitness_offers enable row level security;
 alter table public.food_fitness_offer_orders enable row level security;
-revoke all on public.food_fitness_offers,public.food_fitness_offer_orders from public,anon,authenticated;
-grant all on public.food_fitness_offers,public.food_fitness_offer_orders to service_role;
+alter table public.food_fitness_order_notifications enable row level security;
+revoke all on public.food_fitness_offers,public.food_fitness_offer_orders,public.food_fitness_order_notifications from public,anon,authenticated;
+grant all on public.food_fitness_offers,public.food_fitness_offer_orders,public.food_fitness_order_notifications to service_role;
 
 -- No direct table write grants: all mutations below validate store, role, identity and status.
 create function food_fitness_private.offer_ready(p_offer public.food_fitness_offers)
@@ -178,6 +193,18 @@ begin
     from public.food_fitness_offer_orders o where o.store_id=p_store and o.student_user_id=auth.uid()),'[]'::jsonb);
 end; $$;
 
+create function public.food_fitness_order_notifications_v1(p_store uuid)
+returns jsonb language plpgsql stable security definer set search_path='' as $$
+begin
+  perform food_fitness_private.require_student_session(p_store);
+  return coalesce((select jsonb_agg(jsonb_build_object(
+    'id',n.id,'order_id',n.order_id,'event_kind',n.event_kind,'created_at',n.created_at,
+    'offer_name',o.offer_name) order by n.created_at desc)
+    from public.food_fitness_order_notifications n
+    join public.food_fitness_offer_orders o on o.id=n.order_id and o.store_id=n.store_id
+    where n.store_id=p_store and n.student_user_id=auth.uid()),'[]'::jsonb);
+end; $$;
+
 create function public.food_fitness_admin_orders_v1(p_store uuid)
 returns jsonb language plpgsql stable security definer set search_path='' as $$
 begin
@@ -233,6 +260,8 @@ begin
   end if;
   insert into public.food_business_audit(store_id,actor_id,action,details)
     values(p_store,auth.uid(),'fitness.order_'||p_action,jsonb_build_object('order_id',v.id,'student_user_id',v.student_user_id));
+  insert into public.food_fitness_order_notifications(store_id,order_id,student_user_id,event_kind)
+    values(p_store,v.id,v.student_user_id,case when p_action='confirm' then 'paid' else 'refunded' end);
   return jsonb_build_object('id',v.id,'state',case when p_action='confirm' then 'paid' else 'refunded' end);
 end; $$;
 
@@ -248,9 +277,9 @@ $$;
 revoke all on function public.food_fitness_offer_save_v1(uuid,uuid,text,text,text,integer,uuid,uuid,uuid,boolean),
   public.food_fitness_offers_v1(uuid,boolean),public.food_fitness_order_v1(uuid,uuid,uuid),
   public.food_fitness_my_orders_v1(uuid),public.food_fitness_admin_orders_v1(uuid),
-  public.food_fitness_confirm_order_v1(uuid,uuid,text),public.food_fitness_pix_v1(uuid) from public,anon,authenticated;
+  public.food_fitness_order_notifications_v1(uuid),public.food_fitness_confirm_order_v1(uuid,uuid,text),public.food_fitness_pix_v1(uuid) from public,anon,authenticated;
 grant execute on function public.food_fitness_offers_v1(uuid,boolean),public.food_fitness_pix_v1(uuid) to anon,authenticated;
 grant execute on function public.food_fitness_offer_save_v1(uuid,uuid,text,text,text,integer,uuid,uuid,uuid,boolean),
-  public.food_fitness_order_v1(uuid,uuid,uuid),public.food_fitness_my_orders_v1(uuid),
+  public.food_fitness_order_v1(uuid,uuid,uuid),public.food_fitness_my_orders_v1(uuid),public.food_fitness_order_notifications_v1(uuid),
   public.food_fitness_admin_orders_v1(uuid),public.food_fitness_confirm_order_v1(uuid,uuid,text) to authenticated;
 commit;
