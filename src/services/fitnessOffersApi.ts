@@ -1,6 +1,9 @@
 import { restFetch } from '../lib/supabaseRest';
 
 export type FitnessOfferKind = 'workout' | 'assessment' | 'combo' | 'nutrition_consult' | 'nutrition_plan';
+export type FitnessOrderNotification = {
+  id: string; order_id: string; event_kind: 'paid' | 'refunded'; created_at: string; offer_name: string;
+};
 export type FitnessOffer = {
   id: string; kind: FitnessOfferKind; name: string; description: string; price_cents: number;
   workout_id: string | null; service_id: string | null; professional_user_id: string;
@@ -29,6 +32,9 @@ export const fitnessOffersApi = {
     method: 'POST', body: { p_store: store, p_offer: offer, p_request: request }, token,
   }),
   mine: (store: string, token: string) => restFetch<FitnessOfferOrder[]>('rpc/food_fitness_my_orders_v1', {
+    method: 'POST', body: { p_store: store }, token,
+  }),
+  notifications: (store: string, token: string) => restFetch<FitnessOrderNotification[]>('rpc/food_fitness_order_notifications_v1', {
     method: 'POST', body: { p_store: store }, token,
   }),
   adminOrders: (store: string) => restFetch<FitnessOfferOrder[]>('rpc/food_fitness_admin_orders_v1', {

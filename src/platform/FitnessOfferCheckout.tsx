@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { restFetch } from '../lib/supabaseRest';
-import { fitnessOffersApi, type FitnessOffer, type FitnessOfferOrder } from '../services/fitnessOffersApi';
+import { fitnessOffersApi, type FitnessOffer, type FitnessOfferOrder, type FitnessOrderNotification } from '../services/fitnessOffersApi';
 
 type Pix = { pix_key?: string | null; pix_copy_paste?: string | null; holder_name?: string | null };
 const money = (cents: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(cents / 100);
@@ -8,6 +8,7 @@ const money = (cents: number) => new Intl.NumberFormat('pt-BR', { style: 'curren
 export function FitnessOfferCheckout({ store, token, selected }: { store: string; token: string; selected?: string | null }) {
   const [offers, setOffers] = useState<FitnessOffer[]>([]);
   const [orders, setOrders] = useState<FitnessOfferOrder[]>([]);
+  const [notifications, setNotifications] = useState<FitnessOrderNotification[]>([]);
   const [pix, setPix] = useState<Pix>({});
   const [consent, setConsent] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -16,12 +17,12 @@ export function FitnessOfferCheckout({ store, token, selected }: { store: string
   const request = useRef<string | null>(null);
   useEffect(() => {
     let active = true;
-    setOffers([]); setOrders([]); setPix({}); setError('');
+    setOffers([]); setOrders([]); setNotifications([]); setPix({}); setError('');
     void Promise.all([
-      fitnessOffersApi.list(store), fitnessOffersApi.mine(store, token),
+      fitnessOffersApi.list(store), fitnessOffersApi.mine(store, token), fitnessOffersApi.notifications(store, token),
       restFetch<Pix>('rpc/food_fitness_pix_v1', { method: 'POST', body: { p_store: store } }),
-    ]).then(([nextOffers, nextOrders, nextPix]) => {
-      if (active) { setOffers(nextOffers); setOrders(nextOrders); setPix(nextPix || {}); }
+    ]).then(([nextOffers, nextOrders, nextNotifications, nextPix]) => {
+      if (active) { setOffers(nextOffers); setOrders(nextOrders); setNotifications(nextNotifications); setPix(nextPix || {}); }
     }).catch(cause => { if (active) setError((cause as Error).message); });
     return () => { active = false; };
   }, [store, token]);
@@ -61,6 +62,11 @@ export function FitnessOfferCheckout({ store, token, selected }: { store: string
     {orders.length === 0 ? <p className="business-muted">Nenhuma compra registrada.</p> : <ul className="fitness-records">{orders.map(order => <li key={order.id}>
       <strong>{order.offer_name} · {money(order.price_cents)}</strong><span>{order.state === 'paid' ? 'Acesso liberado' : order.state === 'pending' ? 'Aguardando confirmação do Pix' : order.state === 'refunded' ? 'Reembolsado' : 'Cancelado'}</span>
       <small>Referência: {order.id}</small>
+    </li>)}</ul>}
+    <h3>Avisos da loja</h3>
+    {notifications.length === 0 ? <p className="business-muted">Nenhum aviso de compra.</p> : <ul className="fitness-records">{notifications.map(item => <li key={item.id}>
+      <strong>{item.offer_name}</strong><span>{item.event_kind === 'paid' ? 'Pagamento confirmado. Sua ficha está disponível em Meus treinos.' : 'Reembolso registrado. O acesso desta compra foi revisto.'}</span>
+      <small>{new Date(item.created_at).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}</small>
     </li>)}</ul>}
   </section>;
 }
