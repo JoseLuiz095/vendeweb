@@ -1,4 +1,3 @@
-import {mintReceiptClaim} from '../_shared/receiptCapability.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.112.4';
 
 type TurnstileResult = {
@@ -186,32 +185,12 @@ Deno.serve(async (req) => {
     const salt = Deno.env.get('CHECKOUT_FINGERPRINT_SALT') || Deno.env.get('TURNSTILE_SECRET_KEY') || service.slice(-48);
     const fingerprint = await sha256(`${salt}:${remoteIp || 'unknown'}:${req.headers.get('user-agent') || 'unknown'}`);
 
-    const receiptContactsEnabled = Deno.env.get('ORDER_RECEIPT_CONTACTS_ENABLED') === 'true';
-    const autoPaidReady=Deno.env.get('ORDER_RECEIPT_AUTOPAID_ENABLED')==='true'&&receiptContactsEnabled;
-    const receiptSecret=Deno.env.get('ORDER_PAYMENT_LINK_SECRET')||'';
-    let receiptPolicy=false;
-    if(autoPaidReady){
-      const {data:policy,error}=await adminClient.from('food_stores').select('receipt_click_marks_paid').eq('id',storeId).single();
-      if(error)throw new Error('A loja precisa revisar a configuração de comprovantes.');
-      receiptPolicy=policy.receipt_click_marks_paid===true;
-      if(receiptPolicy&&receiptSecret.length<32)throw new Error('O envio de comprovantes está temporariamente indisponível. Fale com a loja.');
-    }
-    const receiptTokenFor=async(orderId:string)=>{
-      if(!receiptPolicy)return undefined;
-      const {data:order,error}=await adminClient.from('food_orders').select('total,payment_receipt_version,payment_status,status').eq('id',orderId).eq('store_id',storeId).single();
-      if(error)throw new Error('Não foi possível recuperar o pedido salvo. Mantenha a mesma tentativa.');
-      if(order.payment_receipt_version!==0||order.status==='cancelled'||order.payment_status!=='pending')return undefined;
-      return mintReceiptClaim({storeId,orderId,amount:Number(order.total),version:0},receiptSecret);
-    };
-
     const readReceiptSource = async (orderId:string) => {
-      if(!receiptContactsEnabled)return undefined;
       const {data,error}=await adminClient.from('food_order_receipt_sources').select('pickup_location_id').eq('order_id',orderId).eq('store_id',storeId).maybeSingle();
       if(error)throw new Error('Não foi possível consultar o destino do comprovante. O pedido pode já estar salvo; mantenha a mesma tentativa.');
       return data?.pickup_location_id || null;
     };
-    const rpcName = receiptContactsEnabled ? 'food_create_public_order_with_receipt_v1' : 'food_create_public_order';
-    const rpcResponse = await fetch(`${url}/rest/v1/rpc/${rpcName}`, {
+    const rpcResponse = await fetch(`${url}/rest/v1/rpc/food_create_public_order_with_receipt_v1`, {
       method: 'POST',
       headers: {
         apikey: service,
@@ -255,7 +234,6 @@ Deno.serve(async (req) => {
             total: Number(existing.total),
             idempotentReplay: true,
             receiptPickupLocationId: await readReceiptSource(existing.id),
-            receiptToken: await receiptTokenFor(existing.id),
           }), { status: 200, headers });
         }
       }
@@ -312,7 +290,6 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({
       orderId: created.order_id,
       receiptPickupLocationId: await readReceiptSource(created.order_id),
-      receiptToken: await receiptTokenFor(created.order_id),
       orderNumber: Number(created.order_number),
       total: Number(created.order_total),
     }), { status: 200, headers });

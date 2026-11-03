@@ -9,14 +9,12 @@ Base: `main` em `a2014c0d150b374769cf56fc8ec7bc589afc0847` (PR #151 integrado).
 - O cadastro de “Contato 1/2” sai da interface. Registros históricos permanecem no banco e são preservados pelo salvamento da política; o novo contrato não os publica. O WhatsApp da loja é salvo nas configurações gerais e cada ponto tem seu editor independente.
 - Abrir WhatsApp não confirma recebimento. A declaração “Já enviei” é separada e depende de contrato, token, política e funções implantadas. Não habilitar `ORDER_RECEIPT_AUTOPAID_ENABLED` para equiparar clique/comprovante a crédito bancário.
 
-## Situação remota observada
+## Implantação de 03/11/2026
 
-Projeto Supabase `elttryavkeartoxgdgse` (`VendeWeb`, `ACTIVE_HEALTHY`). A RPC v1 e dois contatos de ponto existem; v2 e `food_declare_order_receipt_v1` não existem; `food-order-payment` não aparece entre as Edge Functions publicadas; `food-public-checkout` está na versão 18. Portanto, o link Pix de #151 e a seleção nova exigem implantação coordenada e smoke autenticado antes de ativar tráfego.
+Projeto Supabase `elttryavkeartoxgdgse` (`VendeWeb`, `ACTIVE_HEALTHY`). A migration `food_receipt_destinations_store_or_point_20261103` foi aplicada; consulta com papel `anon` confirmou `selection` com dois pontos ativos no link geral e `point` no link específico. A Edge Function `food-public-checkout` foi publicada na versão 19 (`verify_jwt=false`) com o wrapper transacional de origem; preflight HTTPS retornou 200 e CORS do domínio oficial. A função não gera token de declaração de pagamento.
 
-## Sequência de homologação
+Nesta revisão, a consulta de destinos no frontend é habilitada por padrão e não depende de flag de build. O checkout usa a RPC de origem instalada; não depende dos secrets `ORDER_RECEIPT_CONTACTS_ENABLED` ou `ORDER_PAYMENT_LINK_SECRET` para encaminhar ao WhatsApp. O envio continua sendo realizado pelo cliente na conversa e a loja confere o crédito.
 
-1. Revisar/aplicar a migration `20261103160000_food_receipt_destinations_store_or_point.sql` no projeto correto. Validar grants `anon/authenticated/service_role`, RLS dos pontos, duas lojas e ponto privado/inativo. Não aplicar migrations de declaração de pagamento sem revisão própria.
-2. Implantar `food-order-payment` e `food-public-checkout` da revisão aprovada; conferir origem persistida e configurar `ORDER_PAYMENT_LINK_SECRET` e allowlist de origens. Ativar `ORDER_RECEIPT_CONTACTS_ENABLED` apenas depois da RPC v2; `ORDER_RECEIPT_AUTOPAID_ENABLED` permanece desativado.
-3. Publicar frontend com `VITE_RECEIPT_CONTACTS_ENABLED=true` e, somente após o link de pagamento funcionar em homologação, `VITE_PIX_PAYMENT_LINK_ENABLED=true`. Revisar WhatsApp real da loja ou dos pontos, Pix, pedido pendente, link geral sem telefone, link do ponto, indisponibilidade, loja suspensa e separação entre tenants. Testar mobile e WhatsApp em dispositivo real.
+`food-order-payment` não estava publicada no momento desta revisão; o link Pix compartilhável permanece condicionado a `VITE_PIX_PAYMENT_LINK_ENABLED` e `ORDER_PAYMENT_LINK_ENABLED`. Não foi ativada a declaração que marca pagamento pelo cliente, nem aplicada a migration `food_declare_order_receipt_v1`. Isso é separado do envio do comprovante na conclusão do checkout.
 
-Nenhuma migration ou Edge Function deste trabalho foi implantada remotamente. Teste local PGlite e API simulada não demonstram operação real.
+Após o merge, verificar o build/deploy do worker `foodweb` no Cloudflare e testar no domínio real com uma conta e um pedido de teste autorizados: loja com WhatsApp, loja sem WhatsApp e dois pontos, QR de ponto, origem geral, ausência de destino, pedido pendente e isolamento. Não usar um pedido real de cliente para smoke. Testes locais e preflight não comprovam entrega de mensagem no WhatsApp.
