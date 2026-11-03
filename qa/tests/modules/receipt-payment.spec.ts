@@ -20,7 +20,7 @@ test('fila nova mantém declarações a conferir e não volta a limitar doze ped
 const contacts=[{slot:1,name:'Contato fictício',phone:'5511000000001'}];
 const pix=buildStaticPixCopyPaste({key:'test@example.invalid',receiver:'Loja Teste',city:'Teste',amount:12.5,txid:'PED42'});
 async function isolated(page:Page,auth=false,master=false){
- await page.route('**/*',r=>new URL(r.request().url()).origin==='http://127.0.0.1:5174'?r.continue():r.abort('blockedbyclient'));
+ await page.route('**/*',r=>['http://127.0.0.1:5174','http://127.0.0.1:5193'].includes(new URL(r.request().url()).origin)?r.continue():r.abort('blockedbyclient'));
  await mockBackend(page,{auth,master});
 }
 for(const width of [320,390,768,1366])for(const failFirst of [false,true])test(`WhatsApp só registra envio após confirmação do cliente ${width}px${failFirst?' com retry':''}`,async({page,context})=>{
