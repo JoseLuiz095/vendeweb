@@ -48,19 +48,19 @@ export default function OrderPayment() {
       <h2>{payment.storeName}</h2><p>Pedido #{formatOrderNumber(payment.orderNumber)}</p>
       {payment.status === 'pending' ? <>
         <strong className="order-payment-total">{currency.format(payment.total!)}</strong>
-        {payment.receiptDestinations&&<nav className="order-payment-steps" aria-label="Etapas do pagamento PIX">{step==='receipt'?<button type="button" onClick={()=>setStep('payment')}>1. Pagar com PIX</button>:<span aria-current="step">1. Pagar com PIX</span>}<span aria-current={step==='receipt'?'step':undefined}>2. Enviar comprovante</span></nav>}
-        {step==='payment'||!payment.receiptDestinations?<>
+        <nav className="order-payment-steps" aria-label="Etapas do pagamento PIX">{step==='receipt'?<button type="button" onClick={()=>setStep('payment')}>1. Pagar com PIX</button>:<span aria-current="step">1. Pagar com PIX</span>}<span aria-current={step==='receipt'?'step':undefined}>2. Enviar comprovante</span></nav>
+        {step==='payment'?<>
           <p>Recebedor: <strong>{payment.receiver || payment.storeName}</strong>. Confira os dados no banco antes de pagar.</p>
           <PixCopyButton key={payment.pixPayload} value={payment.pixPayload!} compact/>
           {qr&&<details className="order-payment-qr"><summary>Prefiro pagar com QR Code</summary><img src={qr} alt={`QR Code Pix no valor de ${currency.format(payment.total!)}`} width="260" height="260"/></details>}
           <small>Link válido até {new Date(payment.expiresAt!).toLocaleString('pt-BR')}.</small>
-          {payment.receiptDestinations?<button type="button" className="primary-button" onClick={()=>setStep('receipt')}>Já fiz o PIX · enviar comprovante</button>:<button type="button" className="secondary-button" onClick={retry}>Já paguei · verificar status</button>}
+          <button type="button" className="primary-button" onClick={()=>setStep('receipt')}>Já fiz o PIX · enviar comprovante</button>
         </>:<>
           <button type="button" className="secondary-button" onClick={retry}>Verificar status do pagamento</button>
         </>}
         <small role="status">Aguardando confirmação da loja. Enviar o comprovante não verifica o recebimento bancário.</small>
       </> : <p role="status">{payment.status === 'paid' ? payment.paymentReportedByCustomer?`Pago informado pelo cliente${payment.fulfillmentStatus==='picked_up'?' · retirada registrada':''}. A loja pode conferir o recebimento.`:'Pagamento confirmado pela loja. Não pague novamente.' : 'Pedido cancelado. Não efetue o pagamento.'}</p>}
-      {payment.status!=='cancelled'&&payment.receiptDestinations&&(step==='receipt'||payment.status==='paid')&&<ReceiptDestination receiptToken={payment.receiptToken} onReported={(autoPickedUp)=>setPayment(current=>current?{...current,status:'paid',paymentReportedByCustomer:true,fulfillmentStatus:autoPickedUp?'picked_up':current.fulfillmentStatus}:current)} destinations={payment.receiptDestinations} message={`Olá! Vou anexar o comprovante do pedido #${formatOrderNumber(payment.orderNumber)} da ${payment.storeName}, no valor de ${currency.format(payment.total!)}.`}/>}
+      {payment.status!=='cancelled'&&(step==='receipt'||(payment.status==='paid'&&payment.receiptDestinations))&&<ReceiptDestination receiptToken={payment.receiptToken} onReported={(autoPickedUp)=>setPayment(current=>current?{...current,status:'paid',paymentReportedByCustomer:true,fulfillmentStatus:autoPickedUp?'picked_up':current.fulfillmentStatus}:current)} destinations={payment.receiptDestinations??{mode:'unavailable',contacts:[]}} message={`Olá! Vou anexar o comprovante do pedido #${formatOrderNumber(payment.orderNumber)} da ${payment.storeName}, no valor de ${currency.format(payment.total!)}.`}/>}
     </>}
   </section></main>;
 }

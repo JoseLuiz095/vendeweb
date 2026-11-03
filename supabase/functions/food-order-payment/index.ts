@@ -15,7 +15,7 @@ Deno.serve(async (req: Request) => {
     receiptDestinations: async (storeId,_pointId,receiptOrderId) => {
       const {data:source,error:sourceError}=await admin.from('food_order_receipt_sources').select('pickup_location_id').eq('order_id',receiptOrderId).eq('store_id',storeId).maybeSingle();
       if(sourceError)throw new Error('RECEIPT_SOURCE_UNAVAILABLE');
-      const {data,error}=await admin.rpc('food_get_receipt_destinations_v1',{p_store_id:storeId,p_pickup_location_id:source?.pickup_location_id || null});
+      const {data,error}=await admin.rpc('food_get_receipt_destinations_v2',{p_store_id:storeId,p_pickup_location_id:source?.pickup_location_id || null});
       if(error)throw new Error('RECEIPT_DESTINATIONS_UNAVAILABLE');
       return data;
     },

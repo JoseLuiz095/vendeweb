@@ -270,7 +270,7 @@ export default function SettingsAdmin() {
         <div className="admin-card__header"><div><span className="eyebrow">ATENDIMENTO E PAGAMENTO</span><h2 id="payment-contacts-title">Telefones para contato e comprovantes</h2></div></div>
         <p>Cadastre aqui o WhatsApp da loja e os destinos que receberão comprovantes de PIX.</p>
         <div className="form-grid">
-          <label>WhatsApp da loja<input form="settings-form" type="tel" inputMode="tel" value={form.whatsapp} onChange={(e) => update('whatsapp', e.target.value)} placeholder="55 + DDD + número" /><small className="field-help">Recebe comprovantes no link geral quando não há outro contato cadastrado. Salve as configurações da loja.</small></label>
+          <label>WhatsApp da loja<input form="settings-form" type="tel" inputMode="tel" value={form.whatsapp} onChange={(e) => update('whatsapp', e.target.value)} placeholder="55 + DDD + número" /><small className="field-help">Recebe comprovantes do link geral. Sem este número, o cliente escolhe um ponto com WhatsApp cadastrado abaixo. Salve as configurações da loja.</small></label>
           <label className="switch-row"><span><strong>Exibir WhatsApp na vitrine</strong><small>Controla apenas o atalho de atendimento. O número continua disponível para comprovantes de PIX.</small></span><input form="settings-form" type="checkbox" checked={form.showWhatsApp !== false} onChange={(e) => setForm((current) => ({ ...current, showWhatsApp: e.target.checked, cardPaymentEnabled: e.target.checked ? current.cardPaymentEnabled : false }))} /></label>
         </div>
         <button type="submit" form="settings-form" className="primary-button" disabled={saving}>Salvar WhatsApp da loja</button>
