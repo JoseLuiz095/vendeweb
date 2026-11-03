@@ -7,6 +7,7 @@ Base: `main` em `badee771aa991d396292a965c3008bd0b9276949`, obtida de `origin/ma
 | Capacidade | Estado | Evidência em código e ambiente |
 | --- | --- | --- |
 | Tenant piloto | Parcial | `food_stores`/`food_business_profiles`: `fabriciofitness`, loja `ec06fb9a-9ba6-43e2-854d-c557745e5974`, ativa e online. Há 2 serviços, 0 alunos e 0 fichas no banco em 03/11. Dados comerciais, endereço e profissional ainda precisam de validação pelo proprietário. |
+| Isenção SaaS da piloto | Existente no remoto | `food_store_subscriptions` da loja piloto: `active`, `billing_amount=0`, sem expiração, nota `FITNESS_PILOT_WAIVER`. Não foi modificada nem estendida a outra loja. |
 | Catálogo e exemplos | Existente no código | `src/platform/FitnessCatalog.tsx`, `FitnessPilotExamples.tsx`; PRs #137/#138 integrados. Exemplos são fictícios e não criam oferta comercial. |
 | Agenda Fitness básica | Parcial | RPC `food_fitness_book` instalada; `20261027182656_food_fitness_booking_20261027.sql` cria janelas, bloqueios e reservas. Não há vínculo obrigatório com pedido pago. |
 | Identidade profissional e nutrição | Bloqueado no remoto | `20261030114215_service_professional_identity.sql` não consta no histórico remoto; `food_service_professionals` ausente. A nutricionista real não foi identificada nem validada. |
