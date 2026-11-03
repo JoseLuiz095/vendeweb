@@ -1,8 +1,8 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.112.4';
 import { createOrderPaymentHandler } from './handler.ts';
 
-const autoPaidEnabled=Deno.env.get('ORDER_RECEIPT_AUTOPAID_ENABLED')==='true';
-const orderFields = 'id,store_id,order_number,total,payment_method,payment_status,status,pickup_location_id,delivery_type,scheduled_for'+(autoPaidEnabled?',payment_reported_by_customer,payment_receipt_version':'');
+const receiptReportingEnabled=Deno.env.get('ORDER_RECEIPT_REPORTING_ENABLED')!=='false';
+const orderFields = 'id,store_id,order_number,total,payment_method,payment_status,status,pickup_location_id,delivery_type,scheduled_for'+(receiptReportingEnabled?',payment_reported_by_customer,payment_receipt_version':'');
 Deno.serve(async (req: Request) => {
   const url = Deno.env.get('SUPABASE_URL') || '';
   const service = Deno.env.get('SUPABASE_SECRET_KEY') || Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
@@ -19,7 +19,11 @@ Deno.serve(async (req: Request) => {
       if(error)throw new Error('RECEIPT_DESTINATIONS_UNAVAILABLE');
       return data;
     },
-    env: name => Deno.env.get(name),
+    // Dedicated payment secret takes precedence. If not configured, use the
+    // server-only Supabase service secret; it never enters the browser bundle.
+    env: name => name==='ORDER_PAYMENT_LINK_SECRET'
+      ? Deno.env.get(name)||service
+      : Deno.env.get(name),
     authorizedOrder: async (jwt, storeId, orderId) => {
       const { data: { user }, error } = await admin.auth.getUser(jwt);
       if (error || !user || user.is_anonymous) return null;
@@ -39,7 +43,7 @@ Deno.serve(async (req: Request) => {
       return data;
     },
     store: async storeId => {
-      const { data, error } = await admin.from('food_stores').select('id,name,active,access_status,pix_enabled,pix_receipt_mode,pix_key,pix_copy_paste,pix_holder_name,city'+(autoPaidEnabled?',receipt_click_marks_paid':'')).eq('id', storeId).maybeSingle();
+      const { data, error } = await admin.from('food_stores').select('id,name,active,access_status,pix_enabled,pix_receipt_mode,pix_key,pix_copy_paste,pix_holder_name,city'+(receiptReportingEnabled?',receipt_click_marks_paid':'')).eq('id', storeId).maybeSingle();
       if (error) throw new Error('PAYMENT_STORE_FAILED');
       return data;
     },

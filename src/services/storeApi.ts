@@ -121,7 +121,7 @@ const ADMIN_ORDER_SELECT = [
   'delivery_neighborhood', 'delivery_zone_id', 'delivery_zone_name', 'delivery_fee', 'delivery_city',
   'delivery_state', 'reference_point', 'card_message', 'card_signature', 'anonymous_sender', 'notes',
   'payment_method', 'subtotal', 'total', 'status', 'payment_status', 'payment_received_at',
-  'payment_confirmed_by', 'needs_change', 'change_for', 'change_amount', 'scheduled_for',
+  'payment_confirmed_by', 'payment_reported_by_customer', 'needs_change', 'change_for', 'change_amount', 'scheduled_for',
   'preparation_estimate_minutes', 'inventory_status', 'source', 'customer_instagram', 'acquisition_source',
   'whatsapp_clicked_at', 'created_at',
 ].join(',');
@@ -909,7 +909,7 @@ export const storeApi = {
     return { orderId: created.order_id, orderNumber: toNumber(created.order_number), total: toNumber(created.order_total) };
   },
 
-  async confirmOrderPayment(orderId:string,customerReported=false):Promise<{alreadyPaid:boolean;paymentReceivedAt?:string}>{
+  async confirmOrderPayment(orderId:string,customerReported=false):Promise<{alreadyPaid:boolean;paymentReceivedAt?:string;autoPickedUp?:boolean}>{
     if(isDemoMode){
       const db=readDemo();
       const index=db.orders.findIndex((order)=>order.id===orderId);
@@ -919,10 +919,10 @@ export const storeApi = {
       const receivedAt=db.orders[index].paymentReceivedAt||new Date().toISOString();
       db.orders[index]={...db.orders[index],paymentStatus:'paid',paymentReceivedAt:receivedAt};
       writeDemo(db);
-      return {alreadyPaid,paymentReceivedAt:receivedAt};
+      return {alreadyPaid,paymentReceivedAt:receivedAt,autoPickedUp:false};
     }
-    const result=await restFetch<{ok:boolean;alreadyPaid?:boolean;paymentReceivedAt?:string}>(customerReported?'rpc/food_review_receipt_report_v1':'rpc/food_confirm_order_payment_v1',{method:'POST',body:customerReported?{p_order_id:orderId,p_accept:true}:{p_order_id:orderId}});
-    return {alreadyPaid:Boolean(result?.alreadyPaid),paymentReceivedAt:result?.paymentReceivedAt};
+    const result=await restFetch<{ok:boolean;alreadyPaid?:boolean;paymentReceivedAt?:string;autoPickedUp?:boolean}>(customerReported?'rpc/food_review_receipt_report_v1':'rpc/food_confirm_order_payment_v1',{method:'POST',body:customerReported?{p_order_id:orderId,p_accept:true}:{p_order_id:orderId}});
+    return {alreadyPaid:Boolean(result?.alreadyPaid),paymentReceivedAt:result?.paymentReceivedAt,autoPickedUp:result?.autoPickedUp===true};
   },
 
   async returnReceiptToReceivable(orderId:string):Promise<void>{await restFetch('rpc/food_review_receipt_report_v1',{method:'POST',body:{p_order_id:orderId,p_accept:false}});},
