@@ -34,6 +34,7 @@ for(const width of [320,390,768,1366])for(const failFirst of [false,true])test(`
   return r.fulfill({json:{status:'pending',storeName:'Loja fictícia',orderNumber:42,total:12.5,receiver:'Teste',pixPayload:pix,expiresAt:new Date(Date.now()+3600000).toISOString(),receiptToken:'receipt.capability',receiptDestinations:{mode:'point',contacts}}});
  });
  await page.goto('/pagamento/pix#read.capability');
+ await page.getByRole('button',{name:'Já fiz o PIX · enviar comprovante'}).click();
  const section=page.getByRole('region',{name:'Enviar comprovante'});
  const popups:import('@playwright/test').Page[]=[];page.on('popup',p=>popups.push(p));
  await section.getByRole('link',{name:'Abrir WhatsApp e enviar comprovante',exact:true}).click();
@@ -51,7 +52,7 @@ for(const width of [320,390,768,1366])test(`confirmação explícita do comprova
  let reports=0;
  await context.route('https://wa.me/**',r=>r.fulfill({contentType:'text/plain',body:'Conversa sintética.'}));
  await page.route('**/functions/v1/food-order-payment',r=>{const b=r.request().postDataJSON();if(b.action==='report_receipt'){reports++;return r.fulfill({json:{ok:true,status:'paid',paymentReportedByCustomer:true,autoPickedUp:true}})}return r.fulfill({json:{status:'pending',storeName:'Loja fictícia',orderNumber:42,total:12.5,receiver:'Teste',pixPayload:pix,expiresAt:new Date(Date.now()+3600000).toISOString(),receiptToken:'receipt.capability',receiptDestinations:{mode:'point',contacts}}})});
- await page.goto('/pagamento/pix#read.capability');const section=page.getByRole('region',{name:'Enviar comprovante'});
+ await page.goto('/pagamento/pix#read.capability');await page.getByRole('button',{name:'Já fiz o PIX · enviar comprovante'}).click();const section=page.getByRole('region',{name:'Enviar comprovante'});
  await section.getByRole('link',{name:'Abrir WhatsApp e enviar comprovante',exact:true}).click();expect(reports).toBe(0);
  await section.getByRole('button',{name:'Já enviei o comprovante'}).click();
  await expect(page.getByText('Pago informado pelo cliente · retirada registrada. A loja pode conferir o recebimento.')).toBeVisible();
