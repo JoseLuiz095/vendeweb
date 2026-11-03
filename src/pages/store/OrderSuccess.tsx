@@ -1,5 +1,5 @@
 import ReceiptDestination from '../../components/ReceiptDestination';
-import { ArrowLeft, Banknote, Bell, CheckCircle2, CreditCard, MessageCircle, QrCode, Share2, Store } from 'lucide-react';
+import { ArrowLeft, Banknote, Bell, CheckCircle2, CreditCard, MessageCircle, QrCode, Share2 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useParams } from 'react-router-dom';
 import QRCode from 'qrcode';
@@ -27,6 +27,7 @@ export default function OrderSuccess() {
   const [whatsappMarkState, setWhatsappMarkState] = useState<'idle' | 'sending' | 'done' | 'error'>('idle');
   const [customerNotificationState, setCustomerNotificationState] = useState<CustomerOrderNotificationStatus>('unsupported');
   const [customerNotificationBusy, setCustomerNotificationBusy] = useState(false);
+  const [pixStep, setPixStep] = useState<'payment' | 'receipt'>('payment');
   const storefrontThemeStyle = getStorefrontThemeStyle(settings.visualTheme);
 
   const confirmation = useMemo(() => {
@@ -51,6 +52,7 @@ export default function OrderSuccess() {
   useEffect(() => {
     if (!confirmation) return;
     setCustomerNotificationState(customerOrderNotificationStatus(confirmation.orderId));
+    setPixStep('payment');
   }, [confirmation]);
 
   if (!confirmation) {
@@ -72,7 +74,7 @@ export default function OrderSuccess() {
   const hasPixPayload = isPix && Boolean(confirmation.pixPayload?.trim());
   const isCard = confirmation.paymentMethod === 'card';
   const isCash = confirmation.paymentMethod === 'cash';
-  const hasWhatsApp = Boolean(confirmation.storeWhatsapp?.trim());
+  const hasWhatsApp = Boolean(confirmation.storeWhatsapp?.trim()) && (isPix || settings.showWhatsApp !== false);
   const whatsappMessage = buildPostOrderWhatsAppMessage(confirmation);
   const whatsappUrl = hasWhatsApp ? getWhatsAppUrl(confirmation.storeWhatsapp, whatsappMessage) : '';
   const pixValue = isPixCopyPaste ? (confirmation.pixPayload || confirmation.pixCopyPaste) : confirmation.pixKey;
@@ -137,17 +139,18 @@ export default function OrderSuccess() {
   return (
     <main data-visual-preset={settings.visualTheme.preset} className="order-success-page food-storefront-theme" style={storefrontThemeStyle}>
       <section className="order-success-card">
-        <div className="success-icon"><CheckCircle2 size={54} strokeWidth={2.2} /></div>
+        {!isPix && <div className="success-icon"><CheckCircle2 size={38} strokeWidth={2.2} /></div>}
 
         <h1>Pedido recebido</h1>
         <p className="order-success-number">Pedido <strong>#{formatOrderNumber(confirmation.orderNumber)}</strong></p>
-        <div className="order-success-status" role="status"><span className="order-success-status__dot" />{confirmationStatus}</div>
-        <div className="store-checkout-context store-checkout-context--success"><strong>{confirmation.storeName}</strong><span>{confirmation.fulfillment === 'pickup' ? confirmation.pickupPointName ? `Retirada em ${confirmation.pickupPointName}${confirmation.pickupPointAddress ? ` · ${confirmation.pickupPointAddress}` : ''}` : 'Local de retirada: confira as orientações da loja' : 'Entrega no endereço informado no pedido'}</span></div>
+        {!isPix && <div className="order-success-status" role="status"><span className="order-success-status__dot" />{confirmationStatus}</div>}
+        {(!isPix || pixStep === 'payment') && <div className="store-checkout-context store-checkout-context--success"><strong>{confirmation.storeName}</strong><span>{confirmation.fulfillment === 'pickup' ? confirmation.pickupPointName ? `Retirada em ${confirmation.pickupPointName}${confirmation.pickupPointAddress ? ` · ${confirmation.pickupPointAddress}` : ''}` : 'Local de retirada: confira as orientações da loja' : 'Entrega no endereço informado no pedido'}</span></div>}
 
-        <div className="order-registration-proof" role="status">
-          <CheckCircle2 size={20} />
-          <div><strong>Pedido salvo no sistema</strong><span>{hasWhatsApp ? 'O pedido já existe e pode ser acompanhado pela loja. O WhatsApp é apenas um canal adicional de contato.' : 'O pedido já existe e será acompanhado pela loja diretamente no painel, sem depender de WhatsApp.'}</span></div>
-        </div>
+        {isPix ? <p className="order-success-saved"><CheckCircle2 size={16} />Pedido salvo no sistema</p> : <div className="order-registration-proof" role="status"><CheckCircle2 size={20} /><div><strong>Pedido salvo no sistema</strong><span>{hasWhatsApp ? 'O pedido já existe e pode ser acompanhado pela loja. O WhatsApp é apenas um canal adicional de contato.' : 'O pedido já existe e será acompanhado pela loja diretamente no painel, sem depender de WhatsApp.'}</span></div></div>}
+
+        {isPix && <nav className="order-success-steps" aria-label="Etapas do pagamento PIX">{pixStep === 'receipt' ? <button type="button" className="is-done" onClick={() => setPixStep('payment')} aria-label="Voltar para os dados do PIX">1. Pagar com PIX</button> : <span className="is-current" aria-current="step">1. Pagar com PIX</span>}<span className={pixStep === 'receipt' ? 'is-current' : ''} aria-current={pixStep === 'receipt' ? 'step' : undefined}>2. Enviar comprovante</span></nav>}
+
+        {(!isPix || pixStep === 'payment') && <>
 
         <div className="order-success-payment">
           <div className="order-success-payment__title">
@@ -157,9 +160,7 @@ export default function OrderSuccess() {
 
           {isPix ? (
             <>
-              <p>{isPixCopyPaste ? 'Copie o PIX Copia e Cola abaixo. Ele já contém o valor deste pedido.' : hasWhatsApp ? 'Efetue o pagamento via PIX e envie o comprovante pelo WhatsApp para a loja confirmar seu pedido.' : 'Efetue o pagamento via PIX. A loja fará a confirmação pelo sistema.'}</p>
               <strong className="order-success-total">Total: {currency.format(confirmation.total)}</strong>
-              <p role="status">Aguardando confirmação do pagamento pela loja. Enviar o comprovante não confirma o pagamento automaticamente.</p>
             </>
           ) : isCard ? (
             <>
@@ -181,10 +182,9 @@ export default function OrderSuccess() {
 
         {(isPixCopyPaste || isPixKey) && (
           <div className="pix-confirmation-box">
-              <p>{isPixCopyPaste ? `Copie o código abaixo e cole na opção “PIX Copia e Cola” do seu banco. O valor de ${currency.format(confirmation.total)} já está preenchido.` : hasWhatsApp ? `Copie a chave PIX, informe o valor de ${currency.format(confirmation.total)} no banco e depois envie o comprovante para ${confirmation.storeName}.` : `Copie a chave PIX e informe o valor de ${currency.format(confirmation.total)} no banco. A loja fará a confirmação pelo painel.`}</p>
             <span className="pix-key-label">{isPixCopyPaste ? 'PIX Copia e Cola · valor automático' : `Chave PIX · ${confirmation.pixKeyType || 'Chave cadastrada'}`}</span>
-            <PixCopyButton key={pixValue} value={pixValue} label={isPixCopyPaste ? 'Código Pix' : 'Chave Pix'}/>
-          {hasPixPayload && <div className="pix-qr-code"><span className="pix-key-label">QR Code PIX · valor preenchido</span>{pixQrCode ? <img src={pixQrCode} alt={`QR Code PIX no valor de ${currency.format(confirmation.total)}`} /> : <small>Gerando QR Code…</small>}<small>Escaneie com o aplicativo do seu banco.</small>{pixQrCode && <button type="button" className="secondary-button pix-share-button" disabled={sharingPix} onClick={() => void handleSharePix()}><Share2 size={16}/>{sharingPix ? 'Preparando...' : 'Compartilhar QR Code + texto'}</button>}</div>}
+            <PixCopyButton key={pixValue} value={pixValue} label={isPixCopyPaste ? 'Código Pix' : 'Chave Pix'} compact/>
+          {hasPixPayload && <details className="order-success-qr"><summary>Prefiro pagar com QR Code</summary><div className="pix-qr-code"><span className="pix-key-label">QR Code PIX · valor preenchido</span>{pixQrCode ? <img src={pixQrCode} alt={`QR Code PIX no valor de ${currency.format(confirmation.total)}`} /> : <small>Gerando QR Code…</small>}<small>Escaneie com o aplicativo do banco.</small>{pixQrCode && <button type="button" className="secondary-button pix-share-button" disabled={sharingPix} onClick={() => void handleSharePix()}><Share2 size={16}/>{sharingPix ? 'Preparando...' : 'Compartilhar QR Code + texto'}</button>}</div></details>}
             {confirmation.pixReceiver && <small>Recebedor: {confirmation.pixReceiver}</small>}
           </div>
         )}
@@ -202,14 +202,14 @@ export default function OrderSuccess() {
           </div>
         )}
 
-        <div className="order-success-store">
-          <Store size={20} />
-          <span>{confirmation.storeName}</span>
-        </div>
+        {isPix && <button type="button" className="primary-button order-success-next" onClick={() => setPixStep('receipt')}>Já fiz o PIX · enviar comprovante</button>}
+        </>}
 
-        {customerNotificationState !== 'unsupported' && (
-          <section className={`customer-order-notifications is-${customerNotificationState}`} aria-live="polite">
-            <div><Bell size={19} /><strong>{customerNotificationState === 'enabled' ? 'Notificações autorizadas neste aparelho' : 'Receba avisos deste pedido'}</strong></div>
+        {isPix && pixStep === 'receipt' && <section className="order-success-receipt-step" aria-label="Etapa de envio do comprovante"><ReceiptDestination receiptToken={confirmation.receiptToken} key={confirmation.orderId} storeId={confirmation.storeId} pointId={confirmation.receiptPickupLocationId} legacyPhone={confirmation.storeWhatsapp} message={whatsappMessage} onOpen={handleWhatsAppClick}/><div className={`whatsapp-sync-state is-${whatsappMarkState}`} aria-live="polite">{whatsappMarkState === 'sending' && <span>Registrando a abertura do WhatsApp…</span>}{whatsappMarkState === 'done' && <span>A abertura do WhatsApp foi registrada no pedido.</span>}{whatsappMarkState === 'error' && <span>O pedido está salvo, mas não foi possível registrar a abertura da conversa.</span>}</div></section>}
+
+        {(!isPix || pixStep === 'receipt') && customerNotificationState !== 'unsupported' && (
+          <details className={`customer-order-notifications order-success-notifications is-${customerNotificationState}`}>
+            <summary><Bell size={18} /><strong>{customerNotificationState === 'enabled' ? 'Notificações autorizadas' : 'Receber avisos deste pedido'}</strong></summary>
             {customerNotificationState === 'enabled' ? (
               <p>Este aparelho está pronto para receber os avisos do pedido quando a loja disponibilizar o acompanhamento por notificações.</p>
             ) : customerNotificationState === 'blocked' ? (
@@ -223,7 +223,7 @@ export default function OrderSuccess() {
                 <small>O aviso automático de mudanças de status ainda depende da ativação desse acompanhamento pela loja.</small>
               </>
             )}
-          </section>
+          </details>
         )}
 
         {hasWhatsApp && !isPix && <a
@@ -234,7 +234,7 @@ export default function OrderSuccess() {
           onClick={handleWhatsAppClick}
         >
           <MessageCircle size={21} />
-          {isPix ? 'Abrir WhatsApp e enviar comprovante' : 'Abrir WhatsApp'}
+          Abrir WhatsApp
         </a>}
         {hasWhatsApp && !isPix && <div className={`whatsapp-sync-state is-${whatsappMarkState}`} aria-live="polite">
           {whatsappMarkState === 'sending' && <span>Registrando a abertura do WhatsApp no pedido...</span>}
@@ -242,11 +242,10 @@ export default function OrderSuccess() {
           {whatsappMarkState === 'error' && <span>O pedido continua salvo; apenas o status do WhatsApp não foi atualizado. Toque no botão novamente quando voltar.</span>}
         </div>}
 
-        {isPix && <ReceiptDestination receiptToken={confirmation.receiptToken} key={confirmation.orderId} storeId={confirmation.storeId} pointId={confirmation.receiptPickupLocationId} legacyPhone={confirmation.storeWhatsapp} message={whatsappMessage} onOpen={handleWhatsAppClick}/>}
         {isCard && <p className="order-success-hint">A loja fará a cobrança por cartão na entrega ou retirada. Nunca envie número completo do cartão, CVV ou senha pelo WhatsApp.</p>}
         {isCash && <p className="order-success-hint">{confirmation.changeAmount != null ? `Troco previsto: ${currency.format(confirmation.changeAmount)}.` : 'Pagamento em dinheiro sem troco solicitado.'}</p>}
 
-        <Link className="order-success-back" to={storefrontPath(storeBasePath)}><ArrowLeft size={19} />Voltar para o cardápio</Link>
+        {(!isPix || pixStep === 'receipt') && <Link className="order-success-back" to={storefrontPath(storeBasePath)}><ArrowLeft size={19} />Voltar para o cardápio</Link>}
       </section>
     </main>
   );
