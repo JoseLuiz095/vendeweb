@@ -46,15 +46,17 @@ export const createOrderPaymentHandler = (deps: Dependencies) => async (req: Req
       raw += new TextDecoder().decode(value);
     }
     const body = JSON.parse(raw);
-    const autoPaidReady=deps.env('ORDER_RECEIPT_AUTOPAID_ENABLED')==='true'&&deps.env('ORDER_RECEIPT_CONTACTS_ENABLED')==='true'&&secret.length>=32;
-    if(body.action==='receipt_capabilities')return reply(200,{autoPaidConfigured:autoPaidReady});
+    // The store opt-in is false by default in food_stores. These server flags
+    // are emergency switches; they do not turn a customer report into payment.
+    const receiptReportingReady=deps.env('ORDER_RECEIPT_REPORTING_ENABLED')!=='false'&&deps.env('ORDER_RECEIPT_CONTACTS_ENABLED')!=='false'&&secret.length>=32;
+    if(body.action==='receipt_capabilities')return reply(200,{receiptReportingConfigured:receiptReportingReady});
     if(body.action==='report_receipt'){
-      if(!autoPaidReady||!deps.reportReceipt)return reply(503,{error:'A declaração de pagamento ainda não está ativada. Fale com a loja.'});
+      if(!receiptReportingReady||!deps.reportReceipt)return reply(503,{error:'O aviso de comprovante ainda não está ativado. Fale com a loja.'});
       let claim:ReceiptClaim;try{claim=await openReceiptClaim(body.token,secret,now);}catch{return reply(410,{error:'A autorização deste comprovante expirou. Solicite orientação à loja.'});}
       try{
         const result=await deps.reportReceipt(claim) as {ok?:unknown;autoPickedUp?:unknown}|null;
         if(result?.ok!==true||typeof result.autoPickedUp!=='boolean')throw new Error('RECEIPT_REPORT_INVALID');
-        return reply(200,{ok:true,status:'paid',paymentReportedByCustomer:true,autoPickedUp:result.autoPickedUp});
+        return reply(200,{ok:true,status:'reported',paymentReportedByCustomer:true,autoPickedUp:false});
       }
       catch{return reply(409,{error:'O pedido foi alterado ou revisado pela loja. Consulte seu pagamento antes de reenviar.'});}
     }
@@ -83,14 +85,16 @@ export const createOrderPaymentHandler = (deps: Dependencies) => async (req: Req
     if (!order || order.store_id !== grant.storeId || order.id !== grant.orderId) return reply(404, { error: 'Pagamento indisponível. Fale com a loja.' });
     const store = await deps.store(grant.storeId);
     if (!store || store.id !== grant.storeId || !store.active || store.access_status !== 'online') return reply(410, { error: 'Pagamento indisponível. Fale com a loja.' });
-    const receiptToken=!['cancelled','delivered','picked_up'].includes(order.status)&&autoPaidReady&&store.receipt_click_marks_paid&&Number(order.payment_receipt_version||0)===0&&(order.payment_status==='pending'||order.payment_reported_by_customer)
+    const receiptToken=!['cancelled','delivered','picked_up'].includes(order.status)&&receiptReportingReady&&store.receipt_click_marks_paid&&Number(order.payment_receipt_version||0)===0&&order.payment_status==='pending'&&!order.payment_reported_by_customer
       ?await mintReceiptClaim({storeId:store.id,orderId:order.id,amount:Number(order.total),version:0},secret,now):undefined;
+    if(order.payment_reported_by_customer)return reply(200,{status:'reported',paymentReportedByCustomer:true,storeName:store.name,orderNumber:order.order_number,total:Number(order.total),fulfillmentStatus:order.status,
+      receiptDestinations:deps.env('ORDER_RECEIPT_CONTACTS_ENABLED')!=='false'&&deps.receiptDestinations?await deps.receiptDestinations(grant.storeId,order.pickup_location_id,order.id):undefined});
     const ended = order.status === 'cancelled' ? 'cancelled' : order.payment_status === 'paid' ? 'paid' : null;
     if (ended) return body.action === 'issue'
       ? reply(409, { error: 'Este pedido já foi pago ou cancelado.' })
       : reply(200, { status: ended, storeName: store.name, orderNumber: order.order_number,fulfillmentStatus:order.status,
         ...(ended==='paid'&&order.payment_reported_by_customer?{paymentReportedByCustomer:true,total:Number(order.total),receiptToken,
-          receiptDestinations:deps.env('ORDER_RECEIPT_CONTACTS_ENABLED')==='true'&&deps.receiptDestinations?await deps.receiptDestinations(grant.storeId,order.pickup_location_id,order.id):undefined}:{}),
+          receiptDestinations:deps.env('ORDER_RECEIPT_CONTACTS_ENABLED')!=='false'&&deps.receiptDestinations?await deps.receiptDestinations(grant.storeId,order.pickup_location_id,order.id):undefined}:{}),
       });
     if (order.payment_method !== 'pix' || order.payment_status !== 'pending' || !store.pix_enabled || !Number.isFinite(Number(order.total)) || Number(order.total) <= 0) return reply(410, { error: 'Pagamento indisponível. Fale com a loja.' });
     let pixPayload: string;
@@ -103,7 +107,7 @@ export const createOrderPaymentHandler = (deps: Dependencies) => async (req: Req
       return reply(200, { token: `${base64(iv)}.${base64(new Uint8Array(ciphertext))}`, expiresAt: new Date(grant.expiresAt).toISOString() });
     }
     if (grant.fingerprint !== fingerprint) return reply(410, { error: 'O pedido ou os dados do Pix mudaram. Solicite um novo link à loja.' });
-    const receiptDestinations=deps.env('ORDER_RECEIPT_CONTACTS_ENABLED')==='true'&&deps.receiptDestinations?await deps.receiptDestinations(grant.storeId,order.pickup_location_id,order.id):undefined;
+    const receiptDestinations=deps.env('ORDER_RECEIPT_CONTACTS_ENABLED')!=='false'&&deps.receiptDestinations?await deps.receiptDestinations(grant.storeId,order.pickup_location_id,order.id):undefined;
     return reply(200, { ...(receiptToken?{receiptToken}:{}), ...(receiptDestinations!==undefined?{receiptDestinations}:{}), status: 'pending', storeName: store.name, orderNumber: order.order_number, total: Number(order.total), receiver: store.pix_holder_name, pixPayload, expiresAt: new Date(grant.expiresAt).toISOString(),fulfillmentStatus:order.status });
   } catch {
     return reply(400, { error: 'Não foi possível consultar o pagamento. Tente novamente.' });

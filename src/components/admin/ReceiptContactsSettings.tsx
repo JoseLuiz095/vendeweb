@@ -31,8 +31,39 @@ export default function ReceiptContactsSettings({storeId,demo=false}:{storeId:st
   setSaving(true);setState(s=>({...s,error:'',saved:false}));
   try{if(policy.supported&&pickupAutomationSupported)await receiptPolicyApi.save(id,values,links,autoPaid,autoPickupPointIds);else if(policy.supported)await receiptPolicyApi.saveLegacy(id,values,links,autoPaid);else await receiptContactsApi.save(id,values,links);if(current.current===id)setState(s=>({...s,saved:true}));}catch{if(current.current===id)setState(s=>({...s,error:'Não foi possível salvar. Seu rascunho foi mantido; tente novamente.',saved:false}));}finally{if(current.current===id)setSaving(false);}
  }
- return <section id="comprovantes" className="admin-card receipt-settings" aria-labelledby="receipt-settings-title"><h2 id="receipt-settings-title">Destinos dos comprovantes</h2><p>Use o WhatsApp da loja acima ou cadastre um destino para cada ponto. Quando a loja não tem número, o cliente escolhe um dos pontos cadastrados. A conferência bancária continua sob responsabilidade da loja.</p>
- {!receiptContactsEnabled&&<p className="receipt-settings-notice" role="status">O envio por contato do ponto aguarda a ativação da plataforma. Os destinos abaixo só passam a valer para o cliente após essa ativação.</p>}
- {(!visible||state.loading)?<p role="status">Carregando contatos…</p>:<>{state.error&&<p role="alert">{state.error}</p>}{!demo&&<>{points.map(p=><div key={p.id}><PointContactsEditor storeId={storeId} pointId={p.id} pointName={p.name}/><fieldset className="receipt-point-policy"><legend>{p.name}</legend><label className="receipt-settings-confirm"><input type="checkbox" checked={p.auto_pickup_on_receipt} disabled={saving||!loaded||!p.autoPickupSupported||!policy.supported||!policy.ready||!autoPaid} onChange={e=>{setPoints(list=>list.map(x=>x.id===p.id?{...x,auto_pickup_on_receipt:e.target.checked}:x));setState(s=>({...s,saved:false}));setConfirmed(false);}}/><span>Concluir e baixar a retirada imediata quando o cliente confirmar que enviou o comprovante</span></label><small>Somente pedido por este ponto, para retirada no mesmo momento e sem agendamento. O histórico guarda quem informou o envio; o admin pode conferir o estoque no fechamento.</small></fieldset></div>)}{points.some(p=>!p.autoPickupSupported)&&<p role="status">A baixa automática por ponto ainda aguarda ativação da plataforma; os contatos podem ser configurados normalmente.</p>}<p>O link geral usa o WhatsApp da loja. Sem ele, o cliente escolhe um dos pontos com destino cadastrado. Um pedido originado em um ponto usa o contato desse ponto; caso não exista, usa o WhatsApp da loja.</p><div className="receipt-settings-policy"><label className="receipt-settings-confirm"><input type="checkbox" checked={autoPaid} disabled={saving||!loaded||!policy.supported||(!policy.ready&&!autoPaid)} onChange={e=>{setAutoPaid(e.target.checked);setConfirmed(false);setState(s=>({...s,saved:false}));}}/><span>Permitir que o cliente informe o pagamento depois de enviar o comprovante</span></label><p>O cliente abre o WhatsApp, anexa e envia o comprovante e depois confirma o envio nesta página. Isso registra uma declaração do cliente, sem verificar o recebimento bancário. A loja pode conferir ou devolver para A receber.</p>{(!policy.supported||!policy.ready)&&<small>Esta opção aguarda a ativação segura da plataforma.</small>}</div><label className="receipt-settings-confirm"><input type="checkbox" checked={confirmed} disabled={saving||!loaded} onChange={e=>setConfirmed(e.target.checked)}/><span>Conferi os destinos de comprovantes dos pontos.</span></label><button type="button" className="primary-button" disabled={saving||!loaded} onClick={()=>void save()}>{saving?'Salvando contatos…':'Salvar regras de comprovantes'}</button>{state.saved&&<p role="status">Regras dos comprovantes salvas.</p>}<button type="button" className="text-button" disabled={saving} onClick={()=>setAttempt(x=>x+1)}>Recarregar contatos</button></>}</>}
+ return <section id="comprovantes" className="admin-card receipt-settings" aria-labelledby="receipt-settings-title">
+  <h2 id="receipt-settings-title">Destinos dos comprovantes</h2>
+  <p>Use o WhatsApp da loja acima ou cadastre um destino para cada ponto. Quando a loja não tem número, o cliente escolhe um dos pontos cadastrados. A conferência bancária continua sob responsabilidade da loja.</p>
+  {!receiptContactsEnabled&&<p className="receipt-settings-notice" role="status">O envio por contato do ponto aguarda a ativação da plataforma. Os destinos abaixo só passam a valer para o cliente após essa ativação.</p>}
+  {(!visible||state.loading)?<p role="status">Carregando contatos…</p>:<>
+   {state.error&&<p role="alert">{state.error}</p>}
+   {!demo&&<>
+    {points.map(point=><div key={point.id}>
+     <PointContactsEditor storeId={storeId} pointId={point.id} pointName={point.name}/>
+     <fieldset className="receipt-point-policy">
+      <legend>{point.name}</legend>
+      <label className="receipt-settings-confirm">
+       <input type="checkbox" checked={point.auto_pickup_on_receipt} disabled={saving||!loaded||!point.autoPickupSupported||!policy.supported||!policy.ready||!autoPaid} onChange={event=>{setPoints(list=>list.map(item=>item.id===point.id?{...item,auto_pickup_on_receipt:event.target.checked}:item));setState(currentState=>({...currentState,saved:false}));setConfirmed(false);}}/>
+       <span>Concluir a retirada e baixar o estoque após a loja confirmar o crédito Pix no banco</span>
+      </label>
+      <small>Aplica-se a pedido do site para retirada imediata neste ponto, sem agendamento e com reserva válida. A confirmação do cliente não conclui a retirada nem baixa o estoque.</small>
+     </fieldset>
+    </div>)}
+    {points.some(point=>!point.autoPickupSupported)&&<p role="status">A baixa automática por ponto ainda aguarda ativação da plataforma; os contatos podem ser configurados normalmente.</p>}
+    <p>O link geral usa o WhatsApp da loja. Sem ele, o cliente escolhe um ponto com destino cadastrado. Um pedido originado em um ponto usa o contato desse ponto; se não houver, usa o WhatsApp da loja.</p>
+    <div className="receipt-settings-policy">
+     <label className="receipt-settings-confirm">
+      <input type="checkbox" checked={autoPaid} disabled={saving||!loaded||!policy.supported||(!policy.ready&&!autoPaid)} onChange={event=>{setAutoPaid(event.target.checked);setConfirmed(false);setState(currentState=>({...currentState,saved:false}));}}/>
+      <span>Permitir que o cliente informe que enviou o comprovante</span>
+     </label>
+     <p>O cliente anexa e envia o comprovante pelo WhatsApp e depois informa o envio nesta página. Isso cria um aviso pendente; não confirma o crédito bancário, não marca o pedido como pago e não conclui a retirada. Um administrador autorizado confere o crédito no banco e confirma com MFA.</p>
+     {(!policy.supported||!policy.ready)&&<small>Esta opção aguarda a ativação segura da plataforma.</small>}
+    </div>
+    <label className="receipt-settings-confirm"><input type="checkbox" checked={confirmed} disabled={saving||!loaded} onChange={event=>setConfirmed(event.target.checked)}/><span>Conferi os destinos de comprovantes dos pontos.</span></label>
+    <button type="button" className="primary-button" disabled={saving||!loaded} onClick={()=>void save()}>{saving?'Salvando contatos…':'Salvar regras de comprovantes'}</button>
+    {state.saved&&<p role="status">Regras dos comprovantes salvas.</p>}
+    <button type="button" className="text-button" disabled={saving} onClick={()=>setAttempt(value=>value+1)}>Recarregar contatos</button>
+   </>}
+  </>}
  </section>;
 }

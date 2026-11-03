@@ -3,15 +3,15 @@ import { useEffect, useRef, useState } from 'react';
 import { getReceiptDestinations, receiptContactsEnabled, type ReceiptDestinations } from '../services/receiptContactsApi';
 import { getWhatsAppUrl } from '../utils/whatsapp';
 import './receipt-contacts.css';
-/** Encaminha comprovantes e só registra a declaração quando o cliente confirma o envio. */
-export default function ReceiptDestination({storeId,pointId,destinations,legacyPhone='',message,onOpen,receiptToken,onReported}:{storeId?:string;pointId?:string;destinations?:ReceiptDestinations;legacyPhone?:string;message:string;onOpen?:()=>void;receiptToken?:string;onReported?:(autoPickedUp:boolean)=>void}){
- const [reporting,setReporting]=useState(false),[reported,setReported]=useState(false),[localOpened,setLocalOpened]=useState(false),[autoPickedUp,setAutoPickedUp]=useState(false),[reportError,setReportError]=useState('');const inFlight=useRef(false);
+/** Encaminha comprovantes e registra apenas que o cliente informou o envio. */
+export default function ReceiptDestination({storeId,pointId,destinations,legacyPhone='',message,onOpen,receiptToken,onReported}:{storeId?:string;pointId?:string;destinations?:ReceiptDestinations;legacyPhone?:string;message:string;onOpen?:()=>void;receiptToken?:string;onReported?:()=>void}){
+ const [reporting,setReporting]=useState(false),[reported,setReported]=useState(false),[localOpened,setLocalOpened]=useState(false),[reportError,setReportError]=useState('');const inFlight=useRef(false);
  const isOpened=localOpened;
  const key=`${storeId||''}:${pointId||''}:${receiptToken||''}`;
  const activeKey=useRef(key);activeKey.current=key;
  const [attempt,setAttempt]=useState(0),[choice,setChoice]=useState({key:'',id:''});
  const [state,setState]=useState<{key:string;data?:ReceiptDestinations;loading:boolean;error:string}>({key:'',loading:true,error:''});
- useEffect(()=>{setReported(false);setLocalOpened(false);setAutoPickedUp(false);setReportError('');},[key]);
+ useEffect(()=>{setReported(false);setLocalOpened(false);setReportError('');},[key]);
  useEffect(()=>{let active=true;setChoice({key,id:''});
   if(destinations){setState({key,data:destinations,loading:false,error:''});return;}
   if(!storeId||!receiptContactsEnabled){setState({key,data:{mode:'general',contacts:[]},loading:false,error:''});return;}
@@ -28,7 +28,7 @@ export default function ReceiptDestination({storeId,pointId,destinations,legacyP
  const confirmReceiptSent=async()=>{
   if(!receiptToken||inFlight.current||!phone)return;inFlight.current=true;setReporting(true);setReportError('');
   const requestKey=key;
-  try{const result=await reportOrderReceipt(receiptToken);if(activeKey.current!==requestKey)return;setReported(true);setAutoPickedUp(result.autoPickedUp);onReported?.(result.autoPickedUp);}
+  try{await reportOrderReceipt(receiptToken);if(activeKey.current!==requestKey)return;setReported(true);onReported?.();}
   catch(error){if(activeKey.current===requestKey)setReportError(error instanceof Error?error.message:'Não foi possível registrar o aviso. Tente novamente.');}
   finally{inFlight.current=false;if(activeKey.current===requestKey)setReporting(false);}
  };
@@ -43,7 +43,7 @@ export default function ReceiptDestination({storeId,pointId,destinations,legacyP
  {receiptToken&&phone&&isOpened&&!reported&&<button type="button" className="primary-button" disabled={reporting} onClick={()=>void confirmReceiptSent()}>{reporting?'Registrando…':'Já enviei o comprovante'}</button>}
  </>}
  </>}
- {reportError&&<><p role="alert">{reportError}</p>{phone&&<a href={getWhatsAppUrl(phone,message)} target="_blank" rel="noopener noreferrer">Abrir o WhatsApp novamente</a>}</>}{reported&&<p role="status">{autoPickedUp?'Comprovante informado. O ponto registrou a retirada e baixou o estoque.':'Comprovante informado. A loja pode conferir o recebimento ou devolver o pedido para A receber.'}</p>}
- {receiptToken&&<p>{isOpened&&!reported?'Depois de anexar e enviar o comprovante, volte aqui e confirme o envio.':''} A confirmação registra a declaração do cliente. Ela não verifica o recebimento bancário.{autoPickedUp?' Ao confirmar, a retirada imediata deste ponto é concluída e o estoque é baixado.':''}</p>}
+ {reportError&&<><p role="alert">{reportError}</p>{phone&&<a href={getWhatsAppUrl(phone,message)} target="_blank" rel="noopener noreferrer">Abrir o WhatsApp novamente</a>}</>}{reported&&<p role="status">Comprovante informado. O pedido continua aguardando a conferência do crédito pela loja; ainda não está pago nem retirado.</p>}
+ {receiptToken&&<p>{isOpened&&!reported?'Depois de anexar e enviar o comprovante, volte aqui e confirme o envio.':''} Essa confirmação só avisa a loja. Ela não verifica o crédito, não marca o pedido como pago e não conclui a retirada.</p>}
  {!receiptToken&&<p>Após pagar, anexe o comprovante na conversa. A loja confere o recebimento; a cópia ou abertura do WhatsApp não confirma o pagamento.</p>}</section>;
 }

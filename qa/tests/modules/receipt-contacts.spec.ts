@@ -50,7 +50,7 @@ test('ponto sem número exclusivo usa o WhatsApp cadastrado da loja',async({page
 test('abrir WhatsApp não informa pagamento; confirmação explícita registra o envio',async({page,context})=>{
  await setup(page);let reports=0;
  await page.route('**/rest/v1/rpc/food_get_receipt_destinations_v2',r=>r.fulfill({json:{mode:'point',contacts:[contacts[0]]}}));
- await page.route('**/functions/v1/food-order-payment',r=>{expect(r.request().postDataJSON()).toEqual({action:'report_receipt',token:'test.receipt'});reports++;return r.fulfill({json:{ok:true,status:'paid',autoPickedUp:false}})});
+ await page.route('**/functions/v1/food-order-payment',r=>{expect(r.request().postDataJSON()).toEqual({action:'report_receipt',token:'test.receipt'});reports++;return r.fulfill({json:{ok:true,status:'reported',paymentReportedByCustomer:true,autoPickedUp:false}})});
  await context.route('https://wa.me/**',r=>r.fulfill({contentType:'text/plain',body:'Canal sintético.'}));
  await success(page,point);const section=page.getByRole('region',{name:'Enviar comprovante'});expect(reports).toBe(0);
  const popup=page.waitForEvent('popup');await section.getByRole('link',{name:'Abrir WhatsApp e enviar comprovante'}).click();await (await popup).close();expect(reports).toBe(0);

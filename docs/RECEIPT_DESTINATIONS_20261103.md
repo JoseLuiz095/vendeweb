@@ -1,5 +1,7 @@
 # Destinos de comprovantes — homologação (03/11/2026)
 
+> Registro histórico do envio por WhatsApp. Para o estado atual da confirmação de pagamento, migrations pendentes e publicação, consulte [RECEIPT_PAYMENT_VERIFIED_PUBLICATION_20261103.md](./RECEIPT_PAYMENT_VERIFIED_PUBLICATION_20261103.md). Este documento não comprova que a confirmação bancária esteja publicada.
+
 Base: `main` em `a2014c0d150b374769cf56fc8ec7bc589afc0847` (PR #151 integrado).
 
 ## Contrato

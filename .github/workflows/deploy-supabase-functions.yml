@@ -24,6 +24,16 @@ jobs:
             echo "Secrets SUPABASE_ACCESS_TOKEN e/ou SUPABASE_PROJECT_REF nao configurados. Deploy ignorado."
           fi
 
+      - name: Validar projeto de produção autorizado
+        if: steps.config.outputs.ready == 'true'
+        env:
+          SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+        run: |
+          if [ "$SUPABASE_PROJECT_REF" != "elttryavkeartoxgdgse" ]; then
+            echo "Projeto alvo incorreto. Este workflow só pode publicar no VendeWeb (elttryavkeartoxgdgse)." >&2
+            exit 1
+          fi
+
       - name: Instalar Supabase CLI
         if: steps.config.outputs.ready == 'true'
         uses: supabase/setup-cli@v1

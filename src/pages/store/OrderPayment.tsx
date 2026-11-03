@@ -59,8 +59,8 @@ export default function OrderPayment() {
           <button type="button" className="secondary-button" onClick={retry}>Verificar status do pagamento</button>
         </>}
         <small role="status">Aguardando confirmação da loja. Enviar o comprovante não verifica o recebimento bancário.</small>
-      </> : <p role="status">{payment.status === 'paid' ? payment.paymentReportedByCustomer?`Pago informado pelo cliente${payment.fulfillmentStatus==='picked_up'?' · retirada registrada':''}. A loja pode conferir o recebimento.`:'Pagamento confirmado pela loja. Não pague novamente.' : 'Pedido cancelado. Não efetue o pagamento.'}</p>}
-      {payment.status!=='cancelled'&&(step==='receipt'||(payment.status==='paid'&&payment.receiptDestinations))&&<ReceiptDestination receiptToken={payment.receiptToken} onReported={(autoPickedUp)=>setPayment(current=>current?{...current,status:'paid',paymentReportedByCustomer:true,fulfillmentStatus:autoPickedUp?'picked_up':current.fulfillmentStatus}:current)} destinations={payment.receiptDestinations??{mode:'unavailable',contacts:[]}} message={`Olá! Vou anexar o comprovante do pedido #${formatOrderNumber(payment.orderNumber)} da ${payment.storeName}, no valor de ${currency.format(payment.total!)}.`}/>}
+      </> : <p role="status">{payment.status === 'reported' ? 'Comprovante informado. Aguardando a loja confirmar o crédito bancário. O pedido ainda não está pago nem retirado; não faça outro Pix.' : payment.status === 'paid' ? 'Pagamento confirmado pela loja. Não pague novamente.' : 'Pedido cancelado. Não efetue o pagamento.'}</p>}
+      {payment.status==='pending'&&step==='receipt'&&<ReceiptDestination receiptToken={payment.receiptToken} onReported={()=>setPayment(current=>current?{...current,status:'reported',paymentReportedByCustomer:true}:current)} destinations={payment.receiptDestinations??{mode:'unavailable',contacts:[]}} message={`Olá! Vou anexar o comprovante do pedido #${formatOrderNumber(payment.orderNumber)} da ${payment.storeName}, no valor de ${currency.format(payment.total!)}.`}/>}
     </>}
   </section></main>;
 }

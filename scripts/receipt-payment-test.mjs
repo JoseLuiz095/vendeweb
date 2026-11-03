@@ -20,10 +20,10 @@ test('capability de comprovante tem escopo, prazo e criptografia autenticada',as
 function fixture(){
  const order={id:orderId,store_id:storeId,order_number:1,total:12.5,payment_method:'pix',payment_status:'pending',status:'received',payment_receipt_version:0};
  const store={id:storeId,name:'Loja sintética',active:true,access_status:'online',pix_enabled:true,pix_receipt_mode:'key',pix_key:'test@example.invalid',pix_holder_name:'Teste',city:'Teste',receipt_click_marks_paid:true};
- const env={ORDER_PAYMENT_LINK_ENABLED:'true',ORDER_RECEIPT_AUTOPAID_ENABLED:'true',ORDER_RECEIPT_CONTACTS_ENABLED:'true',ORDER_PAYMENT_LINK_SECRET:secret,ORDER_PAYMENT_ALLOWED_ORIGINS:origin};
+ const env={ORDER_PAYMENT_LINK_ENABLED:'true',ORDER_RECEIPT_REPORTING_ENABLED:'true',ORDER_RECEIPT_CONTACTS_ENABLED:'true',ORDER_PAYMENT_LINK_SECRET:secret,ORDER_PAYMENT_ALLOWED_ORIGINS:origin};
  const writes=[];let fail=false;
  const handler=createOrderPaymentHandler({env:k=>env[k],now:()=>now,authorizedOrder:async()=>order,order:async()=>order,store:async()=>store,
-   reportReceipt:async claim=>{writes.push(claim);if(fail)throw new Error('conflict');return{ok:true,autoPickedUp:false}},receiptDestinations:async()=>({mode:'general',contacts:[]})});
+   reportReceipt:async claim=>{writes.push(claim);if(fail)throw new Error('conflict');order.payment_reported_by_customer=true;return{ok:true,autoPickedUp:false}},receiptDestinations:async()=>({mode:'general',contacts:[]})});
  const call=async body=>{const r=await handler(new Request('https://api.example.invalid',{method:'POST',headers:{Origin:origin,Authorization:'Bearer synthetic'},body:JSON.stringify(body)}));return {status:r.status,body:await r.json()}};
  return{call,env,order,store,writes,fail:()=>{fail=true}};
 }
@@ -32,22 +32,23 @@ test('leitura Pix não autoriza escrita; opt-in dá capability separada',async()
  assert.equal((await f.call({action:'report_receipt',token:issued.body.token})).status,410);assert.equal(f.writes.length,0);
  const read=await f.call({action:'resolve',token:issued.body.token});assert.ok(read.body.receiptToken);
  const report=await f.call({action:'report_receipt',token:read.body.receiptToken,storeId:orderId,orderId:storeId,amount:0.01});
- assert.equal(report.status,200);assert.deepEqual(f.writes,[{...input,v:1,expiresAt:now+86400000}]);
+ assert.equal(report.status,200);assert.equal(report.body.status,'reported');assert.equal(report.body.autoPickedUp,false);assert.deepEqual(f.writes,[{...input,v:1,expiresAt:now+86400000}]);
+ const refreshed=await f.call({action:'resolve',token:issued.body.token});assert.equal(refreshed.body.status,'reported');assert.equal(refreshed.body.pixPayload,undefined);assert.equal(refreshed.body.receiptToken,undefined);
  assert.equal((await f.call({action:'resolve',token:read.body.receiptToken})).status,404);
 });
-test('flags, política e versão bloqueiam nova emissão; falha do servidor não retorna pago',async()=>{
+test('flags, política e versão bloqueiam nova emissão; falha do servidor não confirma pagamento',async()=>{
  const f=fixture();const token=await mintReceiptClaim(input,secret,now);
- f.env.ORDER_RECEIPT_AUTOPAID_ENABLED='false';assert.equal((await f.call({action:'receipt_capabilities'})).body.autoPaidConfigured,false);
+ f.env.ORDER_RECEIPT_REPORTING_ENABLED='false';assert.equal((await f.call({action:'receipt_capabilities'})).body.receiptReportingConfigured,false);
  assert.equal((await f.call({action:'report_receipt',token})).status,503);assert.equal(f.writes.length,0);
- f.env.ORDER_RECEIPT_AUTOPAID_ENABLED='true';const issued=await f.call({action:'issue',storeId,orderId});
+ f.env.ORDER_RECEIPT_REPORTING_ENABLED='true';const issued=await f.call({action:'issue',storeId,orderId});
  f.store.receipt_click_marks_paid=false;assert.equal((await f.call({action:'resolve',token:issued.body.token})).body.receiptToken,undefined);
  f.store.receipt_click_marks_paid=true;f.order.payment_receipt_version=1;assert.equal((await f.call({action:'resolve',token:issued.body.token})).body.receiptToken,undefined);
  f.fail();const r=await f.call({action:'report_receipt',token});assert.equal(r.status,409);assert.equal(r.body.status,undefined);
 });
-test('resposta incompleta ou rejeitada pelo banco nunca anuncia pedido pago',async()=>{
+test('resposta incompleta ou rejeitada pelo banco nunca anuncia pagamento confirmado',async()=>{
  const token=await mintReceiptClaim(input,secret,now);
  for(const invalid of [null,undefined,{}, {ok:false,autoPickedUp:true},{ok:true},{ok:true,autoPickedUp:'true'}]){
-  const handler=createOrderPaymentHandler({env:k=>({ORDER_RECEIPT_AUTOPAID_ENABLED:'true',ORDER_RECEIPT_CONTACTS_ENABLED:'true',ORDER_PAYMENT_LINK_SECRET:secret,ORDER_PAYMENT_ALLOWED_ORIGINS:origin})[k],now:()=>now,
+  const handler=createOrderPaymentHandler({env:k=>({ORDER_RECEIPT_REPORTING_ENABLED:'true',ORDER_RECEIPT_CONTACTS_ENABLED:'true',ORDER_PAYMENT_LINK_SECRET:secret,ORDER_PAYMENT_ALLOWED_ORIGINS:origin})[k],now:()=>now,
    reportReceipt:async()=>invalid,authorizedOrder:async()=>null,order:async()=>null,store:async()=>null});
   const response=await handler(new Request('https://api.example.invalid',{method:'POST',headers:{Origin:origin},body:JSON.stringify({action:'report_receipt',token})}));
   assert.equal(response.status,409);assert.equal((await response.json()).status,undefined);
