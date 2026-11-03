@@ -277,8 +277,8 @@ begin
   end if;
  end if;
  update public.food_orders set payment_status='paid',
-  payment_received_at=coalesce(payment_received_at,v_now),
-  payment_confirmed_by=coalesce(payment_confirmed_by,auth.uid()),
+  payment_received_at=v_now,
+  payment_confirmed_by=auth.uid(),
   status=case when v_auto_pickup then 'picked_up' else status end,updated_at=v_now
  where id=p_order_id returning * into v_order;
  insert into public.food_platform_event_log(actor_user_id,store_id,kind,action,result,route,metadata)
