@@ -16,6 +16,6 @@ for(const width of[320,390,768,1366])test(`prévia interativa e paleta da loja e
  await page.getByRole('button',{name:'Salvar configurações',exact:true}).focus();await page.keyboard.press('Enter');await expect(page.getByText('Configurações salvas.',{exact:true})).toBeVisible();expect(writes).toHaveLength(1);expect(writes[0].visual_theme.accentColor).toBe('#123456');expect(writes[0].visual_theme.preset).toBe('doce_lua');expect(writes[0]).not.toHaveProperty('slug');
  await page.reload();await editor.getByRole('button',{name:'Editar cor de apoio na prévia'}).first().click();await expect(editor.getByRole('group',{name:'Editar cor selecionada'}).getByLabel('Código hexadecimal')).toHaveValue('#123456');
 });
-test('contatos visíveis com ativação pendente; erro de schema bloqueia gravação',async({page})=>{
+test('erro de schema dos destinos bloqueia gravação',async({page})=>{
  await setup(page);let writes=0;await page.route('**/rest/v1/food_receipt_contacts?*',r=>r.fulfill({status:404,json:{code:'42P01',message:'relation does not exist'}}));await page.route('**/rest/v1/rpc/food_save_receipt_contacts_v1',r=>{writes++;return r.fulfill({json:null})});await page.goto('/admin/configuracoes');const card=page.getByRole('region',{name:'Telefones para confirmação e comprovantes'});await expect(card.getByRole('alert')).toContainText('ativar');await expect(card.getByRole('button',{name:'Salvar regras de comprovantes'})).toBeDisabled();expect(writes).toBe(0);
 });

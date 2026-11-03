@@ -9,7 +9,7 @@ const contacts=[{slot:1,name:'Admin sintético A',phone:'5511000000001'},{slot:2
 const pix=buildStaticPixCopyPaste({key:'test@example.invalid',receiver:'Loja Teste',city:'Linhares',amount:12.5,txid:'PED42'});
 async function setup(page:any,auth=false){
  const external:string[]=[],writes:string[]=[];
- await page.route('**/*',(r:any)=>{const u=new URL(r.request().url());if(u.origin==='http://127.0.0.1:5174'||u.protocol==='data:')return r.continue();external.push(u.origin);return r.abort('blockedbyclient')});
+ await page.route('**/*',(r:any)=>{const u=new URL(r.request().url());if((u.hostname==='127.0.0.1'&&['5174','5193'].includes(u.port))||u.protocol==='data:')return r.continue();external.push(u.origin);return r.abort('blockedbyclient')});
  await mockBackend(page,{auth});
  page.on('request',(r:any)=>{if(r.method()!=='GET'&&/confirm|update_order|adjust|transfer|financial/.test(r.url()))writes.push(r.url())});
  return {external,writes};

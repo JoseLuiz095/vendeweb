@@ -19,9 +19,8 @@ for(const width of [320,390,1366])test(`WhatsApp único do ponto persiste e falh
   stored=body.p_contacts;return r.fulfill({json:null});
  });
  const open=async()=>{
-  await page.goto('/admin/estoque?visao=locais');
-  await page.getByText('Gerenciar locais e pontos de retirada',{exact:true}).click();
-  await page.getByText('Gerenciar contatos deste ponto',{exact:true}).click();
+  await page.goto('/admin/configuracoes');
+  await expect(page.getByRole('region',{name:'Destinos dos comprovantes'})).toBeVisible();
  };
  await open();const editor=page.locator('.point-contacts-editor');
  await editor.getByLabel('Nome para identificação').fill('Pessoa fictícia');

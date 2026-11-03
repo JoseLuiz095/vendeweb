@@ -1,6 +1,8 @@
 import {receiptPolicyApi} from './receiptPolicyApi';
 import { restFetch, SupabaseHttpError } from '../lib/supabaseRest';
-export const receiptContactsEnabled = import.meta.env.VITE_RECEIPT_CONTACTS_ENABLED === 'true';
+// A RPC v2 já está instalada. O encaminhamento de comprovantes independe da
+// declaração opcional de pagamento, que permanece desativada.
+export const receiptContactsEnabled = true;
 export type ReceiptContact = { slot: number; name: string; phone: string; pointId?:string };
 export type ReceiptDestinations = { mode:'general'|'point'|'selection'|'unassigned'|'unavailable'; contacts:ReceiptContact[] };
 export function parseReceiptDestinations(value:unknown):ReceiptDestinations {
