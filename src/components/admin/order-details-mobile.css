@@ -19,3 +19,7 @@
   .order-details-modal__edit-grid label{font-size:.85rem}.order-details-modal__edit-grid input,.order-details-modal__edit-grid textarea{min-width:0;min-height:44px;font-size:1rem}
   .order-details-modal__facts strong{font-size:.88rem}.order-details-modal__actions>*{min-height:44px}.order-details-modal__notes{overflow-wrap:anywhere;font-size:.85rem}
 }
+
+.order-details-modal__add-product { display: flex; flex-wrap: wrap; align-items: end; gap: 8px; margin-top: 12px; }
+.order-details-modal__add-product label, .order-details-modal__add-product small { flex-basis: 100%; }
+.order-details-modal__add-product select { flex: 1 1 180px; min-width: 0; }

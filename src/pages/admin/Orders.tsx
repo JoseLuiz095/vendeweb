@@ -106,7 +106,7 @@ const historyStatuses = new Set<OrderStatus>(['delivered', 'cancelled']);
 const isHistoryOrder = (order: Pick<Order, 'status'>) => historyStatuses.has(order.status);
 // A entrega não equivale à conferência bancária da declaração do cliente.
 const needsPaymentReview = (order: Pick<Order, 'status' | 'paymentStatus' | 'paymentReportedByCustomer'>) =>
-  order.status !== 'cancelled' && (order.paymentReportedByCustomer === true || order.paymentStatus !== 'paid');
+  order.status !== 'cancelled' && order.paymentStatus !== 'paid';
 
 /** Saldo que ainda pode ser usado por um novo pedido. A reserva de pedidos
  * pendentes também precisa ser descontada para que o avulso ofereça
