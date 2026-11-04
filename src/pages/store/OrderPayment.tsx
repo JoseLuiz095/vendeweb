@@ -42,8 +42,7 @@ export default function OrderPayment() {
   }, [payment?.expiresAt, retry]);
   const receiptMessage = useMemo(() => {
     if (!payment) return '';
-    const products = (payment.items||[]).map(item => '• '+item.quantity+'x '+item.productName+(item.variantName?' ('+item.variantName+')':'')).join('\n') || '• Itens do pedido #'+formatOrderNumber(payment.orderNumber);
-    return 'Olá! Segue o comprovante do pedido #'+formatOrderNumber(payment.orderNumber)+' da '+payment.storeName+'.\n\nProdutos:\n'+products+'\n\nValor total: '+currency.format(payment.total||0)+'.';
+    return `Olá! Vou enviar por aqui o comprovante do pedido #${formatOrderNumber(payment.orderNumber)} (${currency.format(payment.total || 0)}).`;
   }, [payment]);
   return <main className="order-payment-page"><section className="order-payment-card" aria-busy={loading}>
     <span>VendeWeb · Pagamento</span><h1>Pagamento Pix</h1>
