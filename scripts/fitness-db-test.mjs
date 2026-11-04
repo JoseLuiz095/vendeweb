@@ -1,3 +1,5 @@
+import { testPaidBooking } from './fitness-paid-booking-test.mjs';
+import { testContent } from './fitness-content-test.mjs';
 import { PGlite } from '@electric-sql/pglite';
 import { readFileSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
@@ -58,6 +60,8 @@ try {
     '20261030143000_professional_content_student_reminders.sql',
     '20261030150000_food_fitness_phone_session_enforcement.sql',
     '20261030170000_food_fitness_pilot_offers.sql',
+    '20261103164300_food_fitness_content_delivery.sql',
+    '20261103164842_food_fitness_paid_appointments.sql',
   ]){
     try { await db.exec(readFileSync(`supabase/migrations/${file}`,'utf8')); }
     catch (error) { throw new Error(`Migração ${file}: ${error.message} (posição ${error.position ?? 'n/a'})`); }
@@ -374,6 +378,8 @@ try {
   await assert.rejects(()=>rpc('food_fitness_student_session_admin_list_v1',[store]));
   await assert.rejects(()=>rpc('food_fitness_student_session_admin_v1',[store,studentProfile.client_id,'lost_device']));
   assert.equal((await query('select * from food_fitness_workouts')).length,0);
+  await testPaidBooking({db,rpc,session,store,other,owner,student,student2});
+  await testContent({db,rpc,session,store,other,owner,nutritionist,student,student2,manager});
   console.log('OK Fitness: sessão por aluno/loja, MFA de Admin e isolamento entre alunos e lojas.');
 } finally {
   await db.close();

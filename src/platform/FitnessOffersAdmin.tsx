@@ -50,7 +50,12 @@ export function FitnessOffersAdmin({ store }: { store: string }) {
     if (busy) return;
     setBusy(true); setError(''); setNotice('');
     try {
-      await fitnessOffersApi.save(store, { ...draft, price_cents: cents(price) });
+      const item={...draft,price_cents:cents(price)};
+      const result=await fitnessOffersApi.save(store,{...item,published:false});
+      const original=offers.find(offer=>offer.id===draft.id);
+      const fields=['delivery_mode','delivery_terms','location_label','modality','arrival_instructions','lead_minutes'] as const;
+      if(!original||fields.some(key=>original[key]!==item[key]))await fitnessOffersApi.delivery(store,result.id,item);
+      if(item.published)await fitnessOffersApi.save(store,{...item,id:result.id});
       await reload();
       setNotice(draft.published ? 'Oferta publicada após a validação profissional.' : 'Oferta salva em rascunho.');
       setDraft(blank); setPrice('');
@@ -73,7 +78,7 @@ export function FitnessOffersAdmin({ store }: { store: string }) {
   const needsService = draft.kind !== 'workout';
   const professionalKind = draft.kind.startsWith('nutrition') ? 'nutrition' : 'training';
   const availableStaff = staff.filter(item => item.kind === professionalKind && item.council === (professionalKind === 'nutrition' ? 'CRN' : 'CREF'));
-  const publicationAvailable = draft.kind === 'workout';
+  const publicationAvailable = true;
   const serviceKind = professionalKind;
   const activeServices = services.filter(item => item.active && item.kind === serviceKind && item.professional_user_id === draft.professional_user_id);
   const pendingOrders = orders.filter(order => order.state === 'pending');
@@ -92,6 +97,12 @@ export function FitnessOffersAdmin({ store }: { store: string }) {
       {needsWorkout && <label>Modelo aprovado<select required value={draft.workout_id || ''} onChange={e => setDraft({ ...draft, workout_id: e.target.value || null })}><option value="">Selecione</option>{workouts.filter(item => item.status === 'approved' && item.professional?.user_id === draft.professional_user_id).map(item => <option key={item.id} value={item.id}>{item.title}</option>)}</select></label>}
       {needsService && <label>Serviço da agenda<select required value={draft.service_id || ''} onChange={e => setDraft({ ...draft, service_id: e.target.value || null })}><option value="">Selecione</option>{activeServices.map(item => <option key={item.id} value={item.id}>{String(item.name)}</option>)}</select></label>}
       <label className="fitness-wide">Descrição<textarea required minLength={10} maxLength={2000} rows={3} value={draft.description} onChange={e => setDraft({ ...draft, description: e.target.value })}/></label>
+      <label>Entrega<select value={draft.delivery_mode||'ready'} onChange={e=>setDraft({...draft,delivery_mode:e.target.value as 'ready'|'personalized'})}><option value="ready">Ficha pronta aprovada</option><option value="personalized">Revisão individual após compra/atendimento</option></select></label>
+      <label>Condições e prazo de entrega<textarea maxLength={2000} value={draft.delivery_terms||''} onChange={e=>setDraft({...draft,delivery_terms:e.target.value})}/></label>
+      <label>Modalidade<select value={draft.modality||'onsite'} onChange={e=>setDraft({...draft,modality:e.target.value as 'onsite'|'online'})}><option value="onsite">Presencial</option><option value="online">Online</option></select></label>
+      <label>Unidade/endereço ou instrução de acesso online<input maxLength={500} value={draft.location_label||''} onChange={e=>setDraft({...draft,location_label:e.target.value})}/></label>
+      <label>Instruções de chegada<textarea maxLength={1000} value={draft.arrival_instructions||''} onChange={e=>setDraft({...draft,arrival_instructions:e.target.value})}/></label>
+      <label>Antecedência mínima (minutos)<input type="number" min="0" max="10080" value={draft.lead_minutes??60} onChange={e=>setDraft({...draft,lead_minutes:Number(e.target.value)})}/></label>
       <label className="fitness-check"><input type="checkbox" checked={draft.published && publicationAvailable} disabled={!publicationAvailable} onChange={e => setDraft({ ...draft, published: e.target.checked })}/><span>{publicationAvailable ? 'Publicar após revisar preço, responsável e entrega' : 'Somente rascunho: o agendamento ou plano ainda precisa estar vinculado à compra paga'}</span></label>
       <div className="business-actions"><button className="primary-button" disabled={busy}>{busy ? 'Salvando…' : draft.id ? 'Atualizar oferta' : 'Cadastrar oferta'}</button>{draft.id && <button type="button" className="secondary-button" onClick={() => { setDraft(blank); setPrice(''); }}>Cancelar edição</button>}</div>
     </form>

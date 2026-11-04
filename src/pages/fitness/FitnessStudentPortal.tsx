@@ -10,6 +10,8 @@ import { FitnessStudentWorkouts } from '../../platform/FitnessWorkouts';
 import { FitnessOfferCheckout } from '../../platform/FitnessOfferCheckout';
 import { FitnessStudentAgenda } from '../../platform/FitnessStudentAgenda';
 import '../../platform/fitness.css';
+import { FitnessStudentPreferences } from '../../platform/FitnessStudentPreferences';
+import { FitnessNutrition } from '../../platform/FitnessNutrition';
 
 const messageOf = (error: unknown) => error instanceof Error ? error.message : 'Não foi possível concluir. Tente novamente.';
 
@@ -47,6 +49,7 @@ export default function FitnessStudentPortal() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  const [contentRevision,setContentRevision]=useState(0);
 
   useEffect(() => {
     if (!auth) { setInitializing(false); setError('O acesso ao Supabase não está configurado neste ambiente.'); return; }
@@ -256,10 +259,10 @@ export default function FitnessStudentPortal() {
           <nav className="fitness-portal-nav" aria-label="Áreas do aluno"><a href="#fitness-portal-home">Início</a><a href="#fitness-portal-workouts">Meus treinos</a><a href="#fitness-portal-nutrition">Minha alimentação</a><a href="#fitness-portal-agenda">Agenda</a><a href="#fitness-portal-messages">Mensagens</a><a href="#fitness-portal-profile">Perfil</a></nav>
           <section id="fitness-portal-home" className="fitness-portal-intro" aria-labelledby="fitness-portal-welcome"><h2 id="fitness-portal-welcome">Olá, {student.name}</h2><p>Seu telefone foi confirmado nesta loja. Consulte suas compras e as próximas ações abaixo.</p></section>
           <div id="fitness-portal-purchases"><FitnessOfferCheckout store={storeId} token={session.access_token} selected={searchParams.get('oferta')}/></div>
-          <div id="fitness-portal-workouts"><FitnessStudentWorkouts store={storeId} accessToken={session.access_token}/></div>
-          <section id="fitness-portal-nutrition" className="business-card" aria-labelledby="fitness-portal-nutrition-title"><h2 id="fitness-portal-nutrition-title">Minha alimentação</h2><p>Nenhum plano alimentar individual está disponível neste portal. A publicação exige nutricionista habilitada, sua autorização específica e revisão profissional.</p></section>
+          <div id="fitness-portal-workouts"><FitnessStudentWorkouts key={contentRevision} store={storeId} accessToken={session.access_token}/></div>
+          <section id="fitness-portal-nutrition" className="business-card" aria-labelledby="fitness-portal-nutrition-title"><h2 id="fitness-portal-nutrition-title">Minha alimentação</h2><FitnessNutrition key={contentRevision} store={storeId} token={session.access_token}/></section>
           <FitnessStudentAgenda store={storeId} token={session.access_token}/>
-          <section id="fitness-portal-messages" className="business-card" aria-labelledby="fitness-portal-messages-title"><h2 id="fitness-portal-messages-title">Mensagens</h2><p>Mensagens e preferências de canal serão exibidas quando o serviço de comunicação da loja estiver habilitado. Consulte o profissional pelos canais informados pela loja.</p></section>
+          <section id="fitness-portal-messages" className="business-card" aria-labelledby="fitness-portal-messages-title"><h2 id="fitness-portal-messages-title">Mensagens</h2><FitnessStudentPreferences store={storeId} userId={session.user.id} token={session.access_token} onAuthorizationChange={()=>setContentRevision(value=>value+1)}/></section>
           <section id="fitness-portal-profile" className="business-card" aria-labelledby="fitness-portal-profile-title"><h2 id="fitness-portal-profile-title">Perfil e segurança</h2><p>Telefone confirmado: <strong>{identityPhone.replace(/\d(?=\d{4})/g, '•')}</strong></p><p>A autorização vale para esta conta, aluno e loja. Ela não identifica o aparelho de forma infalível.</p><button className="secondary-button" disabled={busy} onClick={() => void signOutLocal(true)}>Sair do Fitness</button></section>
         </> : student ? <>
           <p role="alert">{blockedReason === 'SESSION_LIMIT'

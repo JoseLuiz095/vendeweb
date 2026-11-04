@@ -8,6 +8,7 @@ import { fitnessApi, type FitnessBlock, type FitnessStatus, type FitnessStudent,
 import { FitnessWorkouts } from './FitnessWorkouts';
 import { FitnessOffersAdmin } from './FitnessOffersAdmin';
 import './fitness.css';
+import { FitnessNutrition } from './FitnessNutrition';
 
 const weekDays = ['Domingo','Segunda-feira','Terça-feira','Quarta-feira','Quinta-feira','Sexta-feira','Sábado'];
 const toUtc = (local: string) => local ? new Date(local).toISOString() : '';
@@ -152,6 +153,7 @@ export default function FitnessAdminPage() {
     <nav className="fitness-admin-nav" aria-label="Áreas do Fitness"><a href="#treinos">1. Modelos de treino</a><a href="#ofertas-fitness">2. Produtos e serviços</a><a href="#agenda-fitness">3. Agenda</a><a href="#alunos-fitness">4. Alunos</a></nav>
     {moduleIsActive(business,'training')&&<div id="treinos"><FitnessWorkouts store={store} professional={professional}/></div>}
     {moduleIsActive(business,'training')&&<div id="ofertas-fitness"><FitnessOffersAdmin store={store}/></div>}
+    {moduleIsActive(business,'nutrition')&&<FitnessNutrition store={store} editor/>}
     <div id="agenda-fitness" className="fitness-admin-grid">
       <section className="business-card">
         <h2>Disponibilidade semanal</h2><InfoHint label="Sobre Disponibilidade semanal">Defina o fuso local. O intervalo entre sessões é aplicado pelo servidor.</InfoHint>

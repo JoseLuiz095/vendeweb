@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { FitnessPaidBooking } from './FitnessPaidBooking';
 import { restFetch } from '../lib/supabaseRest';
 import { fitnessOffersApi, type FitnessOffer, type FitnessOfferOrder, type FitnessOrderNotification } from '../services/fitnessOffersApi';
 
@@ -26,6 +27,8 @@ export function FitnessOfferCheckout({ store, token, selected }: { store: string
     }).catch(cause => { if (active) setError((cause as Error).message); });
     return () => { active = false; };
   }, [store, token]);
+  const refresh=async()=>{const [nextOrders,nextNotifications]=await Promise.all([fitnessOffersApi.mine(store,token),fitnessOffersApi.notifications(store,token)]);setOrders(nextOrders);setNotifications(nextNotifications);};
+  useEffect(()=>{const timer=window.setInterval(()=>{void refresh().catch(cause=>setError((cause as Error).message));},15000);return()=>window.clearInterval(timer);},[store,token]);
   const buy = async (offer: FitnessOffer) => {
     if (!consent[offer.id] || busy) return;
     setBusy(true); setError(''); setNotice('');
@@ -49,7 +52,7 @@ export function FitnessOfferCheckout({ store, token, selected }: { store: string
     {offers.length === 0 ? <p className="business-muted">Ainda não há ofertas publicadas nesta loja.</p>
       : <div className="fitness-workout-list">{offers.filter(offer => !selected || offer.id === selected).map(offer => <article className="fitness-workout-card" key={offer.id}>
         <div className="business-card-heading"><h3>{offer.name}</h3><strong>{money(offer.price_cents)}</strong></div>
-        <p>{offer.description}</p><small>Responsável: {offer.professional_name} · {offer.professional_council}</small>
+        <p>{offer.description}</p><p>{offer.delivery_terms}</p>{offer.location_label&&<p>{offer.modality==='online'?'Online':'Local'}: {offer.location_label}</p>}<small>Responsável: {offer.professional_name} · {offer.professional_council}</small>
         <label className="fitness-check"><input type="checkbox" checked={Boolean(consent[offer.id])} onChange={e => setConsent(previous => ({ ...previous, [offer.id]: e.target.checked }))}/><span>Autorizo {offer.professional_name} a acompanhar esta compra e a ficha ou atendimento nesta loja. Posso revogar essa autorização nas preferências do aluno.</span></label>
         <button className="primary-button" disabled={busy || !consent[offer.id] || (!pix.pix_key && !pix.pix_copy_paste)} onClick={() => void buy(offer)}>{busy ? 'Aguarde…' : 'Gerar pedido Pix'}</button>
       </article>)}</div>}
@@ -60,14 +63,14 @@ export function FitnessOfferCheckout({ store, token, selected }: { store: string
       <button type="button" className="secondary-button" onClick={() => void (async () => { try { await navigator.clipboard.writeText((pix.pix_copy_paste || pix.pix_key)!); setNotice('Pix copiado. Confira o valor e o recebedor antes de pagar.'); } catch { setError('Não foi possível copiar automaticamente. Selecione o código para copiar.'); } })()}>Copiar Pix</button>
     </div>}
     {!pix.pix_key && !pix.pix_copy_paste && <p className="business-muted">A loja ainda precisa configurar o Pix para receber pedidos.</p>}
-    <h3>Minhas compras</h3>
+    <h3>Minhas compras</h3><button type="button" className="secondary-button" onClick={()=>void refresh().catch(cause=>setError((cause as Error).message))}>Atualizar pagamento e entrega</button>
     {orders.length === 0 ? <p className="business-muted">Nenhuma compra registrada.</p> : <ul className="fitness-records">{orders.map(order => <li key={order.id}>
-      <strong>{order.offer_name} · {money(order.price_cents)}</strong><span>{order.state === 'paid' ? 'Pagamento confirmado; confira a ficha atribuída' : order.state === 'pending' ? 'Aguardando conferência do crédito pela loja; ainda sem acesso' : order.state === 'refunded' ? 'Reembolsado' : 'Cancelado'}</span>
-      <small>Referência: {order.id}</small>
+      <strong>{order.offer_name} · {money(order.price_cents)}</strong><span>{order.state === 'paid' ? 'Pagamento confirmado'  : order.state === 'pending' ? 'Aguardando conferência do crédito pela loja; ainda sem acesso' : order.state === 'refunded' ? 'Reembolsado' : 'Cancelado'}</span>
+      <small>Referência: {order.id}</small><FitnessPaidBooking store={store} token={token} order={order} onChange={refresh}/>
     </li>)}</ul>}
     <h3>Avisos da loja</h3>
     {notifications.length === 0 ? <p className="business-muted">Nenhum aviso de compra.</p> : <ul className="fitness-records">{notifications.map(item => <li key={item.id}>
-      <strong>{item.offer_name}</strong><span>{item.event_kind === 'paid' ? 'Pagamento confirmado. Sua ficha está disponível em Meus treinos.' : 'Reembolso registrado. O acesso desta compra foi revisto.'}</span>
+      <strong>{item.offer_name}</strong><span>{({paid:'Pagamento confirmado. Confira o próximo passo em Minhas compras.',refunded:'Reembolso registrado. O acesso desta compra foi revisto.',scheduled:'Horário confirmado. Confira os detalhes em Minhas compras.',delivered:'Conteúdo revisado e liberado pelo profissional.'})[item.event_kind]}</span>
       <small>{new Date(item.created_at).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}</small>
     </li>)}</ul>}
   </section>;

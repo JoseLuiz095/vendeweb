@@ -1,6 +1,9 @@
-import { createElement, useState } from 'react';
+import { useState } from 'react';
 import { normalizeText } from '../utils/text';
 import { FitnessNutritionExample } from './FitnessNutritionExample';
+import { FitnessMovement } from './FitnessMovement';
+import { fitnessExerciseIllustrations, fitnessIllustrationGroups } from './fitnessExerciseIllustrationLibrary';
+import { fitnessMovementGroups, fitnessMovementLibrary } from './fitnessMovementLibrary';
 import './fitness.css';
 
 const programs = [
@@ -67,20 +70,13 @@ export function FitnessPilotExamples({ query = '' }: { query?: string }) {
   const [muscle, setMuscle] = useState('all');
   const [equipment, setEquipment] = useState('all');
   const [view3d, setView3d] = useState(false);
-  const [loading3d, setLoading3d] = useState(false);
-  const [error3d, setError3d] = useState('');
-  const open3d = async () => {
-    if (loading3d || view3d) return;
-    setLoading3d(true); setError3d('');
-    try {
-      const moduleUrl = 'https://cdn.jsdelivr.net/npm/@google/model-viewer@4.4.0/dist/model-viewer.min.js';
-      await import(/* @vite-ignore */ moduleUrl);
-      await customElements.whenDefined('model-viewer');
-      setView3d(true);
-    } catch {
-      setError3d('A demonstração 3D não carregou neste aparelho. A prévia 2D permanece disponível.');
-    } finally { setLoading3d(false); }
-  };
+  const [demoMovementKey, setDemoMovementKey] = useState('desk:mini-squat');
+  const [demoSearch, setDemoSearch] = useState('');
+  const demoFilter = normalizeText(demoSearch);
+  const demoIllustrations = fitnessExerciseIllustrations.filter(item=>`repdb:${item.id}`===demoMovementKey||!demoFilter||normalizeText(`${item.label} ${item.group}`).includes(demoFilter));
+  const demoMovements = fitnessMovementLibrary.filter(item=>item.key===demoMovementKey||!demoFilter||normalizeText(`${item.label} ${item.group}`).includes(demoFilter));
+  const demoIllustrationGroups = fitnessIllustrationGroups.filter(group=>demoIllustrations.some(item=>item.group===group));
+  const demoMovementGroups = fitnessMovementGroups.filter(group=>demoMovements.some(item=>item.group===group));
   const filtered = programs.filter(program => (muscle === 'all' || normalizeText(program.muscles).includes(normalizeText(muscle)))
     && (equipment === 'all' || normalizeText(program.equipment).includes(normalizeText(equipment)))
     && normalizeText([program.level, program.focus, program.muscles, program.equipment, ...program.exercises.map(item => item.name + ' ' + item.alternative)].join(' ')).includes(normalizeText(query)));
@@ -101,7 +97,7 @@ export function FitnessPilotExamples({ query = '' }: { query?: string }) {
         </article>)}
       </div>
       <div className="fitness-demo-motion">
-        <div className="fitness-demo-motion-heading"><div><span>Movimento demonstrativo · sem carga</span><h3>Agachamento</h3></div><span>2D + 3D fixo</span></div>
+        <div className="fitness-demo-motion-heading"><div><span>Movimento demonstrativo · sem carga</span><h3>Agachamento</h3></div><span>Demonstrações 2D + loops 3D</span></div>
         <SquatDiagram/>
         <ol className="fitness-demo-cues" aria-label="Etapas do exemplo demonstrativo">
           <li><strong>Comece em pé.</strong> Apoie os pés numa base confortável.</li>
@@ -110,21 +106,17 @@ export function FitnessPilotExamples({ query = '' }: { query?: string }) {
         </ol>
         <p>Exemplo didático, sem carga prescrita. A ilustração não tem precisão anatômica; execução, amplitude e adaptações devem ser revisadas pelo profissional.</p>
         {view3d ? <div className="fitness-demo-viewer">
-          {createElement('model-viewer', {
-            src: '/assets/fitness-demo-squat.glb',
-            'camera-orbit': '0deg 75deg 3.8m',
-            'field-of-view': '32deg',
-            'disable-zoom': true,
-            'shadow-intensity': '0.25',
-            alt: 'Modelo 3D esquemático de agachamento em vista fixa, sem animação.',
-            'aria-label': 'Modelo 3D estático e esquemático de agachamento, em ângulo fixo',
-          })}
+          <label>Buscar exercício<input type="search" maxLength={80} value={demoSearch} onChange={event=>setDemoSearch(event.target.value)} placeholder="Ex.: supino, halter, costas"/></label>
+          <label>Escolha uma demonstração de exercício<select value={demoMovementKey} onChange={event => setDemoMovementKey(event.target.value)}>
+            {demoIllustrationGroups.map(group=><optgroup key={group} label={`${group} · ilustrações 2D`}>{demoIllustrations.filter(item=>item.group===group).map(item=><option key={item.id} value={`repdb:${item.id}`}>{item.label} · 2D</option>)}</optgroup>)}
+            {demoMovementGroups.map(group=><optgroup key={group} label={group}>{demoMovements.filter(item=>item.group===group).map(item=><option key={item.key} value={item.key}>{item.label}</option>)}</optgroup>)}
+          </select></label>
+          <FitnessMovement kind={demoMovementKey}/>
           <button type="button" className="secondary-button" onClick={() => setView3d(false)}>Fechar 3D</button>
-        </div> : <button type="button" className="secondary-button" onClick={() => void open3d()} disabled={loading3d}>
-          {loading3d ? 'Carregando visualizador…' : 'Abrir demonstração 3D estática'}
+        </div> : <button type="button" className="secondary-button" onClick={() => setView3d(true)}>
+          Abrir galeria 2D e 3D de exercícios
         </button>}
-        {error3d && <p role="status">{error3d}</p>}
-        <small>Modelo GLB esquemático do piloto, sem rotação nem animação automática. O arquivo 3D é carregado só quando solicitado; a sequência 2D continua visível.</small>
+        <small>O visualizador e a biblioteca de animações só são carregados ao abrir. A amostra 2D permanece disponível.</small>
       </div>
     </div>
     <div className="fitness-example-services"><h3>Também previstos para a loja</h3><div>{demoOffers.map(item => <article key={item.name}>
