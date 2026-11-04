@@ -14,6 +14,7 @@ import QRCode from 'qrcode';
 import { ErrorState, LoadingState } from '../../components/ui/AsyncState';
 import { InfoHint } from '../../components/ui/InfoHint';
 import { OrderDetailsModal } from '../../components/admin/OrderDetailsModal';
+import PickupPointOrderSummary from '../../components/admin/PickupPointOrderSummary';
 import { QuantityControl } from '../../components/QuantityControl';
 import { useStore } from '../../contexts/StoreContext';
 import { useToast } from '../../contexts/ToastContext';
@@ -993,6 +994,8 @@ export default function OrdersAdmin() {
       <button type="button" aria-pressed={queue==='fulfillment'} onClick={() => selectQueue('fulfillment')}><ShoppingBag size={22}/><span><strong>Entregas pendentes</strong><small>Pagos e em andamento</small></span><b>{workCounts.fulfillment}</b></button>
       <button type="button" aria-pressed={queue==='scheduled'} onClick={() => selectQueue('scheduled')}><CalendarDays size={22}/><span><strong>Agendados</strong><small>Preparar na data combinada</small></span><b>{workCounts.scheduled}</b></button>
     </nav>
+
+    <PickupPointOrderSummary storeId={settings.id}/>
 
     <div className="sales-ops-grid-v061">
       <details className="sales-ops-panel-v061" open={recoveryOpen} onToggle={(event) => setRecoveryOpen(event.currentTarget.open)}>
