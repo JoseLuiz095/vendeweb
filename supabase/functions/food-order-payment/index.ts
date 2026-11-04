@@ -1,8 +1,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.112.4';
 import { createOrderPaymentHandler } from './handler.ts';
 
-const receiptReportingEnabled=Deno.env.get('ORDER_RECEIPT_REPORTING_ENABLED')!=='false';
-const orderFields = 'id,store_id,order_number,total,payment_method,payment_status,status,pickup_location_id,delivery_type,scheduled_for'+(receiptReportingEnabled?',payment_reported_by_customer,payment_receipt_version':'');
+const orderFields = 'id,store_id,order_number,total,payment_method,payment_status,status,pickup_location_id,delivery_type,scheduled_for,payment_reported_by_customer,payment_receipt_version';
 Deno.serve(async (req: Request) => {
   const url = Deno.env.get('SUPABASE_URL') || '';
   const service = Deno.env.get('SUPABASE_SECRET_KEY') || Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
@@ -12,6 +11,11 @@ Deno.serve(async (req: Request) => {
   const admin = createClient(url, service, options);
   return createOrderPaymentHandler({
     reportReceipt: async claim=>{const {data,error}=await admin.rpc('food_declare_order_receipt_v1',{p_store_id:claim.storeId,p_order_id:claim.orderId,p_amount:claim.amount,p_version:claim.version});if(error)throw new Error('RECEIPT_REPORT_REJECTED');return data;},
+    orderItems: async orderId => {
+      const {data,error}=await admin.from('food_order_items').select('product_name,quantity,variant_name').eq('order_id',orderId).order('created_at',{ascending:true}).limit(50);
+      if(error)throw new Error('PAYMENT_ITEMS_READ_FAILED');
+      return (data||[]).flatMap(item=>Number.isSafeInteger(item.quantity)&&item.quantity>0&&typeof item.product_name==='string'?[{productName:item.product_name.slice(0,120),quantity:item.quantity,...(typeof item.variant_name==='string'&&item.variant_name?{variantName:item.variant_name.slice(0,80)}:{})}]:[]);
+    },
     receiptDestinations: async (storeId,_pointId,receiptOrderId) => {
       const {data:source,error:sourceError}=await admin.from('food_order_receipt_sources').select('pickup_location_id').eq('order_id',receiptOrderId).eq('store_id',storeId).maybeSingle();
       if(sourceError)throw new Error('RECEIPT_SOURCE_UNAVAILABLE');
@@ -43,7 +47,7 @@ Deno.serve(async (req: Request) => {
       return data;
     },
     store: async storeId => {
-      const { data, error } = await admin.from('food_stores').select('id,name,active,access_status,pix_enabled,pix_receipt_mode,pix_key,pix_copy_paste,pix_holder_name,city'+(receiptReportingEnabled?',receipt_click_marks_paid':'')).eq('id', storeId).maybeSingle();
+      const { data, error } = await admin.from('food_stores').select('id,name,active,access_status,pix_enabled,pix_receipt_mode,pix_key,pix_copy_paste,pix_holder_name,city').eq('id', storeId).maybeSingle();
       if (error) throw new Error('PAYMENT_STORE_FAILED');
       return data;
     },
