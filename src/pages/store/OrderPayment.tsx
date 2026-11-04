@@ -1,5 +1,5 @@
 import ReceiptDestination from '../../components/ReceiptDestination';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import QRCode from 'qrcode';
 import { resolveOrderPayment, type OrderPayment as Payment } from '../../services/orderPaymentApi';
 import PixCopyButton from '../../components/PixCopyButton';
@@ -14,8 +14,7 @@ export default function OrderPayment() {
   const [qr, setQr] = useState('');
   const [loading, setLoading] = useState(true);
   const [attempt, setAttempt] = useState(0);
-  const [step,setStep]=useState<'payment'|'receipt'>('payment');
-  const retry = useCallback(() => setAttempt(a => a + 1), []);
+  const retry = useCallback(() => setAttempt(value => value + 1), []);
   useEffect(() => {
     document.title = 'Pagamento Pix · VendeWeb';
     const meta = document.createElement('meta'); meta.name = 'robots'; meta.content = 'noindex,nofollow,noarchive'; document.head.append(meta);
@@ -26,7 +25,7 @@ export default function OrderPayment() {
     let active = true;
     setLoading(true); setPayment(null); setError(''); setQr('');
     if (!token) { setError('Link incompleto. Solicite o link de pagamento à loja.'); setLoading(false); return; }
-    void resolveOrderPayment(token).then(value => { if (active) setPayment(value); }).catch(e => { if (active) setError(e instanceof Error ? e.message : 'Pagamento indisponível.'); }).finally(() => { if (active) setLoading(false); });
+    void resolveOrderPayment(token).then(value => { if (active) setPayment(value); }).catch(cause => { if (active) setError(cause instanceof Error ? cause.message : 'Pagamento indisponível.'); }).finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, [token, attempt]);
   useEffect(() => {
@@ -36,31 +35,32 @@ export default function OrderPayment() {
     return () => { active = false; };
   }, [payment?.pixPayload]);
   useEffect(() => {
-    // Invalidate displayed instructions on expiry, and recheck after returning from a banking app.
     const refresh = () => { if (!document.hidden) retry(); };
     document.addEventListener('visibilitychange', refresh);
     const timer = payment?.expiresAt ? window.setTimeout(retry, Math.max(0, Date.parse(payment.expiresAt) - Date.now())) : undefined;
     return () => { document.removeEventListener('visibilitychange', refresh); if (timer !== undefined) clearTimeout(timer); };
   }, [payment?.expiresAt, retry]);
+  const receiptMessage = useMemo(() => {
+    if (!payment) return '';
+    const products = (payment.items||[]).map(item => '• '+item.quantity+'x '+item.productName+(item.variantName?' ('+item.variantName+')':'')).join('\n') || '• Itens do pedido #'+formatOrderNumber(payment.orderNumber);
+    return 'Olá! Segue o comprovante do pedido #'+formatOrderNumber(payment.orderNumber)+' da '+payment.storeName+'.\n\nProdutos:\n'+products+'\n\nValor total: '+currency.format(payment.total||0)+'.';
+  }, [payment]);
   return <main className="order-payment-page"><section className="order-payment-card" aria-busy={loading}>
     <span>VendeWeb · Pagamento</span><h1>Pagamento Pix</h1>
     {loading ? <p role="status">Conferindo pagamento…</p> : error ? <><p role="alert">{error}</p><button type="button" className="primary-button" onClick={retry}>Tentar novamente</button></> : payment && <>
       <h2>{payment.storeName}</h2><p>Pedido #{formatOrderNumber(payment.orderNumber)}</p>
       {payment.status === 'pending' ? <>
         <strong className="order-payment-total">{currency.format(payment.total!)}</strong>
-        <nav className="order-payment-steps" aria-label="Etapas do pagamento PIX">{step==='receipt'?<button type="button" onClick={()=>setStep('payment')}>1. Pagar com PIX</button>:<span aria-current="step">1. Pagar com PIX</span>}<span aria-current={step==='receipt'?'step':undefined}>2. Enviar comprovante</span></nav>
-        {step==='payment'?<>
-          <p>Recebedor: <strong>{payment.receiver || payment.storeName}</strong>. Confira os dados no banco antes de pagar.</p>
-          <PixCopyButton key={payment.pixPayload} value={payment.pixPayload!} compact/>
-          {qr&&<details className="order-payment-qr"><summary>Prefiro pagar com QR Code</summary><img src={qr} alt={`QR Code Pix no valor de ${currency.format(payment.total!)}`} width="260" height="260"/></details>}
-          <small>Link válido até {new Date(payment.expiresAt!).toLocaleString('pt-BR')}.</small>
-          <button type="button" className="primary-button" onClick={()=>setStep('receipt')}>Já fiz o PIX · enviar comprovante</button>
-        </>:<>
-          <button type="button" className="secondary-button" onClick={retry}>Verificar status do pagamento</button>
-        </>}
-        <small role="status">Aguardando confirmação da loja. Enviar o comprovante não verifica o recebimento bancário.</small>
-      </> : <p role="status">{payment.status === 'reported' ? 'Comprovante informado. Aguardando a loja confirmar o crédito bancário. O pedido ainda não está pago nem retirado; não faça outro Pix.' : payment.status === 'paid' ? 'Pagamento confirmado pela loja. Não pague novamente.' : 'Pedido cancelado. Não efetue o pagamento.'}</p>}
-      {payment.status==='pending'&&step==='receipt'&&<ReceiptDestination receiptToken={payment.receiptToken} onReported={()=>setPayment(current=>current?{...current,status:'reported',paymentReportedByCustomer:true}:current)} destinations={payment.receiptDestinations??{mode:'unavailable',contacts:[]}} message={`Olá! Vou anexar o comprovante do pedido #${formatOrderNumber(payment.orderNumber)} da ${payment.storeName}, no valor de ${currency.format(payment.total!)}.`}/>}
+        <p>Recebedor: <strong>{payment.receiver || payment.storeName}</strong>. Confira os dados no banco antes de pagar.</p>
+        <PixCopyButton key={payment.pixPayload} value={payment.pixPayload!} compact/>
+        {qr&&<details className="order-payment-qr"><summary>Prefiro pagar com QR Code</summary><img src={qr} alt={'QR Code Pix no valor de '+currency.format(payment.total!)} width="260" height="260"/></details>}
+        <small>Link válido até {new Date(payment.expiresAt!).toLocaleString('pt-BR')}.</small>
+        <small role="status">Depois de pagar, toque no botão para enviar o comprovante pelo WhatsApp. Esse clique marca o pedido como pago e, na retirada, conclui a entrega.</small>
+        {payment.receiptToken?<ReceiptDestination receiptToken={payment.receiptToken} destinations={payment.receiptDestinations??{mode:'unavailable',contacts:[]}} message={receiptMessage} onReported={autoPickedUp=>setPayment(current=>current?{...current,status:'paid',paymentReportedByCustomer:true,fulfillmentStatus:autoPickedUp?'delivered':current.fulfillmentStatus}:current)}/>:<p role="status">O envio do comprovante ainda não está disponível. Fale com a loja.</p>}
+      </> : <p role="status">{payment.status === 'paid' ? payment.paymentReportedByCustomer
+        ? 'Pagamento marcado como pago ao abrir o WhatsApp.'+(payment.fulfillmentStatus==='delivered'||payment.fulfillmentStatus==='picked_up'?' Retirada concluída.':'')
+        : 'Pagamento confirmado. Não pague novamente.'
+        : 'Pedido cancelado. Não efetue o pagamento.'}</p>}
     </>}
   </section></main>;
 }

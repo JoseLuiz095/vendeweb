@@ -1,7 +1,5 @@
-import {receiptPolicyApi} from './receiptPolicyApi';
-import { restFetch, SupabaseHttpError } from '../lib/supabaseRest';
-// A RPC v2 já está instalada. O encaminhamento de comprovantes independe da
-// declaração opcional de pagamento, que permanece desativada.
+import { restFetch } from '../lib/supabaseRest';
+// Os destinos por loja e ponto alimentam o botão de envio do comprovante.
 export const receiptContactsEnabled = true;
 export type ReceiptContact = { slot: number; name: string; phone: string; pointId?:string };
 export type ReceiptDestinations = { mode:'general'|'point'|'selection'|'unassigned'|'unavailable'; contacts:ReceiptContact[] };
@@ -13,19 +11,12 @@ export function parseReceiptDestinations(value:unknown):ReceiptDestinations {
 export async function getReceiptDestinations(storeId:string,pointId?:string){return parseReceiptDestinations(await restFetch('rpc/food_get_receipt_destinations_v2',{method:'POST',body:{p_store_id:storeId,p_pickup_location_id:pointId||null}}));}
 export const receiptContactsApi={
  async load(id:string){
-  const [contacts,links,policy]=await Promise.all([
+  const [contacts,links,points]=await Promise.all([
    restFetch<ReceiptContact[]>(`food_receipt_contacts?store_id=eq.${encodeURIComponent(id)}&select=slot,name,phone&order=slot`),
    restFetch<Array<{pickup_location_id:string;contact_slot:number}>>(`food_pickup_receipt_contacts?store_id=eq.${encodeURIComponent(id)}&select=pickup_location_id,contact_slot`),
-   receiptPolicyApi.load(id),
+   restFetch<Array<{id:string;name:string}>>(`food_pickup_locations?store_id=eq.${encodeURIComponent(id)}&active=eq.true&is_public=eq.true&select=id,name&order=name`),
   ]);
-  try{
-   const points=await restFetch<Array<{id:string;name:string;auto_pickup_on_receipt:boolean}>>(`food_pickup_locations?store_id=eq.${encodeURIComponent(id)}&active=eq.true&is_public=eq.true&select=id,name,auto_pickup_on_receipt&order=name`);
-   return {contacts,links,points:points.map(p=>({...p,autoPickupSupported:true})),policy,autoPickupSupported:true};
-  }catch(error){
-   if(!(error instanceof SupabaseHttpError)||error.status!==400||!/auto_pickup_on_receipt/.test(error.message))throw error;
-   const points=await restFetch<Array<{id:string;name:string}>>(`food_pickup_locations?store_id=eq.${encodeURIComponent(id)}&active=eq.true&is_public=eq.true&select=id,name&order=name`);
-   return {contacts,links,points:points.map(p=>({...p,auto_pickup_on_receipt:false,autoPickupSupported:false})),policy,autoPickupSupported:false};
-  }
+  return {contacts,links,points};
  },
  save:(id:string,contacts:ReceiptContact[],points:Array<{pickup_location_id:string;contact_slot:number}>)=>restFetch('rpc/food_save_receipt_contacts_v1',{method:'POST',body:{p_store_id:id,p_contacts:contacts,p_points:points}}),
 };
