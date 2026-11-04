@@ -101,6 +101,7 @@ export default function PickupPointOrderSummary({ storeId }: Props) {
   const [from, setFrom] = useState(today);
   const [to, setTo] = useState(today);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [cleared, setCleared] = useState(false);
   const [report, setReport] = useState<PickupOrderSummaryReport | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -145,9 +146,10 @@ export default function PickupPointOrderSummary({ storeId }: Props) {
         <h2 id="pickup-point-order-summary-title"><PackageCheck size={20}/>Resumo por ponto de retirada</h2>
         <p>Confira os pedidos, o valor dos produtos e as quantidades baixadas em cada ponto.</p>
       </div>
-      <button type="button" className="secondary-button compact-button" disabled={loading} onClick={() => setRefreshKey(value => value + 1)}>
+      <button type="button" className="secondary-button compact-button" disabled={loading} onClick={() => { setCleared(false); setRefreshKey(value => value + 1); }}>
         <RefreshCw size={15}/>{loading ? 'Atualizando…' : 'Atualizar'}
       </button>
+      <button type="button" className="secondary-button compact-button" disabled={loading || cleared || !report} onClick={() => setCleared(true)}>Limpar visualização</button>
     </header>
 
     <div className="pickup-point-order-summary__filters">
@@ -155,12 +157,13 @@ export default function PickupPointOrderSummary({ storeId }: Props) {
       <label><span><CalendarDays size={15}/>Até</span><input type="date" value={to} onChange={event => setTo(event.target.value)}/></label>
     </div>
 
-    <p className="pickup-point-order-summary__note">Período pela data de criação do pedido. O valor soma os produtos de pedidos não cancelados; o estoque retirado considera baixas de venda menos devoluções. Esta conferência é visual e não altera pedidos, pagamentos ou estoque.</p>
+    <p className="pickup-point-order-summary__note">Por data do pedido. Baixas descontam devoluções. Limpar afeta apenas esta tela; atualizar recupera o histórico.</p>
 
     {error && <p className="pickup-point-order-summary__error" role="alert">{error}</p>}
     {loading && <p className="pickup-point-order-summary__loading" role="status">Carregando o resumo dos pontos…</p>}
 
-    {!loading && !error && report && <>
+    {cleared && !loading && <p role="status">Visualização limpa. Para consultar novamente, toque em Atualizar.</p>}
+    {!loading && !error && report && !cleared && <>
       <div className="pickup-point-order-summary__totals" aria-label="Totais do período">
         <article><span>Pedidos</span><strong>{quantity(totals.orders)}</strong></article>
         <article><span>Valor dos produtos</span><strong>{currency.format(totals.productValue)}</strong></article>

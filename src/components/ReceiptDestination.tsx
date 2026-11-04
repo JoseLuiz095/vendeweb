@@ -145,7 +145,7 @@ export default function ReceiptDestination({
         </>}
     {reportError && <p role="alert">{reportError} O pagamento não foi marcado como pago; confira o pedido antes de tentar novamente.</p>}
     {reported && <p role="status">{'Pagamento marcado como pago.' + (autoPickedUp ? ' Retirada concluída e estoque baixado.' : '')}</p>}
-    {receiptToken && <p>Ao clicar, o pagamento é registrado e o WhatsApp abre com a mensagem do pedido. Na retirada, a entrega e a baixa do estoque são concluídas automaticamente.</p>}
+    {receiptToken && <p>Ao clicar, o pagamento é registrado e o WhatsApp abre com a mensagem do pedido. Para pedidos feitos diretamente pelo ponto de retirada, a entrega e a baixa de estoque são concluídas automaticamente.</p>}
     {!receiptToken && <p>Depois de pagar, anexe o comprovante na conversa do WhatsApp.</p>}
   </section>;
 }
