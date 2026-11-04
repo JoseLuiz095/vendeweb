@@ -32,6 +32,27 @@ async function mockStore(page:Page, products:unknown[] = [productRow], services:
   });
 }
 
+test('public Fitness examples offer selectable looping movements',async({page})=>{
+  await page.emulateMedia({reducedMotion:'reduce'});
+  await mockStore(page,[]);
+  await page.route('https://cdn.jsdelivr.net/npm/@google/model-viewer@4.4.0/dist/model-viewer.min.js',route=>route.fulfill({status:200,contentType:'text/javascript',headers:{'access-control-allow-origin':'*'},body:`customElements.define('model-viewer',class extends HTMLElement{connectedCallback(){setTimeout(()=>this.dispatchEvent(new Event('load')),20)}play(){return Promise.resolve()}pause(){}});`}));
+  await page.goto('/fabriciofitness');
+  await page.getByRole('button',{name:'Abrir galeria 2D e 3D de exercícios'}).click();
+  const chooser=page.getByLabel('Escolha uma demonstração de exercício');
+  await expect(chooser).toBeVisible();
+  expect(await chooser.locator('option[value^="repdb:"]').count()).toBeGreaterThanOrEqual(100);
+  expect(await chooser.locator('option[value^="desk:"]').count()).toBeGreaterThanOrEqual(30);
+  await chooser.selectOption('repdb:bench-press');
+  await expect(page.getByRole('img',{name:'Supino reto com barra · posição inicial'})).toHaveAttribute('src','/assets/fitness-exercises/bench-press-start.webp');
+  await expect(page.getByRole('img',{name:'Supino reto com barra · posição principal do movimento'})).toHaveAttribute('src','/assets/fitness-exercises/bench-press-peak.webp');
+  await expect(page.getByRole('link',{name:'Ilustrações de exercício por RepDB'})).toHaveAttribute('href','https://repdb.co');
+  await chooser.selectOption('desk:glute-bridge');
+  const viewer=page.locator('model-viewer');
+  await expect(viewer).toHaveAttribute('animation-name','glute-bridge');
+  await expect(viewer).toHaveAttribute('src','/assets/fitness-desk-break.glb');
+  await expect(page.getByRole('button',{name:'Reproduzir demonstração'})).toBeVisible();
+});
+
 for (const width of [320, 390, 768, 1366]) test(`Fitness catalog is read only and responsive at ${width}px`, async ({page}) => {
   await page.setViewportSize({width,height:900});
   await mockStore(page);
@@ -152,7 +173,7 @@ for (const width of [320,390,768,1366]) test(`student can configure and disable 
   if(width===390){const accessibility=await new AxeBuilder({page}).include('.fitness-student-preferences').withTags(['wcag2a','wcag2aa','wcag21a','wcag21aa']).analyze();expect(accessibility.violations.filter(item=>item.impact==='critical'||item.impact==='serious').map(item=>item.id)).toEqual([]);}
   await page.getByLabel('Rotina').selectOption('hydration');
   await page.getByLabel('Nome do lembrete').fill('Minha pausa para água');
-  await page.getByLabel('Horário local').fill('07:30');
+  await page.getByLabel('Horário (São Paulo)').fill('07:30');
   await page.getByLabel('Canal').selectOption('in_app');
   await page.getByRole('button',{name:'Adicionar lembrete'}).click();
   await expect(page.getByText('Minha pausa para água')).toBeVisible();

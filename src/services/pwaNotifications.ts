@@ -101,7 +101,7 @@ export const pwaPushStatus = () => {
 };
 
 /** Solicita permissão, cria a assinatura Web Push e a vincula à loja/usuário autenticado. */
-export const subscribeToPwaPush = async (storeId?: string, userId?: string, audience: 'admin' | 'student' = 'admin'): Promise<PushSubscription> => {
+export const subscribeToPwaPush = async (storeId?: string, userId?: string, audience: 'admin' | 'student' = 'admin', token?: string): Promise<PushSubscription> => {
   const status = pwaPushStatus();
   if (status === 'unsupported') throw new Error('Este navegador não oferece notificações push. No iPhone/iPad, adicione o app à Tela de Início pelo Safari; no Android, instale pelo Chrome ou Edge.');
   if (status === 'not_configured') throw new Error('As notificações do telefone ainda não foram configuradas no servidor (VAPID).');
@@ -118,6 +118,7 @@ export const subscribeToPwaPush = async (storeId?: string, userId?: string, audi
     await restFetch(`${subscriptionTable}?on_conflict=store_id,endpoint`, {
       method: 'POST',
       prefer: 'resolution=merge-duplicates,return=minimal',
+      token,
       body: {
         store_id: storeId,
         user_id: userId,

@@ -1,6 +1,7 @@
 import { InfoHint } from '../components/ui/InfoHint';
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { fitnessApi, type FitnessStudent, type FitnessWorkout } from '../services/fitnessApi';
+import { FitnessExerciseFields } from './FitnessExerciseFields';
 import { FitnessWorkoutSession } from './FitnessWorkoutSession';
 
 const levels: Record<FitnessWorkout['level'],string> = { basic:'Básico',medium:'Médio',advanced:'Avançado' };
@@ -77,17 +78,20 @@ export function FitnessWorkouts({store,professional}:{store:string;professional:
         {editing?.id===workout.id&&<form className="fitness-workout-edit" onSubmit={saveEdit}>
           <label>Título<input required maxLength={120} value={editing.title} onChange={event=>setEditing({...editing,title:event.target.value})}/></label>
           <label>Descrição<textarea maxLength={1000} value={editing.description} onChange={event=>setEditing({...editing,description:event.target.value})}/></label>
-          {editing.exercises.map((exercise,index)=><fieldset key={exercise.id}><legend>Exercício {index+1}</legend>
+          {editing.exercises.map((exercise,index)=><fieldset key={exercise.id}><legend>Exercício {index+1}</legend><FitnessExerciseFields exercise={exercise} onChange={patch=>setEditing(current=>current&&({...current,exercises:current.exercises.map((row,i)=>i===index?{...row,...patch}:row)}))}/>
             <label>Nome<input required value={exercise.name} onChange={event=>setEditing(current=>current&&({...current,exercises:current.exercises.map((row,i)=>i===index?{...row,name:event.target.value}:row)}))}/></label>
             <label>Séries<input required type="number" min="1" max="20" value={exercise.sets} onChange={event=>setEditing(current=>current&&({...current,exercises:current.exercises.map((row,i)=>i===index?{...row,sets:Number(event.target.value)}:row)}))}/></label>
             <label>Repetições<input required value={exercise.repetitions} onChange={event=>setEditing(current=>current&&({...current,exercises:current.exercises.map((row,i)=>i===index?{...row,repetitions:event.target.value}:row)}))}/></label>
-            <label>Descanso em segundos<input required type="number" min="0" max="3600" value={exercise.rest_seconds} onChange={event=>setEditing(current=>current&&({...current,exercises:current.exercises.map((row,i)=>i===index?{...row,rest_seconds:Number(event.target.value)}:row)}))}/></label>
+            <label>Descanso em segundos<input required type="number" min="0" max="1800" value={exercise.rest_seconds} onChange={event=>setEditing(current=>current&&({...current,exercises:current.exercises.map((row,i)=>i===index?{...row,rest_seconds:Number(event.target.value)}:row)}))}/></label>
             <label>Carga ou esforço<input required value={exercise.load_or_effort} onChange={event=>setEditing(current=>current&&({...current,exercises:current.exercises.map((row,i)=>i===index?{...row,load_or_effort:event.target.value}:row)}))}/></label>
             <label>Instruções<textarea required value={exercise.instructions} onChange={event=>setEditing(current=>current&&({...current,exercises:current.exercises.map((row,i)=>i===index?{...row,instructions:event.target.value}:row)}))}/></label>
             <label>Alternativa<input required value={exercise.alternative} onChange={event=>setEditing(current=>current&&({...current,exercises:current.exercises.map((row,i)=>i===index?{...row,alternative:event.target.value}:row)}))}/></label>
+            <button type="button" className="text-link" disabled={editing.exercises.length<=1} onClick={()=>setEditing({...editing,exercises:editing.exercises.filter((_,i)=>i!==index)})}>Remover exercício {index+1}</button>
           </fieldset>)}
+          <button type="button" className="secondary-button" disabled={editing.exercises.length>=30} onClick={()=>setEditing({...editing,exercises:[...editing.exercises,{id:crypto.randomUUID(),position:editing.exercises.length+1,name:'',sets:1,repetitions:'',rest_seconds:0,load_or_effort:'',instructions:'',alternative:'',day:'A'}]})}>Adicionar exercício</button>
           <div className="fitness-appointment-actions"><button type="submit" className="primary-button" disabled={busy}>Salvar revisão</button><button type="button" className="secondary-button" disabled={busy} onClick={()=>setEditing(null)}>Cancelar</button></div>
         </form>}
+        {workout.status==='approved'&&<button type="button" className="secondary-button" disabled={busy||!professional} onClick={()=>void run(()=>fitnessApi.reviseWorkout(store,workout.id),'Nova versão criada como rascunho. A versão aprovada foi preservada.')}>Criar nova versão</button>}
         {workout.status==='approved'&&<div className="fitness-appointment-actions"><label>Aluno<select value={selectedStudent[workout.id]||''} onChange={event=>setSelectedStudent(current=>({...current,[workout.id]:event.target.value}))}><option value="">Selecione um aluno com conta vinculada</option>{students.map(student=><option value={student.client_id} key={student.client_id}>{student.name}</option>)}</select></label><button type="button" className="secondary-button" disabled={busy||!professional||!selectedStudent[workout.id]} onClick={()=>{
           const student=students.find(item=>item.client_id===selectedStudent[workout.id]);
           if(!student||!window.confirm(`Atribuir a ficha ${workout.title} a ${student.name} após revisão individual?`))return;
