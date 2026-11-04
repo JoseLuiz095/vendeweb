@@ -3909,6 +3909,7 @@ body{overflow-x:hidden;-webkit-tap-highlight-color:transparent}
 .order-details-modal__actions{position:sticky;bottom:-24px;margin:0 -24px -24px;padding:14px 24px calc(14px + env(safe-area-inset-bottom));border-top:1px solid #eee7e2;background:rgba(255,255,255,.96);backdrop-filter:blur(8px)}
 @media(min-width:821px){
   .admin-shell{align-items:start}
+  .admin-content{grid-column:2}
   .admin-sidebar{position:fixed;inset:0 auto 0 0;width:260px;height:100vh;height:100dvh;max-height:100dvh;box-sizing:border-box;overflow-y:auto;overscroll-behavior:contain;z-index:10}
   .admin-shell.is-sidebar-collapsed .admin-sidebar{width:82px}
 }
