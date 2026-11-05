@@ -199,5 +199,45 @@ try {
   equal((await one('select stock_quantity from food_product_location_stock where product_id=$1 and location_id=$2',[ninho,pointB])).stock_quantity,2,'reserva incompleta não retira saldo restante');
   await query("update food_orders set status='cancelled' where id=$1",[receiptOrder]);
   await assert.rejects(declare,/não aceita declaração/);checks++;
+
+  // O clique paga o Pix, mas só conclui a retirada originada no próprio ponto.
+  await db.exec("reset role; create table food_order_receipt_sources(order_id uuid primary key,store_id uuid,pickup_location_id uuid); grant select on food_order_receipt_sources to service_role;");
+  await db.exec(readFileSync('supabase/migrations/20261104103000_food_receipt_one_click_paid_pickup.sql','utf8'));
+  await db.exec(readFileSync('supabase/migrations/20261105130953_food_receipt_point_origin.sql','utf8'));
+  const originProduct=randomUUID(),pointOrder=randomUUID(),generalOrder=randomUUID(),otherPointOrder=randomUUID(),deliveryOrder=randomUUID(),otherPickup=randomUUID();
+  await query("insert into food_pickup_locations(id,store_id,stock_location_id,name) values($1,$2,$3,'Outro ponto')",[otherPickup,store,pointA]);
+  await query("insert into food_products(id,store_id,name,track_stock,stock_quantity,stock_reserved_quantity,stock_status,availability_status,category_id) values($1,$2,'Produto origem fictício',true,8,0,'available','available',$3)",[originProduct,store,category]);
+  await query('insert into food_product_location_stock(store_id,product_id,location_id,stock_quantity,stock_reserved_quantity) values($1,$2,$3,0,0),($1,$2,$4,8,0)',[store,originProduct,pointA,pointB]);
+  for(const id of [pointOrder,generalOrder,otherPointOrder,deliveryOrder]) {
+    await query("insert into food_orders(id,store_id,status,inventory_status,payment_status,total,stock_location_id,pickup_location_id,source,delivery_type,payment_method) values($1,$2,'received','not_tracked','pending',20,$3,$4,'site','pickup','pix')",[id,store,pointB,pickup]);
+    await query('insert into food_order_items(order_id,product_id,quantity) values($1,$2,1)',[id,originProduct]);
+  }
+  await query("update food_orders set delivery_type='delivery' where id=$1",[deliveryOrder]);
+  await query('insert into food_order_receipt_sources(order_id,store_id,pickup_location_id) values($1,$5,$6),($2,$5,null),($3,$5,$7),($4,$5,$6)',[pointOrder,generalOrder,otherPointOrder,deliveryOrder,store,pickup,otherPickup]);
+  await db.exec('set role service_role');
+  const report=id=>one('select food_declare_order_receipt_v1($1,$2,20,0) v',[store,id]);
+  const direct=await report(pointOrder);
+  assert.equal(direct.v.autoPickedUp,true);checks++;
+  assert.deepEqual(await one('select status,payment_status from food_orders where id=$1',[pointOrder]),{status:'delivered',payment_status:'paid'});checks++;
+  equal((await one('select stock_quantity from food_product_location_stock where product_id=$1 and location_id=$2',[originProduct,pointB])).stock_quantity,7,'origem do ponto baixa estoque no próprio local');
+  await report(pointOrder);
+  equal((await one('select count(*) n from food_order_stock_movements where order_id=$1',[pointOrder])).n,1,'clique repetido não duplica baixa');
+  for(const id of [generalOrder,otherPointOrder,deliveryOrder]) {
+    const result=await report(id);
+    assert.equal(result.v.autoPickedUp,false);checks++;
+    assert.deepEqual(await one('select status,payment_status from food_orders where id=$1',[id]),{status:'received',payment_status:'paid'});checks++;
+    equal((await one('select count(*) n from food_order_stock_movements where order_id=$1',[id])).n,0,'origem geral, outro ponto ou entrega não conclui retirada');
+  }
+  await db.exec('reset role');
+  const unavailableOrder=randomUUID();
+  await query("insert into food_orders(id,store_id,status,inventory_status,payment_status,total,stock_location_id,pickup_location_id,source,delivery_type,payment_method) values($1,$2,'received','not_tracked','pending',20,$3,$4,'site','pickup','pix')",[unavailableOrder,store,pointB,pickup]);
+  await query('insert into food_order_items(order_id,product_id,quantity) values($1,$2,1)',[unavailableOrder,originProduct]);
+  await query('insert into food_order_receipt_sources(order_id,store_id,pickup_location_id) values($1,$2,$3)',[unavailableOrder,store,pickup]);
+  await query('update food_order_items set inventory_reserved_quantity=0 where order_id=$1',[unavailableOrder]);
+  await query('update food_product_location_stock set stock_quantity=stock_reserved_quantity where product_id=$1 and location_id=$2',[originProduct,pointB]);
+  await db.exec('set role service_role');
+  await assert.rejects(()=>report(unavailableOrder),/Estoque insuficiente/);checks++;
+  assert.deepEqual(await one('select status,payment_status from food_orders where id=$1',[unavailableOrder]),{status:'received',payment_status:'pending'});checks++;
+  equal((await one('select count(*) n from food_order_stock_movements where order_id=$1',[unavailableOrder])).n,0,'estoque insuficiente reverte pagamento e entrega');
   console.log(`OK: ${checks} verificações de reserva, pagamento, entrega, idempotência e local.`);
 } finally { await db.close(); }

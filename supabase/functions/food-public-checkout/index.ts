@@ -14,6 +14,8 @@ const jsonHeaders = (origin: string) => ({
   'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
   'Vary': 'Origin',
   'Content-Type': 'application/json',
+  'Cache-Control': 'no-store, private',
+  'Referrer-Policy': 'no-referrer',
 });
 
 const DEFAULT_PUBLIC_ORIGINS = [

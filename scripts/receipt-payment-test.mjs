@@ -23,11 +23,11 @@ function fixture(){
  const env={ORDER_PAYMENT_LINK_ENABLED:'true',ORDER_RECEIPT_AUTOPAID_ENABLED:'true',ORDER_RECEIPT_CONTACTS_ENABLED:'true',ORDER_PAYMENT_LINK_SECRET:secret,ORDER_PAYMENT_ALLOWED_ORIGINS:origin};
  const writes=[];let fail=false;
  const handler=createOrderPaymentHandler({env:k=>env[k],now:()=>now,authorizedOrder:async()=>order,order:async()=>order,store:async()=>store,
-   reportReceipt:async claim=>{writes.push(claim);if(fail)throw new Error('conflict');return{ok:true,autoPickedUp:false}},receiptDestinations:async()=>({mode:'general',contacts:[]})});
+   reportReceipt:async claim=>{writes.push(claim);if(fail)throw new Error('conflict');return{ok:true,autoPickedUp:false}},orderItems:async()=>[],receiptDestinations:async()=>({mode:'general',contacts:[]})});
  const call=async body=>{const r=await handler(new Request('https://api.example.invalid',{method:'POST',headers:{Origin:origin,Authorization:'Bearer synthetic'},body:JSON.stringify(body)}));return {status:r.status,body:await r.json()}};
  return{call,env,order,store,writes,fail:()=>{fail=true}};
 }
-test('leitura Pix não autoriza escrita; opt-in dá capability separada',async()=>{
+test('leitura Pix não autoriza escrita; comprovante usa autorização separada',async()=>{
  const f=fixture();const issued=await f.call({action:'issue',storeId,orderId});
  assert.equal((await f.call({action:'report_receipt',token:issued.body.token})).status,410);assert.equal(f.writes.length,0);
  const read=await f.call({action:'resolve',token:issued.body.token});assert.ok(read.body.receiptToken);
@@ -35,13 +35,12 @@ test('leitura Pix não autoriza escrita; opt-in dá capability separada',async()
  assert.equal(report.status,200);assert.deepEqual(f.writes,[{...input,v:1,expiresAt:now+86400000}]);
  assert.equal((await f.call({action:'resolve',token:read.body.receiptToken})).status,404);
 });
-test('flags, política e versão bloqueiam nova emissão; falha do servidor não retorna pago',async()=>{
+test('segredo e versão bloqueiam emissão; falha do servidor não retorna pago',async()=>{
  const f=fixture();const token=await mintReceiptClaim(input,secret,now);
- f.env.ORDER_RECEIPT_AUTOPAID_ENABLED='false';assert.equal((await f.call({action:'receipt_capabilities'})).body.autoPaidConfigured,false);
+ f.env.ORDER_PAYMENT_LINK_SECRET='short';assert.equal((await f.call({action:'receipt_capabilities'})).body.receiptReportingConfigured,false);
  assert.equal((await f.call({action:'report_receipt',token})).status,503);assert.equal(f.writes.length,0);
- f.env.ORDER_RECEIPT_AUTOPAID_ENABLED='true';const issued=await f.call({action:'issue',storeId,orderId});
- f.store.receipt_click_marks_paid=false;assert.equal((await f.call({action:'resolve',token:issued.body.token})).body.receiptToken,undefined);
- f.store.receipt_click_marks_paid=true;f.order.payment_receipt_version=1;assert.equal((await f.call({action:'resolve',token:issued.body.token})).body.receiptToken,undefined);
+ f.env.ORDER_PAYMENT_LINK_SECRET=secret;const issued=await f.call({action:'issue',storeId,orderId});
+ f.order.payment_receipt_version=1;assert.equal((await f.call({action:'resolve',token:issued.body.token})).body.receiptToken,undefined);
  f.fail();const r=await f.call({action:'report_receipt',token});assert.equal(r.status,409);assert.equal(r.body.status,undefined);
 });
 test('resposta incompleta ou rejeitada pelo banco nunca anuncia pedido pago',async()=>{
