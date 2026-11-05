@@ -8,7 +8,7 @@ function ReservationForm({ reservation: r, command, busy }: { reservation: Renta
   const [form, setForm] = useState(r);
   const templates = { assembly_checklist: ['Local e piso verificados','Equipamento fixado','Energia e proteção verificadas','Responsável orientado'], return_checklist: ['Equipamento desligado','Inspeção de danos','Limpeza e secagem','Retirada confirmada'] };
   return <form className="module-card" onSubmit={e => { e.preventDefault(); void command('rental_update', form); }}>
-    <h3>Reserva · {new Date(r.starts_at).toLocaleString('pt-BR')} até {new Date(r.ends_at).toLocaleString('pt-BR')}</h3><p>Situação: {r.status}</p>
+    <h3>{new Date(r.starts_at).toLocaleString('pt-BR')} até {new Date(r.ends_at).toLocaleString('pt-BR')}</h3><p>Situação: {({ active: 'Ativa', cancelled: 'Cancelada', completed: 'Concluída' } as Record<string, string>)[r.status] || r.status}</p>
     <div className="module-grid"><label>Sinal recebido manualmente (R$)<input type="number" min="0" step="0.01" value={form.deposit_cents / 100} onChange={e => setForm({ ...form, deposit_cents: Math.round(Number(e.target.value) * 100) })} /></label><label>Referência do sinal<input value={form.deposit_reference || ''} required={form.deposit_cents > 0} onChange={e => setForm({ ...form, deposit_reference: e.target.value })} /></label></div>
     <p>O sinal é um registro manual da reserva. Confira o saldo devedor antes da cobrança do pedido para evitar cobrança em duplicidade.</p>
     <label>Contrato / condições<textarea value={form.contract} maxLength={20000} onChange={e => setForm({ ...form, contract: e.target.value })} /></label>
@@ -19,9 +19,13 @@ function ReservationForm({ reservation: r, command, busy }: { reservation: Renta
 }
 
 export default function RentalsPanel({ assets, offers, reservations, command, busy }: { assets: RentalAsset[]; offers: Offer[]; reservations: RentalReservation[]; command: ModuleCommand; busy: boolean }) {
+  const sortedReservations = [...reservations].sort((a, b) => Date.parse(a.starts_at) - Date.parse(b.starts_at));
   return <section className="module-card"><h2>Aluguel e manutenção</h2><InfoHint label="Sobre Aluguel e manutenção">Um cadastro por equipamento físico. Reservas sobrepostas e ativos em manutenção são bloqueados pelo servidor.</InfoHint>
-    {assets.map(a => <article className="module-row" key={a.offer_id}><div><strong>{offers.find(o => o.id === a.offer_id)?.name || 'Equipamento'}</strong><p>{a.maintenance ? 'Em manutenção' : 'Disponível para novas reservas'}</p><p>{a.maintenance_notes}</p></div><button className="button" disabled={busy} onClick={() => void command('rental_asset', { offer_id: a.offer_id, maintenance: !a.maintenance, notes: a.maintenance_notes })}>{a.maintenance ? 'Concluir manutenção' : 'Colocar em manutenção'}</button></article>)}
-    {reservations.map(r => <ReservationForm key={`${r.id}:${r.deposit_cents}:${r.contract}:${JSON.stringify(r.assembly_checklist)}:${JSON.stringify(r.return_checklist)}`} reservation={r} command={command} busy={busy} />)}
+    <p>Consulte as datas das reservas antes de combinar uma locação. Um equipamento fora de manutenção ainda pode estar reservado.</p>
+    {!assets.length && <p>Nenhum equipamento cadastrado. Cadastre uma oferta de aluguel na aba Catálogo para começar.</p>}
+    {assets.map(a => <article className="module-row" key={a.offer_id}><div><strong>{offers.find(o => o.id === a.offer_id)?.name || 'Equipamento'}</strong><p>{a.maintenance ? 'Em manutenção' : 'Fora de manutenção · consulte as reservas'}</p>{a.maintenance_notes && <p>{a.maintenance_notes}</p>}</div><button type="button" className="button" disabled={busy} onClick={() => void command('rental_asset', { offer_id: a.offer_id, maintenance: !a.maintenance, notes: a.maintenance_notes })}>{a.maintenance ? 'Concluir manutenção' : 'Colocar em manutenção'}</button></article>)}
+    {!!sortedReservations.length && <h3>Reservas por data</h3>}
+    {sortedReservations.map(r => <div key={r.id}><h4>{offers.find(o => o.id === r.offer_id)?.name || 'Equipamento'}</h4><ReservationForm key={`${r.id}:${r.deposit_cents}:${r.contract}:${JSON.stringify(r.assembly_checklist)}:${JSON.stringify(r.return_checklist)}`} reservation={r} command={command} busy={busy} /></div>)}
     {!reservations.length && <p>Orçamentos e reservas começam pelo catálogo de eventos da loja. Use a revisão do pedido antes de emitir a cobrança.</p>}
   </section>;
 }
