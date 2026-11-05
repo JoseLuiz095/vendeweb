@@ -122,6 +122,11 @@ function LoopingMovement({ movement }: { movement: FitnessMovementMedia }) {
   </figure>;
 }
 
+function ExercisePose({src,alt,label}:{src:string;alt:string;label:string}) {
+  const [failed,setFailed]=useState(false);
+  return <figure>{failed?<p role="status">Imagem indisponível. Consulte as instruções do profissional.</p>:<img src={src} alt={alt} loading="lazy" decoding="async" onError={()=>setFailed(true)}/>}<figcaption>{label}</figcaption></figure>;
+}
+
 export function FitnessMovement({ kind }: { kind?: string }) {
   const id = useId();
   const illustration = kind ? fitnessIllustrationByKey.get(kind) : undefined;
@@ -129,8 +134,8 @@ export function FitnessMovement({ kind }: { kind?: string }) {
     const base = `/assets/fitness-exercises/${illustration.id}`;
     return <figure className="fitness-movement fitness-movement--illustrated">
       <div className={`fitness-movement-poses${illustration.pose === 'single' ? ' fitness-movement-poses--single' : ''}`} role="group" aria-label={`Poses ilustradas do exercício ${illustration.label}`}>
-        <figure><img src={`${base}-${illustration.pose === 'single' ? 'main' : 'start'}.webp`} alt={`${illustration.label} · posição inicial`} loading="lazy" decoding="async"/><figcaption>{illustration.pose === 'single' ? 'Referência' : 'Início'}</figcaption></figure>
-        {illustration.pose !== 'single' && <figure><img src={`${base}-peak.webp`} alt={`${illustration.label} · posição principal do movimento`} loading="lazy" decoding="async"/><figcaption>Movimento</figcaption></figure>}
+        <ExercisePose key={`${base}-start`} src={`${base}-${illustration.pose === 'single' ? 'main' : 'start'}.webp`} alt={`${illustration.label} · posição inicial`} label={illustration.pose === 'single' ? 'Referência' : 'Início'}/>
+        {illustration.pose !== 'single' && <ExercisePose key={`${base}-peak`} src={`${base}-peak.webp`} alt={`${illustration.label} · posição principal do movimento`} label="Movimento"/>}
       </div>
       <figcaption><strong>{illustration.label} · ilustração 2D</strong><span>Use as imagens para reconhecer as posições. A execução, amplitude e carga devem seguir a ficha revisada pelo profissional.</span><a href="https://repdb.co" target="_blank" rel="noreferrer">Ilustrações de exercício por RepDB</a></figcaption>
     </figure>;

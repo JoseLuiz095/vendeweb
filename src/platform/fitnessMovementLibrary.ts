@@ -12,6 +12,28 @@ const deskBreakCredit = 'Animação 3D ilustrativa · Desk Break · MIT';
 
 /** Curated labels are Portuguese; each one maps to an exact animation in the licensed GLB. */
 export const fitnessMovementLibrary: FitnessMovementMedia[] = [
+  ...([
+    ['bird-dog','Elevação alternada de braço e perna no solo','Abdômen e controle'],
+    ['donkey-kick','Extensão de quadril em quatro apoios','Pernas e glúteos'],
+    ['fire-hydrant','Abdução de quadril em quatro apoios','Pernas e glúteos'],
+    ['plank-full','Prancha com braços estendidos','Abdômen e controle'],
+    ['plank-on-knees','Prancha com apoio nos joelhos','Abdômen e controle'],
+    ['prone-superman','Elevação de braços e pernas deitado','Costas e postura'],
+    ['straight-leg-raise','Elevação de perna estendida','Pernas e glúteos'],
+    ['side-lying-inner-thigh','Elevação interna da perna deitado','Pernas e glúteos'],
+    ['single-calf-raise-supported','Panturrilha unilateral com apoio','Pernas e glúteos'],
+    ['triceps-kickback','Extensão de tríceps sem carga','Ombros e braços'],
+    ['hinge-reverse-fly','Abertura inclinada sem carga','Ombros e braços'],
+    ['cat-cow','Mobilidade de coluna em quatro apoios','Mobilidade e cardio leve'],
+    ['child-pose','Postura da criança','Mobilidade e cardio leve'],
+    ['knees-to-chest-hug','Joelhos ao peito deitado','Mobilidade e cardio leve'],
+    ['standing-quad-stretch','Alongamento de quadríceps em pé','Mobilidade e cardio leve'],
+    ['standing-hamstring-stretch','Alongamento posterior de coxa em pé','Mobilidade e cardio leve'],
+    ['high-knee-march','Marcha com joelhos elevados','Mobilidade e cardio leve'],
+    ['standing-climber','Escalador em pé','Mobilidade e cardio leve'],
+    ['side-step-arm-swing','Passos laterais com braços','Mobilidade e cardio leve'],
+    ['wall-calf-stretch','Alongamento de panturrilha na parede','Mobilidade e cardio leve'],
+  ] as const).map(([animation,label,group])=>({key:`desk:${animation}`,label,group,animation,model:deskBreak,credit:deskBreakCredit})),
   { key: 'desk:mini-squat', label: 'Agachamento curto', group: 'Pernas e glúteos', animation: 'mini-squat', model: deskBreak, credit: deskBreakCredit },
   { key: 'desk:sit-back-squat', label: 'Agachamento com quadril para trás', group: 'Pernas e glúteos', animation: 'sit-back-squat', model: deskBreak, credit: deskBreakCredit },
   { key: 'desk:wide-mini-squat', label: 'Agachamento com base aberta', group: 'Pernas e glúteos', animation: 'wide-mini-squat', model: deskBreak, credit: deskBreakCredit },

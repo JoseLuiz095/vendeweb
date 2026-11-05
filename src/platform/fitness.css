@@ -84,3 +84,5 @@
 .fitness-visual-library__item img{width:58px;height:58px;object-fit:contain;border-radius:8px}
 .fitness-visual-library__item small{display:block;color:#53645a;margin-top:.25rem}
 .fitness-visual-library__item:focus-visible{outline:3px solid #17844d;outline-offset:2px}
+.fitness-food-image{display:inline-block;width:76px;height:76px;border-radius:12px;background-image:url('/assets/fitness-meal-illustrations.png');background-size:200% 200%;vertical-align:middle;margin:.35rem}
+.fitness-food-image--rice{background-position:0 0}.fitness-food-image--beans{background-position:100% 0}.fitness-food-image--chicken{background-position:0 100%}.fitness-food-image--salad{background-position:100% 100%}
