@@ -10,7 +10,7 @@ function fixture() {
   let now=Date.now(), reads=0;
   const handler=createOrderPaymentHandler({env:k=>env[k],now:()=>now,
     authorizedOrder:async(jwt,storeId,orderId)=>jwt==='valid'&&storeId===sid&&orderId===oid?order:null,
-    order:async(storeId,orderId)=>{reads++;assert.equal(storeId,sid);assert.equal(orderId,oid);return order}, store:async()=>store });
+    order:async(storeId,orderId)=>{reads++;assert.equal(storeId,sid);assert.equal(orderId,oid);return order}, store:async()=>store, orderItems:async()=>[] });
   const call=async(body,headers={},method='POST')=>{
     const r=await handler(new Request('https://api.example.invalid',{method,headers:{Origin:origin,'Content-Type':'application/json',...headers},...(method==='POST'?{body:typeof body==='string'?body:JSON.stringify(body)}:{})}));
     return {status:r.status,body:r.status===204?null:await r.json(),headers:r.headers};
@@ -23,7 +23,8 @@ test('authorized issue returns opaque encrypted capability; resolve uses authori
  const f=fixture(), a=await f.issue(), b=await f.issue(); assert.equal(a.status,200);assert.notEqual(a.body.token,b.body.token);
  assert.equal(a.body.token.includes(oid),false);assert.equal(a.body.token.includes(sid),false);
  const r=await f.resolve(a.body.token);assert.equal(r.status,200);assert.equal(r.body.total,12.5);assert.equal(r.body.status,'pending');assert.match(r.body.pixPayload,/540512.50/);
- assert.deepEqual(Object.keys(r.body).sort(),['status','storeName','orderNumber','total','receiver','pixPayload','expiresAt','fulfillmentStatus'].sort());
+ assert.deepEqual(Object.keys(r.body).sort(),['status','storeName','orderNumber','total','receiver','pixPayload','expiresAt','fulfillmentStatus','receiptToken','items'].sort());
+ assert.ok(r.body.receiptToken);
  assert.equal(r.body.fulfillmentStatus,'received');
  assert.match(r.headers.get('cache-control'),/no-store/); assert.equal(r.headers.get('referrer-policy'),'no-referrer');
 });
@@ -65,7 +66,7 @@ test('disabled configuration, invalid origin/method/JSON and invalid Pix do not 
 test('comprovante usa loja/ponto do pedido no servidor; ignora destino forjado e não altera pagamento',async()=>{
  const f=fixture();f.env.ORDER_RECEIPT_CONTACTS_ENABLED='true';const order={...f.order,pickup_location_id:'30000000-0000-4000-8000-000000000001'};
  const destinations={mode:'point',contacts:[{slot:2,name:'Contato sintético',phone:'5511000000002'}]};let lookups=0;
- const handler=createOrderPaymentHandler({env:k=>f.env[k],authorizedOrder:async()=>order,order:async()=>order,store:async()=>f.store,
+ const handler=createOrderPaymentHandler({env:k=>f.env[k],authorizedOrder:async()=>order,order:async()=>order,store:async()=>f.store,orderItems:async()=>[],
   receiptDestinations:async(storeId,pointId)=>{assert.equal(storeId,sid);assert.equal(pointId,order.pickup_location_id);lookups++;return destinations}});
  const call=async(body)=>{const r=await handler(new Request('https://api.example.invalid',{method:'POST',headers:{Origin:origin,Authorization:'Bearer valid'},body:JSON.stringify(body)}));return r.json()};
  const grant=await call({action:'issue',storeId:sid,orderId:oid});assert.equal(lookups,0);
