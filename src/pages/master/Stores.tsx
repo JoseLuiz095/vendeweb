@@ -17,6 +17,7 @@ import { platformOrigin } from '../../lib/brand';
 import { customStorefrontUrl, publicStorefrontUrl } from '../../utils/storefrontRoute';
 import { ErrorState, LoadingState } from '../../components/ui/AsyncState';
 import { firstChargeAfterFreeMonths } from '../../utils/introBilling';
+import { MasterStoreTools } from './MasterStoreTools';
 
 const publicUrlFor = (store: PlatformStoreSummary) => customStorefrontUrl(store.customDomain) || publicStorefrontUrl(store.slug, platformOrigin());
 const dateOnly = (value?: string) => value ? value.slice(0,10) : '';
@@ -330,6 +331,7 @@ export default function MasterStores(){
     </form></div>}
 
     {editing&&<div className="modal-overlay"><div className="master-modal master-modal--wide" role="dialog" aria-modal="true" aria-labelledby="master-edit-title"><button type="button" className="modal-close" aria-label="Fechar gestão da loja" disabled={saving||credentialSaving} onClick={()=>setEditing(null)}><X/></button><h2 id="master-edit-title">{editing.name}</h2><div className="master-store-identity"><strong>Administrando esta loja</strong><a href={publicUrlFor(editing)} target="_blank" rel="noreferrer">/{editing.slug}</a><span>{[editing.city,editing.state].filter(Boolean).join(' / ')||'Localização não informada'}</span></div><p>Suspender acesso não apaga a loja, produtos, pedidos nem vínculos de usuários. Ao reativar, os acessos anteriores voltam a funcionar.</p>
+    <MasterStoreTools store={editing} locked={saving||credentialSaving} onSlugChanged={async slug=>{setEditing(current=>current?{...current,slug}:current);await refreshStores();}}/>
     <div className="master-client-section-label-v048"><span>PLANO E COBRANÇA</span><small>Configurações comerciais e situação de acesso desta loja.</small></div>
     <div className="form-grid">
       <label>Plano<select value={editing.planId||''} onChange={(e)=>{const plan=plans.find((p)=>p.id===e.target.value);setEditing((s)=>s?{...s,planId:e.target.value,planName:plan?.name,planCode:plan?.code,billingMode:'standard',introFreeMonths:undefined,introFirstChargeOn:undefined,billingAmount:plan?.monthlyPrice??s.billingAmount,expiresAt:plan?.code==='DEMO'?addDaysDate(platformSettings.demoDurationDays):undefined,customDomain:plan?.customDomain?s.customDomain:''}:s)}}>{plans.filter((p)=>platformSettings.demoEnabled||p.code!=='DEMO'||p.id===editing.planId).map((p)=><option value={p.id} key={p.id}>{p.name}</option>)}</select></label>

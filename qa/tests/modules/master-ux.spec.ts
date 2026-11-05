@@ -1,6 +1,32 @@
 import { test, expect } from '@playwright/test';
 import { mockBackend, store } from './fixtures';
 
+test('Master consulta indicadores e solicita alteração do endereço da loja',async({page})=>{
+  await mockBackend(page,{auth:true,master:true});
+  let change:Record<string,unknown>|undefined;
+  await page.route('**/rest/v1/rpc/food_master_change_store_slug_v1',async route=>{
+    change=route.request().postDataJSON();await route.fulfill({json:{slug:'doce-lua-novo'}});
+  });
+  await page.route('**/rest/v1/rpc/food_get_store_analytics_v1',route=>route.fulfill({json:{
+    orders:4,revenue:200,averageTicket:50,storefrontSessions:20,addToCartSessions:8,checkoutSessions:6,orderSessions:4,conversionRate:20,checkoutAbandonmentRate:33.3,topProducts:[],viewedNotSold:[]
+  }}));
+  await page.route('**/rest/v1/rpc/food_master_store_order_summary_v1',route=>route.fulfill({json:{paidOrders:2,paidValue:100,cancelledOrders:1}}));
+  await page.goto('/admin-master/lojas');
+  await page.getByRole('button',{name:'Gerenciar',exact:true}).first().click();
+  const dialog=page.getByRole('dialog',{name:store.name});
+  await dialog.getByText('Indicadores de vendas da loja',{exact:true}).click();
+  await dialog.getByRole('button',{name:'Consultar indicadores'}).click();
+  await expect(dialog.getByText('Pedidos não cancelados:')).toBeVisible();
+  await expect(dialog.getByText('R$ 200,00')).toBeVisible();
+  await expect(dialog.getByText('R$ 100,00')).toBeVisible();
+  await dialog.getByText('Endereço da loja',{exact:true}).click();
+  await dialog.getByLabel('Novo endereço da loja').fill('Doce Lua Novo');
+  page.once('dialog',dialog=>void dialog.accept());
+  await dialog.getByRole('button',{name:'Alterar endereço',exact:true}).click();
+  await expect.poll(()=>change?.p_slug).toBe('doce-lua-novo');
+  expect(change?.p_old_slug).toBe(store.slug);
+});
+
 for(const width of [390,1366]) {
   test(`Master identifica loja e recupera filtros em ${width}px`,async({page},testInfo)=>{
     const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
