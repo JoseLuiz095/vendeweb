@@ -31,11 +31,10 @@ export function FitnessWorkoutSession({ workout }: { workout: FitnessWorkout }) 
       </button>)}
     </nav>
     <div className="fitness-session-focus">
-      <h4>{exercise.name}</h4><FitnessMovement kind={exercise.media_key}/><FitnessMuscles primary={exercise.primary_muscles} secondary={exercise.secondary_muscles}/>{exercise.equipment&&<p>Equipamento: {exercise.equipment}</p>}{exercise.tempo&&<p>Ritmo: {exercise.tempo}</p>}{exercise.range_of_motion&&<p>Amplitude: {exercise.range_of_motion}</p>}{exercise.common_mistakes&&<p>Erros comuns: {exercise.common_mistakes}</p>}{exercise.precautions&&<p>Cuidados: {exercise.precautions}</p>}{exercise.professional_notes&&<p>Notas profissionais: {exercise.professional_notes}</p>}
+      <h4>{exercise.name}</h4><FitnessMovement kind={exercise.media_key}/><FitnessMuscles primary={exercise.primary_muscles} secondary={exercise.secondary_muscles}/>
       <p>{exercise.sets} séries · {exercise.repetitions} repetições · {exercise.rest_seconds}s de descanso</p>
       <p><strong>Carga/esforço:</strong> {exercise.load_or_effort}</p>
-      <p><strong>Execução:</strong> {exercise.instructions}</p>
-      <p><strong>Alternativa:</strong> {exercise.alternative}</p>
+      <details><summary>Ver execução e detalhes</summary><p><strong>Execução:</strong> {exercise.instructions}</p><p><strong>Alternativa:</strong> {exercise.alternative}</p>{exercise.equipment&&<p>Equipamento: {exercise.equipment}</p>}{exercise.tempo&&<p>Ritmo: {exercise.tempo}</p>}{exercise.range_of_motion&&<p>Amplitude: {exercise.range_of_motion}</p>}{exercise.common_mistakes&&<p>Erros comuns: {exercise.common_mistakes}</p>}{exercise.precautions&&<p>Cuidados: {exercise.precautions}</p>}{exercise.professional_notes&&<p>Notas profissionais: {exercise.professional_notes}</p>}</details>
       <div className="fitness-session-actions">
         <button type="button" className="primary-button" disabled={done >= exercise.sets} onClick={() => {
           setCompleted(previous => ({ ...previous, [exercise.id]: Math.min(exercise.sets, (previous[exercise.id] || 0) + 1) }));

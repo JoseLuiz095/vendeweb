@@ -23,7 +23,7 @@ export function FitnessExerciseFields({ exercise, onChange }: { exercise: Fitnes
 
   return <div className="business-form-grid">
     <label>Dia<select value={exercise.day || 'A'} onChange={event => onChange({ day: event.target.value })}>{'ABCDEFG'.split('').map(day => <option key={day}>{day}</option>)}</select></label>
-    {texts.map(([key, label]) => <label key={key}>{label}<textarea maxLength={1000} value={exercise[key] || ''} onChange={event => onChange({ [key]: event.target.value })}/></label>)}
+    <details><summary>Detalhes do exercício</summary>{texts.map(([key, label]) => <label key={key}>{label}<textarea maxLength={1000} value={exercise[key] || ''} onChange={event => onChange({ [key]: event.target.value })}/></label>)}</details>
     {(['primary_muscles', 'secondary_muscles'] as const).map(key => <fieldset key={key}>
       <legend>{key === 'primary_muscles' ? 'Músculos principais' : 'Músculos secundários'}</legend>
       {Object.entries(muscleLabels).map(([value, label]) => <label className="fitness-check" key={value}>
@@ -31,6 +31,7 @@ export function FitnessExerciseFields({ exercise, onChange }: { exercise: Fitnes
       </label>)}
     </fieldset>)}
     <label>Filtrar demonstrações<input type="search" maxLength={80} value={mediaSearch} onChange={event => setMediaSearch(event.target.value)} placeholder="Ex.: supino, halter, costas"/></label>
+    <details><summary>Escolher exercício pela imagem</summary><p>Escolha um exercício para preencher o nome e sua ilustração. Confirme se corresponde ao movimento prescrito.</p><div className="fitness-visual-library">{illustrations.map(item=><button type="button" className="fitness-visual-library__item" key={item.id} onClick={()=>{onChange({name:item.label,media_key:`repdb:${item.id}`});setShowPreview(true);}}><img loading="lazy" src={`/assets/fitness-exercises/${item.id}-${item.pose === 'single' ? 'main' : 'start'}.webp`} alt=""/><span>{item.label}<small>{item.group} · ilustração 2D</small></span></button>)}</div></details>
     <label>Demonstração do movimento<select value={exercise.media_key || ''} onChange={event => onChange({ media_key: event.target.value })}>
       <option value="">Somente instrução profissional</option>
       <optgroup label="Ilustração esquemática original · 2D">

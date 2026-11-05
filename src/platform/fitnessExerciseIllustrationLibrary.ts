@@ -1,7 +1,8 @@
+import additional from './repdbAdditional.json';
 export type FitnessExerciseIllustration = { id: string; label: string; group: string; pose?: 'single' };
 
 /** Curated 2D start/peak illustrations for common gym exercises. */
-export const fitnessExerciseIllustrations: FitnessExerciseIllustration[] = [
+const curated: FitnessExerciseIllustration[] = [
   { id: 'bench-press', label: 'Supino reto com barra', group: 'Peito' },
   { id: 'incline-bench-press', label: 'Supino inclinado com barra', group: 'Peito' },
   { id: 'decline-bench-press-barbell', label: 'Supino declinado com barra', group: 'Peito' },
@@ -114,5 +115,7 @@ export const fitnessExerciseIllustrations: FitnessExerciseIllustration[] = [
   { id: 'machine-seated-crunch', label: 'Abdominal na máquina', group: 'Abdômen' },
 ];
 
+const known = new Set(curated.map(item => item.id));
+export const fitnessExerciseIllustrations: FitnessExerciseIllustration[] = [...curated, ...additional.filter(item => !known.has(item.id)).map(item => ({id:item.id,label:item.label,group:item.group,...(item.pose === 'single' ? {pose:'single' as const} : {})}))];
 export const fitnessIllustrationByKey = new Map(fitnessExerciseIllustrations.map(item => [`repdb:${item.id}`, item]));
 export const fitnessIllustrationGroups = [...new Set(fitnessExerciseIllustrations.map(item => item.group))];
