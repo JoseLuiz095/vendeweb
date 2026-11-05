@@ -54,7 +54,7 @@ export default function OrderPayment() {
         <PixCopyButton key={payment.pixPayload} value={payment.pixPayload!} compact/>
         {qr&&<details className="order-payment-qr"><summary>Prefiro pagar com QR Code</summary><img src={qr} alt={'QR Code Pix no valor de '+currency.format(payment.total!)} width="260" height="260"/></details>}
         <small>Link válido até {new Date(payment.expiresAt!).toLocaleString('pt-BR')}.</small>
-        <small role="status">Depois de pagar, toque no botão para enviar o comprovante pelo WhatsApp. Esse clique marca o pedido como pago. Pedidos feitos diretamente pelo ponto de retirada são concluídos automaticamente.</small>
+        <small role="status">Depois de pagar, toque no botão para enviar o comprovante pelo WhatsApp. Esse clique marca o pedido como pago. A retirada é concluída automaticamente quando o pedido veio pelo link do ponto e será retirado nesse mesmo ponto.</small>
         {payment.receiptToken?<ReceiptDestination receiptToken={payment.receiptToken} destinations={payment.receiptDestinations??{mode:'unavailable',contacts:[]}} message={receiptMessage} onReported={autoPickedUp=>setPayment(current=>current?{...current,status:'paid',paymentReportedByCustomer:true,fulfillmentStatus:autoPickedUp?'delivered':current.fulfillmentStatus}:current)}/>:<p role="status">O envio do comprovante ainda não está disponível. Fale com a loja.</p>}
       </> : <p role="status">{payment.status === 'paid' ? payment.paymentReportedByCustomer
         ? 'Pagamento marcado como pago ao abrir o WhatsApp.'+(payment.fulfillmentStatus==='delivered'||payment.fulfillmentStatus==='picked_up'?' Retirada concluída.':'')

@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.112.4';
+import { checkoutReceiptToken } from './receipt.ts';
 
 type TurnstileResult = {
   success: boolean;
@@ -13,6 +14,8 @@ const jsonHeaders = (origin: string) => ({
   'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
   'Vary': 'Origin',
   'Content-Type': 'application/json',
+  'Cache-Control': 'no-store, private',
+  'Referrer-Policy': 'no-referrer',
 });
 
 const DEFAULT_PUBLIC_ORIGINS = [
@@ -190,6 +193,18 @@ Deno.serve(async (req) => {
       if(error)throw new Error('Não foi possível consultar o destino do comprovante. O pedido pode já estar salvo; mantenha a mesma tentativa.');
       return data?.pickup_location_id || null;
     };
+    const readReceiptToken = async (orderId:string) => {
+      try {
+        const {data,error}=await adminClient.from('food_orders')
+          .select('id,store_id,total,payment_method,payment_status,status,payment_receipt_version')
+          .eq('id',orderId).eq('store_id',storeId).eq('public_request_id',requestId).maybeSingle();
+        if(error) throw error;
+        return await checkoutReceiptToken(data,storeId,Deno.env.get('ORDER_PAYMENT_LINK_SECRET') || service);
+      } catch {
+        console.warn('Não foi possível preparar a autorização do comprovante.');
+        return undefined;
+      }
+    };
     const rpcResponse = await fetch(`${url}/rest/v1/rpc/food_create_public_order_with_receipt_v1`, {
       method: 'POST',
       headers: {
@@ -234,6 +249,7 @@ Deno.serve(async (req) => {
             total: Number(existing.total),
             idempotentReplay: true,
             receiptPickupLocationId: await readReceiptSource(existing.id),
+            receiptToken: await readReceiptToken(existing.id),
           }), { status: 200, headers });
         }
       }
@@ -292,6 +308,7 @@ Deno.serve(async (req) => {
       receiptPickupLocationId: await readReceiptSource(created.order_id),
       orderNumber: Number(created.order_number),
       total: Number(created.order_total),
+      receiptToken: await readReceiptToken(created.order_id),
     }), { status: 200, headers });
   } catch (error) {
     return new Response(JSON.stringify({ error: error instanceof Error ? error.message : 'Erro inesperado no checkout.' }), { status: 400, headers });

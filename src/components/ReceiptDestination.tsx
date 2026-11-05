@@ -12,11 +12,12 @@ type Props = {
   message: string;
   onOpen?: () => void;
   receiptToken?: string;
+  requireReceiptToken?: boolean;
   onReported?: (autoPickedUp: boolean) => void;
 };
 
 export default function ReceiptDestination({
-  storeId, pointId, destinations, legacyPhone = '', message, onOpen, receiptToken, onReported,
+  storeId, pointId, destinations, legacyPhone = '', message, onOpen, receiptToken, onReported, requireReceiptToken = false,
 }: Props) {
   const [reported, setReported] = useState(false);
   const [reporting, setReporting] = useState(false);
@@ -143,9 +144,9 @@ export default function ReceiptDestination({
                   : !phone && data?.mode !== 'unassigned' && <p>A loja ainda não cadastrou um destino para comprovantes.</p>}
             </>}
         </>}
-    {reportError && <p role="alert">{reportError} O pagamento não foi marcado como pago; confira o pedido antes de tentar novamente.</p>}
+    {reportError && <p role="alert">{reportError} Não foi possível confirmar o resultado; confira o pedido antes de tentar novamente.</p>}
     {reported && <p role="status">{'Pagamento marcado como pago.' + (autoPickedUp ? ' Retirada concluída e estoque baixado.' : '')}</p>}
-    {receiptToken && <p>Ao clicar, o pagamento é registrado e o WhatsApp abre com a mensagem do pedido. Para pedidos feitos diretamente pelo ponto de retirada, a entrega e a baixa de estoque são concluídas automaticamente.</p>}
-    {!receiptToken && <p>Depois de pagar, anexe o comprovante na conversa do WhatsApp.</p>}
+    {receiptToken && <p>Ao clicar, o pagamento é registrado e o WhatsApp abre com a mensagem do pedido. Quando o pedido veio pelo link do ponto e será retirado nesse mesmo ponto, a retirada e a baixa de estoque são concluídas automaticamente.</p>}
+    {!receiptToken && <p>{requireReceiptToken ? 'A confirmação automática do pagamento está indisponível. Envie o comprovante e solicite a conferência da loja.' : 'Depois de pagar, anexe o comprovante na conversa do WhatsApp.'}</p>}
   </section>;
 }

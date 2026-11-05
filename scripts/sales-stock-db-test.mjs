@@ -199,5 +199,108 @@ try {
   equal((await one('select stock_quantity from food_product_location_stock where product_id=$1 and location_id=$2',[ninho,pointB])).stock_quantity,2,'reserva incompleta não retira saldo restante');
   await query("update food_orders set status='cancelled' where id=$1",[receiptOrder]);
   await assert.rejects(declare,/não aceita declaração/);checks++;
+
+  // O clique paga o Pix, mas só conclui a retirada originada no próprio ponto.
+  await db.exec("reset role; create table food_order_receipt_sources(order_id uuid primary key,store_id uuid,pickup_location_id uuid); grant select on food_order_receipt_sources to service_role;");
+  await db.exec(readFileSync('supabase/migrations/20261104103000_food_receipt_one_click_paid_pickup.sql','utf8'));
+  await db.exec(readFileSync('supabase/migrations/20261105130953_food_receipt_point_origin.sql','utf8'));
+  const originProduct=randomUUID(),pointOrder=randomUUID(),generalOrder=randomUUID(),otherPointOrder=randomUUID(),deliveryOrder=randomUUID(),otherPickup=randomUUID();
+  await query("insert into food_pickup_locations(id,store_id,stock_location_id,name) values($1,$2,$3,'Outro ponto')",[otherPickup,store,pointA]);
+  await query("insert into food_products(id,store_id,name,track_stock,stock_quantity,stock_reserved_quantity,stock_status,availability_status,category_id) values($1,$2,'Produto origem fictício',true,8,0,'available','available',$3)",[originProduct,store,category]);
+  await query('insert into food_product_location_stock(store_id,product_id,location_id,stock_quantity,stock_reserved_quantity) values($1,$2,$3,0,0),($1,$2,$4,8,0)',[store,originProduct,pointA,pointB]);
+  for(const id of [pointOrder,generalOrder,otherPointOrder,deliveryOrder]) {
+    await query("insert into food_orders(id,store_id,status,inventory_status,payment_status,total,stock_location_id,pickup_location_id,source,delivery_type,payment_method) values($1,$2,'received','not_tracked','pending',20,$3,$4,'site','pickup','pix')",[id,store,pointB,pickup]);
+    await query('insert into food_order_items(order_id,product_id,quantity) values($1,$2,1)',[id,originProduct]);
+  }
+  await query("update food_orders set delivery_type='delivery' where id=$1",[deliveryOrder]);
+  await query('insert into food_order_receipt_sources(order_id,store_id,pickup_location_id) values($1,$5,$6),($2,$5,null),($3,$5,$7),($4,$5,$6)',[pointOrder,generalOrder,otherPointOrder,deliveryOrder,store,pickup,otherPickup]);
+  await db.exec('set role service_role');
+  const report=id=>one('select food_declare_order_receipt_v1($1,$2,20,0) v',[store,id]);
+  const direct=await report(pointOrder);
+  assert.equal(direct.v.autoPickedUp,true);checks++;
+  assert.deepEqual(await one('select status,payment_status from food_orders where id=$1',[pointOrder]),{status:'delivered',payment_status:'paid'});checks++;
+  equal((await one('select stock_quantity from food_product_location_stock where product_id=$1 and location_id=$2',[originProduct,pointB])).stock_quantity,7,'origem do ponto baixa estoque no próprio local');
+  await report(pointOrder);
+  equal((await one('select count(*) n from food_order_stock_movements where order_id=$1',[pointOrder])).n,1,'clique repetido não duplica baixa');
+  for(const id of [generalOrder,otherPointOrder,deliveryOrder]) {
+    const result=await report(id);
+    assert.equal(result.v.autoPickedUp,false);checks++;
+    assert.deepEqual(await one('select status,payment_status from food_orders where id=$1',[id]),{status:'received',payment_status:'paid'});checks++;
+    equal((await one('select count(*) n from food_order_stock_movements where order_id=$1',[id])).n,0,'origem geral, outro ponto ou entrega não conclui retirada');
+  }
+  await db.exec('reset role');
+  const unavailableOrder=randomUUID();
+  await query("insert into food_orders(id,store_id,status,inventory_status,payment_status,total,stock_location_id,pickup_location_id,source,delivery_type,payment_method) values($1,$2,'received','not_tracked','pending',20,$3,$4,'site','pickup','pix')",[unavailableOrder,store,pointB,pickup]);
+  await query('insert into food_order_items(order_id,product_id,quantity) values($1,$2,1)',[unavailableOrder,originProduct]);
+  await query('insert into food_order_receipt_sources(order_id,store_id,pickup_location_id) values($1,$2,$3)',[unavailableOrder,store,pickup]);
+  await query('update food_order_items set inventory_reserved_quantity=0 where order_id=$1',[unavailableOrder]);
+  await query('update food_product_location_stock set stock_quantity=stock_reserved_quantity where product_id=$1 and location_id=$2',[originProduct,pointB]);
+  await db.exec('set role service_role');
+  await assert.rejects(()=>report(unavailableOrder),/Estoque insuficiente/);checks++;
+  assert.deepEqual(await one('select status,payment_status from food_orders where id=$1',[unavailableOrder]),{status:'received',payment_status:'pending'});checks++;
+  equal((await one('select count(*) n from food_order_stock_movements where order_id=$1',[unavailableOrder])).n,0,'estoque insuficiente reverte pagamento e entrega');
+
+  // O checkout é simulado; reserva, baixa e ledger continuam usando funções reais.
+  await db.exec([
+    "reset role; alter table food_orders add column public_request_id uuid;",
+    "create function public.food_create_public_order(payload jsonb) returns table(order_id uuid,order_number bigint,order_total numeric) language plpgsql as $$ declare v_id uuid:=(payload->>'id')::uuid; v_store uuid:=(payload->>'store_id')::uuid; v_location uuid:=(payload->>'stock_location_id')::uuid; begin",
+    "insert into public.food_orders(id,store_id,public_request_id,status,inventory_status,payment_status,total,stock_location_id,pickup_location_id,source,delivery_type,payment_method) values(v_id,v_store,(payload->>'public_request_id')::uuid,'received','not_tracked','pending',20,v_location,nullif(payload->>'pickup_location_id','')::uuid,'site',payload->>'delivery_type',payload->>'payment_method') on conflict(id) do nothing;",
+    "if found then perform set_config('food.order_stock_location',v_location::text,true); insert into public.food_order_items(order_id,product_id,quantity) values(v_id,(payload->>'product_id')::uuid,1); end if;",
+    "return query select o.id,42::bigint,o.total from public.food_orders o where o.id=v_id and o.store_id=v_store; end $$;",
+    "create function public.food_create_public_order_with_receipt_v1(payload jsonb) returns table(order_id uuid,order_number bigint,order_total numeric) language sql as $$ select null::uuid,null::bigint,null::numeric where false $$;"
+  ].join('\n'));
+  await db.exec(readFileSync('supabase/migrations/20261105134833_food_cash_point_checkout.sql','utf8'));
+  const cashProduct=randomUUID(),cashOrder=randomUUID(),generalCash=randomUUID(),otherCash=randomUUID(),deliveryCash=randomUUID(),pixOrder=randomUUID(),oldCash=randomUUID();
+  await query("insert into food_products(id,store_id,name,track_stock,stock_quantity,stock_reserved_quantity,stock_status,availability_status,category_id) values($1,$2,'Dinheiro fictício',true,12,0,'available','available',$3)",[cashProduct,store,category]);
+  await query('insert into food_product_location_stock(store_id,product_id,location_id,stock_quantity,stock_reserved_quantity) values($1,$2,$3,0,0),($1,$2,$4,12,0)',[store,cashProduct,pointA,pointB]);
+  const cashPayload=(id,overrides={})=>({id,public_request_id:id,store_id:store,stock_location_id:pointB,pickup_location_id:pickup,receipt_pickup_location_id:pickup,delivery_type:'pickup',payment_method:'cash',product_id:cashProduct,...overrides});
+  const createPublic=payload=>query('select * from public.food_create_public_order_with_receipt_v1($1::jsonb)',[JSON.stringify(payload)]);
+  await db.exec('set role service_role');
+  await createPublic(cashPayload(cashOrder));
+  assert.deepEqual(await one('select status,payment_status from food_orders where id=$1',[cashOrder]),{status:'delivered',payment_status:'pending'});checks++;
+  equal((await one("select count(*) n from food_financial_entries where order_id=$1 and status='paid'",[cashOrder])).n,0,'retirada em dinheiro não cria entrada financeira recebida');
+  equal((await one('select stock_quantity from food_product_location_stock where product_id=$1 and location_id=$2',[cashProduct,pointB])).stock_quantity,11,'dinheiro no ponto baixa uma unidade ao criar pedido');
+  await createPublic(cashPayload(cashOrder));
+  equal((await one('select count(*) n from food_order_stock_movements where order_id=$1',[cashOrder])).n,1,'retry do checkout em dinheiro não duplica baixa');
+  await createPublic(cashPayload(generalCash,{receipt_pickup_location_id:null}));
+  await createPublic(cashPayload(otherCash,{receipt_pickup_location_id:otherPickup}));
+  await createPublic(cashPayload(deliveryCash,{delivery_type:'delivery',pickup_location_id:null}));
+  await createPublic(cashPayload(pixOrder,{payment_method:'pix'}));
+  for(const id of [generalCash,otherCash,deliveryCash,pixOrder]) {
+    assert.deepEqual(await one('select status,payment_status from food_orders where id=$1',[id]),{status:'received',payment_status:'pending'});checks++;
+    equal((await one('select count(*) n from food_order_stock_movements where order_id=$1',[id])).n,0,'outras origens e formas preservam a entrega pendente');
+  }
+  await db.exec('reset role');
+  await query("insert into food_orders(id,store_id,public_request_id,status,inventory_status,payment_status,total,stock_location_id,pickup_location_id,source,delivery_type,payment_method) values($1,$2,$1,'received','not_tracked','pending',20,$3,$4,'site','pickup','cash')",[oldCash,store,pointB,pickup]);
+  await db.exec('set role service_role');
+  await createPublic(cashPayload(oldCash));
+  assert.deepEqual(await one('select status,payment_status from food_orders where id=$1',[oldCash]),{status:'received',payment_status:'pending'});checks++;
+  await db.exec('reset role; set role authenticated');
+  await query('select food_confirm_order_payment_v1($1)',[cashOrder]);
+  await db.exec('reset role');
+  assert.deepEqual(await one('select status,payment_status from food_orders where id=$1',[cashOrder]),{status:'delivered',payment_status:'paid'});checks++;
+  assert.equal((await one('select status from food_financial_entries where order_id=$1',[cashOrder])).status,'paid');checks++;
+  equal((await one("select count(*) n from food_platform_event_log where action='cash_point_pickup_completed' and metadata->>'order_id'=$1",[cashOrder])).n,1,'retry não duplica auditoria');
+  await db.exec('set role service_role');
+  await createPublic(cashPayload(cashOrder));
+  assert.deepEqual(await one('select status,payment_status from food_orders where id=$1',[cashOrder]),{status:'delivered',payment_status:'paid'});checks++;
+  equal((await one('select count(*) n from food_order_stock_movements where order_id=$1',[cashOrder])).n,1,'retry após confirmação manual preserva estoque e pagamento');
+  await db.exec('reset role; set role anon');
+  await assert.rejects(()=>createPublic(cashPayload(randomUUID())),/permission denied/);checks++;
+  await db.exec('reset role');
+  const wrongStockOrder=randomUUID(),untrackedProduct=randomUUID();
+  await query("insert into food_products(id,store_id,name,track_stock,stock_quantity,stock_reserved_quantity,stock_status,availability_status,category_id) values($1,$2,'Produto sem controle fictício',false,0,0,'available','available',$3)",[untrackedProduct,store,category]);
+  await db.exec('set role service_role');
+  await assert.rejects(()=>createPublic(cashPayload(wrongStockOrder,{stock_location_id:pointA,product_id:untrackedProduct})),/estoque do pedido não corresponde/i);checks++;
+  equal((await one('select count(*) n from food_orders where id=$1',[wrongStockOrder])).n,0,'local divergente reverte o pedido');
+  await db.exec('reset role');
+  const failedCash=randomUUID();
+  const beforeFailure=await one('select stock_quantity,stock_reserved_quantity from food_product_location_stock where product_id=$1 and location_id=$2',[cashProduct,pointB]);
+  await db.exec("create function test_cash_failure() returns trigger language plpgsql as $$ begin if new.id='"+failedCash+"'::uuid and new.status='delivered' then raise exception 'Falha sintética de estoque'; end if; return new; end $$; create trigger test_cash_failure before update of status on food_orders for each row execute function test_cash_failure(); set role service_role");
+  await assert.rejects(()=>createPublic(cashPayload(failedCash)),/Falha sintética de estoque/);checks++;
+  await db.exec('reset role');
+  equal((await one('select count(*) n from food_orders where id=$1',[failedCash])).n,0,'falha da retirada reverte criação do pedido');
+  equal((await one('select count(*) n from food_order_receipt_sources where order_id=$1',[failedCash])).n,0,'falha reverte origem');
+  assert.deepEqual(await one('select stock_quantity,stock_reserved_quantity from food_product_location_stock where product_id=$1 and location_id=$2',[cashProduct,pointB]),beforeFailure);checks++;
   console.log(`OK: ${checks} verificações de reserva, pagamento, entrega, idempotência e local.`);
 } finally { await db.close(); }
