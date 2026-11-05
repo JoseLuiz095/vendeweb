@@ -120,7 +120,7 @@ const ADMIN_ORDER_SELECT = [
   'delivery_address', 'delivery_zip_code', 'delivery_street', 'delivery_number', 'delivery_complement',
   'delivery_neighborhood', 'delivery_zone_id', 'delivery_zone_name', 'delivery_fee', 'delivery_city',
   'delivery_state', 'reference_point', 'card_message', 'card_signature', 'anonymous_sender', 'notes',
-  'payment_method', 'subtotal', 'total', 'status', 'payment_status', 'payment_received_at',
+  'payment_method', 'subtotal', 'total', 'status', 'payment_status', 'payment_received_at', 'payment_reported_by_customer',
   'payment_confirmed_by', 'needs_change', 'change_for', 'change_amount', 'scheduled_for',
   'preparation_estimate_minutes', 'inventory_status', 'source', 'customer_instagram', 'acquisition_source',
   'whatsapp_clicked_at', 'created_at',
