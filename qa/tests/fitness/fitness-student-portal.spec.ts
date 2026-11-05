@@ -96,3 +96,11 @@ test('student sees both 2D reference poses assigned by the professional',async({
   await expect(page.getByRole('img',{name:'Supino reto com barra · posição principal do movimento'})).toHaveAttribute('src','/assets/fitness-exercises/bench-press-peak.webp');
   await expect(page.getByRole('link',{name:'Ilustrações de exercício por RepDB'})).toHaveAttribute('href','https://repdb.co');
 });
+
+test('indica quando a ilustração de execução não carrega',async({page})=>{
+  await mockStudent(page,'repdb:bench-press');
+  await page.route('**/assets/fitness-exercises/bench-press-start.webp',route=>route.abort());
+  await page.goto(`/fitness/${store}/treinos`);
+  await expect(page.getByText('Imagem indisponível. Consulte as instruções do profissional.')).toBeVisible();
+  await expect(page.getByRole('img',{name:'Supino reto com barra · posição principal do movimento'})).toBeVisible();
+});
