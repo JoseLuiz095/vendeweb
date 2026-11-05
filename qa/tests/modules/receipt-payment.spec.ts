@@ -66,8 +66,9 @@ for(const accept of [false,true])test(`admin ${accept?'confere declaração':'re
  await page.route('**/rest/v1/rpc/food_review_receipt_report_v1',r=>{reviews.push(r.request().postDataJSON());reported=false;paid=accept;return r.fulfill({json:{ok:true}})});
  await page.goto('/admin/pedidos');const inbox=page.getByRole('region',{name:'Recebimentos a conferir'});
  await expect(inbox).toContainText('Pago informado pelo cliente · conferir');
- page.once('dialog',async d=>{expect(d.message()).toContain(accept?'status operacional permanece igual':'estoque não serão alterados');await d.accept()});
+ if(!accept)page.once('dialog',async d=>{expect(d.message()).toContain('estoque não serão alterados');await d.accept()});
  await inbox.getByRole('button',{name:accept?'Confirmar recebimento':'Voltar para A receber',exact:true}).click();
+ if(accept){const dialog=page.getByRole('dialog',{name:'Confirmar recebimento'});await expect(dialog).toContainText('status operacional permanece igual');await dialog.getByRole('button',{name:'Confirmar recebimento'}).click();}
  await expect.poll(()=>reviews.length).toBe(1);expect(reviews).toEqual([{p_order_id:ORDER,p_accept:accept}]);
  await expect(inbox.getByText('Pago informado pelo cliente · conferir')).toHaveCount(0);expect(patches).toBe(0);
  if(!accept)await expect(inbox.getByRole('button',{name:'Confirmar recebimento',exact:true})).toBeVisible();

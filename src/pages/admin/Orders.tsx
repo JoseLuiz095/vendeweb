@@ -153,6 +153,9 @@ export default function OrdersAdmin() {
   const [nowTick, setNowTick] = useState(() => Date.now());
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [confirmingPaymentId, setConfirmingPaymentId] = useState<string | null>(null);
+  const [paymentConfirmation, setPaymentConfirmation] = useState<Order | null>(null);
+  const paymentConfirmationRef = useRef<HTMLElement>(null);
+  useModalAccessibility(Boolean(paymentConfirmation), paymentConfirmationRef, () => setPaymentConfirmation(null), !confirmingPaymentId);
   const [notifyOrderId, setNotifyOrderId] = useState<string | null>(null);
   const [manualOrderOpen, setManualOrderOpen] = useState(false);
   const [stockLocations, setStockLocations] = useState<StockLocation[]>([]);
@@ -691,21 +694,18 @@ export default function OrdersAdmin() {
     try{await returnReceiptToReceivable(order.id);showToast('Pedido e lançamento financeiro voltaram para A receber.','success');}
     catch{showToast('Não foi possível confirmar a reversão. Atualize os pedidos antes de tentar novamente.','error');}
   };
-  const confirmPayment = async (orderId: string, orderNumber: number, total: number) => {
-    const order = orders.find((current) => current.id === orderId);
-    const paymentDescription = order ? paymentLabel[order.paymentMethod] : 'pagamento informado';
-    const alreadyDelivered = order?.status === 'delivered' || order?.status === 'picked_up';
-    const inventoryDescription = alreadyDelivered
-      ? 'Esta ação confirma somente o recebimento financeiro. O status operacional permanece igual. A entrega ou retirada já foi concluída e o estoque já foi baixado.'
-      : 'Esta ação confirma somente o recebimento financeiro. O status operacional permanece igual. A baixa de estoque ocorre ao concluir entrega ou retirada, após validar o saldo.';
-    const confirmed = window.confirm(`CONFIRME SOMENTE APÓS CONFERIR O PAGAMENTO\n\nPedido #${formatOrderNumber(orderNumber)} · ${order?.customerName || 'cliente'}\nValor: ${currency.format(total)}\nForma: ${paymentDescription}\n\n${inventoryDescription}\nA entrada será lançada automaticamente no Financeiro.\n\nDeseja confirmar o recebimento?`);
-    if (!confirmed) return;
+  const confirmPayment = async (order: Order) => {
+    if (confirmingPaymentId) return;
+    const orderId = order.id;
+    const alreadyDelivered = order.status === 'delivered' || order.status === 'picked_up';
     setConfirmingPaymentId(orderId);
     try {
       await trackInteraction('order_payment_confirm', () => confirmOrderPayment(orderId), { storeId: settings.id });
+      setPaymentConfirmation(null);
       showToast(alreadyDelivered ? 'Recebimento confirmado. A entrega ou retirada permanece concluída.' : 'Recebimento confirmado. Entrega ou retirada deve ser concluída separadamente no pedido.', 'success');
       setLastUpdatedAt(new Date());
     } catch {
+      setPaymentConfirmation(null);
       showToast('Não foi possível confirmar o resultado do recebimento. Atualize os pedidos antes de tentar novamente. O status operacional não foi alterado por esta ação.', 'error');
     } finally {
       setConfirmingPaymentId(null);
@@ -1019,7 +1019,7 @@ export default function OrdersAdmin() {
     {(!queue||queue==='payment')&&<section id="orders-payment" className="admin-card orders-payment-inbox" aria-labelledby="orders-payment-inbox-title">
       <div className="orders-payment-inbox__heading"><div><span className="eyebrow">FINANCEIRO</span><h2 id="orders-payment-inbox-title">Recebimentos a conferir</h2><InfoHint>Confirme recebimento somente depois de conferir o pagamento. Para uma entrega fiada, use “Entregue · A pagar”: a saída física é registrada e o valor permanece pendente.</InfoHint></div><strong>{awaitingPaymentOrders.length}</strong></div>
       {awaitingPaymentOrders.length ? <div className="orders-payment-inbox__list">{awaitingPaymentOrders.map((order) => {
-        return <article key={order.id} className={scheduleInfo(order)?.future?'order-payment-future':''}><div>{order.paymentReportedByCustomer&&<strong>Pago informado pelo cliente · conferir</strong>}<strong>#{formatOrderNumber(order.orderNumber)} · {order.customerName}</strong><span>{paymentLabel[order.paymentMethod]} · {currency.format(order.total)} · {formatDateTimeBR(order.createdAt)}</span><small>{order.paymentReportedByCustomer ? (order.status === 'delivered' || order.status === 'picked_up' ? 'Entregue · pagamento informado · confira o recebimento' : 'Pagamento informado · confira o recebimento') : (order.status === 'delivered' || order.status === 'picked_up' ? 'Entregue · A pagar · estoque baixado' : scheduleInfo(order)?.label || 'Pedido aguardando conferência do recebimento')}</small></div><div className="orders-payment-inbox__actions">{order.paymentReportedByCustomer&&<button type="button" className="secondary-button compact-button" onClick={()=>void returnReceipt(order)}>Voltar para A receber</button>}<button type="button" className="secondary-button compact-button" onClick={() => setDetailsOrderId(order.id)}><Eye size={15}/>Detalhes / editar</button>{order.paymentMethod === 'pix' && <button type="button" className="secondary-button compact-button" onClick={() => openPaymentPix(order)}><QrCode size={15}/>Mostrar QR Code</button>}<button type="button" className="orders-payment-cancel-button" onClick={() => void cancelOrderFromPaymentCard(order.id)}><Ban size={15}/>Cancelar pedido</button>{!order.paymentReportedByCustomer && !['delivered', 'picked_up'].includes(order.status) && <button type="button" className="secondary-button compact-button" disabled={updatingId === order.id || confirmingPaymentId === order.id} onClick={() => void markDeliveredToPay(order)}><ShoppingBag size={16}/>Entregue · A pagar</button>}<button type="button" className="order-payment-confirm-button order-payment-confirm-button--prominent" disabled={confirmingPaymentId === order.id || updatingId === order.id} onClick={() => void confirmPayment(order.id, order.orderNumber, order.total)}><CircleDollarSign size={16}/>{confirmingPaymentId === order.id ? 'Confirmando...' : 'Confirmar recebimento'}</button></div></article>;
+        return <article key={order.id} className={scheduleInfo(order)?.future?'order-payment-future':''}><div>{order.paymentReportedByCustomer&&<strong>Pago informado pelo cliente · conferir</strong>}<strong>#{formatOrderNumber(order.orderNumber)} · {order.customerName}</strong><span>{paymentLabel[order.paymentMethod]} · {currency.format(order.total)} · {formatDateTimeBR(order.createdAt)}</span><small>{order.paymentReportedByCustomer ? (order.status === 'delivered' || order.status === 'picked_up' ? 'Entregue · pagamento informado · confira o recebimento' : 'Pagamento informado · confira o recebimento') : (order.status === 'delivered' || order.status === 'picked_up' ? 'Entregue · A pagar · estoque baixado' : scheduleInfo(order)?.label || 'Pedido aguardando conferência do recebimento')}</small></div><div className="orders-payment-inbox__actions">{order.paymentReportedByCustomer&&<button type="button" className="secondary-button compact-button" onClick={()=>void returnReceipt(order)}>Voltar para A receber</button>}<button type="button" className="secondary-button compact-button" onClick={() => setDetailsOrderId(order.id)}><Eye size={15}/>Detalhes / editar</button>{order.paymentMethod === 'pix' && <button type="button" className="secondary-button compact-button" onClick={() => openPaymentPix(order)}><QrCode size={15}/>Mostrar QR Code</button>}<button type="button" className="orders-payment-cancel-button" onClick={() => void cancelOrderFromPaymentCard(order.id)}><Ban size={15}/>Cancelar pedido</button>{!order.paymentReportedByCustomer && !['delivered', 'picked_up'].includes(order.status) && <button type="button" className="secondary-button compact-button" disabled={updatingId === order.id || confirmingPaymentId === order.id} onClick={() => void markDeliveredToPay(order)}><ShoppingBag size={16}/>Entregue · A pagar</button>}<button type="button" className="order-payment-confirm-button order-payment-confirm-button--prominent" disabled={confirmingPaymentId === order.id || updatingId === order.id} onClick={() => setPaymentConfirmation(order)}><CircleDollarSign size={16}/>{confirmingPaymentId === order.id ? 'Confirmando...' : 'Confirmar recebimento'}</button></div></article>;
       })}</div> : <div className="orders-payment-inbox__empty"><CheckCircle2 size={18}/>Nenhum pedido pendente de recebimento.</div>}
     </section>}
 
@@ -1064,6 +1064,16 @@ export default function OrdersAdmin() {
       <div className="orders-batch-status-bar__actions"><button type="button" className="secondary-button compact-button" onClick={discardStatusDrafts} disabled={batchSaving}>Descartar</button><button type="button" className="primary-button compact-button" onClick={() => void saveStatusBatch()} disabled={!pendingStatusChanges.length || batchSaving}>{batchSaving ? 'Salvando...' : `Salvar ${pendingStatusChanges.length || ''} status`}</button></div>
     </aside>}
     {detailsOrder && <OrderDetailsModal key={`${detailsOrder.storeId}:${detailsOrder.id}`} order={detailsOrder} products={products} settings={settings} onClose={() => setDetailsOrderId(null)} onSave={saveOrderDetails} onCancelOrder={cancelOrderFromDetails} saving={detailsSaving} />}
+    {paymentConfirmation && <div className="modal-overlay" role="presentation">
+      <section ref={paymentConfirmationRef} tabIndex={-1} className="master-modal" role="dialog" aria-modal="true" aria-labelledby="payment-confirmation-title">
+        <h2 id="payment-confirmation-title">Confirmar recebimento</h2>
+        <p>Confirme somente após conferir o pagamento.</p>
+        <p>Pedido #{formatOrderNumber(paymentConfirmation.orderNumber)} · {paymentConfirmation.customerName || 'cliente'}<br/>Valor: {currency.format(paymentConfirmation.total)} · Forma: {paymentLabel[paymentConfirmation.paymentMethod]}</p>
+        <p>Esta ação confirma somente o recebimento financeiro. O status operacional permanece igual. {paymentConfirmation.status === 'delivered' || paymentConfirmation.status === 'picked_up' ? 'A entrega ou retirada já foi concluída e o estoque já foi baixado.' : 'A baixa de estoque ocorre ao concluir entrega ou retirada, após validar o saldo.'}</p>
+        <p>A entrada será lançada automaticamente no Financeiro.</p>
+        <div className="master-modal-actions"><button type="button" className="secondary-button" disabled={Boolean(confirmingPaymentId)} onClick={() => setPaymentConfirmation(null)}>Cancelar</button><button type="button" className="primary-button" disabled={Boolean(confirmingPaymentId)} onClick={() => void confirmPayment(paymentConfirmation)}>{confirmingPaymentId ? 'Confirmando...' : 'Confirmar recebimento'}</button></div>
+      </section>
+    </div>}
     {manualOrderOpen && <div className="modal-overlay" role="presentation">
       <form ref={manualDialogRef} tabIndex={-1} className="master-modal master-modal--wide manual-order-modal" data-order-mode={manualOrderMode} role="dialog" aria-modal="true" aria-labelledby="manual-order-title" onSubmit={saveManualOrder}>
         <button type="button" className="modal-close" aria-label="Fechar lançamento de pedido avulso" onClick={() => setManualOrderOpen(false)} disabled={manualSaving}><X/></button>
