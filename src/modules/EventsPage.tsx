@@ -42,8 +42,11 @@ export default function EventsPage() {
     setBusy(true); setError('');
     try { setOrder(await modulesApi.customer('get', { order_id: eventOrderId, token: capability })); } catch (e) { setError((e as Error).message); } finally { setBusy(false); }
   };
-  const selectedOffer = catalog?.offers.find(o => choice === `offer:${o.id}`);
-  const selectedCombo = catalog?.combos.find(c => choice === `combo:${c.id}`);
+  const onlyChoice = catalog && catalog.offers.length + catalog.combos.length === 1
+    ? catalog.offers.length ? `offer:${catalog.offers[0].id}` : `combo:${catalog.combos[0].id}` : '';
+  const effectiveChoice = choice || onlyChoice;
+  const selectedOffer = catalog?.offers.find(o => effectiveChoice === `offer:${o.id}`);
+  const selectedCombo = catalog?.combos.find(c => effectiveChoice === `combo:${c.id}`);
   const lead = selectedOffer?.lead_hours ?? Math.max(0,...(selectedCombo?.items.map(i => i.lead_hours) || []));
   const scheduleUrgent = !!form.starts && new Date(form.starts).getTime() < Date.now() + lead * 3600000;
   const pix = useMemo(() => {
@@ -82,20 +85,20 @@ export default function EventsPage() {
     {catalog && <>
       {!catalog.offers.length && !catalog.combos.length ? <p>Esta loja ainda não disponibilizou ofertas para eventos.</p> : <form onSubmit={e => { e.preventDefault(); void create(); }}>
         <fieldset className="module-card"><legend>Escolha uma oferta ou combo</legend>
-          {catalog.offers.map(o => <label className="module-check module-row" key={o.id}><input type="radio" name="offer" required checked={choice === `offer:${o.id}`} onChange={() => { setChoice(`offer:${o.id}`); setQuantity(1); }} /><span><strong>{o.name} · {moduleMoney(o.price_cents)}</strong><br />{offerKindLabels[o.kind]} · {o.ready_now ? 'Pronta entrega' : 'Requer agendamento'} · Prazo mínimo: {o.lead_hours} h</span></label>)}
-          {catalog.combos.map(c => <label className="module-check module-row" key={c.id}><input type="radio" name="offer" required checked={choice === `combo:${c.id}`} onChange={() => setChoice(`combo:${c.id}`)} /><span><strong>{c.name} · versão {c.version}</strong><br />{c.items.map(i => `${i.quantity} × ${i.name}`).join(' + ')}<br />Valor inicial: {moduleMoney(c.items.reduce((sum,i) => sum + Math.round(i.price_cents * i.quantity * (10000 - i.discount_bps) / 10000),0))}<br />Você poderá remover itens na revisão.</span></label>)}
+          {catalog.offers.map(o => <label className="module-check module-row" key={o.id}><input type="radio" name="offer" required checked={effectiveChoice === `offer:${o.id}`} onChange={() => { setChoice(`offer:${o.id}`); setQuantity(1); }} /><span><strong>{o.name} · {moduleMoney(o.price_cents)}</strong><br />{offerKindLabels[o.kind]} · {o.kind === 'rental' ? 'Disponibilidade confirmada para o período escolhido' : o.ready_now ? 'Pronta entrega' : 'Requer agendamento'} · Prazo mínimo: {o.lead_hours} h</span></label>)}
+          {catalog.combos.map(c => <label className="module-check module-row" key={c.id}><input type="radio" name="offer" required checked={effectiveChoice === `combo:${c.id}`} onChange={() => setChoice(`combo:${c.id}`)} /><span><strong>{c.name}</strong><br />{c.items.map(i => `${i.quantity} × ${i.name}`).join(' + ')}<br />Valor inicial: {moduleMoney(c.items.reduce((sum,i) => sum + Math.round(i.price_cents * i.quantity * (10000 - i.discount_bps) / 10000),0))}<br />Você poderá remover itens na revisão.</span></label>)}
         </fieldset>
         <section className="module-card"><h2>Dados e agendamento</h2><div className="module-grid">
           <label>Seu nome<input required minLength={2} maxLength={120} autoComplete="name" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} /></label>
           <label>WhatsApp<input required type="tel" minLength={10} maxLength={30} autoComplete="tel" value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} /></label>
-          <label>Data e horário<input required type="datetime-local" value={form.starts} onChange={e => setForm({ ...form, starts: e.target.value })} /></label>
-          <label>Término do evento / retirada do aluguel<input required type="datetime-local" value={form.ends} onChange={e => setForm({ ...form, ends: e.target.value })} /></label>
-          {selectedOffer && <label>Quantidade (máximo {selectedOffer.max_quantity})<input required type="number" min="1" max={selectedOffer.max_quantity} value={quantity} onChange={e => setQuantity(Number(e.target.value))} /></label>}
+          <label>Data e horário de início<input required type="datetime-local" value={form.starts} onChange={e => setForm({ ...form, starts: e.target.value })} /></label>
+          <label>Data e horário de término<input required type="datetime-local" min={form.starts || undefined} value={form.ends} onChange={e => setForm({ ...form, ends: e.target.value })} /></label>
+          {selectedOffer && selectedOffer.kind !== 'rental' && selectedOffer.max_quantity > 1 && <label>Quantidade (máximo {selectedOffer.max_quantity})<input required type="number" min="1" max={selectedOffer.max_quantity} value={quantity} onChange={e => setQuantity(Number(e.target.value))} /></label>}
         </div>
         {scheduleUrgent && <p role="status" className="module-message">Prazo mínimo de {lead} horas não atendido. A solicitação dependerá do aceite de urgência de cada fornecedor e poderá ter acréscimo. Você verá o valor antes de pagar.</p>}
         <TurnstileWidget siteKey={appConfig.turnstileSiteKey} onToken={setCaptcha} resetSignal={captchaReset} action="modules" />
         {!appConfig.turnstileSiteKey && <p>Verificação de segurança indisponível. Entre em contato com a loja.</p>}
-        <button className="button button-primary" disabled={busy || !choice || !captcha}>{busy ? 'Preparando...' : 'Revisar pedido e valores'}</button>
+        <button className="button button-primary" disabled={busy || !effectiveChoice || !captcha}>{busy ? 'Preparando...' : 'Revisar pedido e valores'}</button>
         </section>
       </form>}
     </>}

@@ -17,6 +17,7 @@ import { FitnessCatalog } from '../../platform/FitnessCatalog';
 import { PickupPointSelector, PointStockNotice } from './PickupPointSelector';
 import { pointStock, usePickupAvailability } from './usePickupAvailability';
 import { storefrontAvailabilityRank } from '../../utils/storefrontAvailability';
+import { getWhatsAppUrl } from '../../utils/whatsapp';
 
 export default function Home(){
   if (typeof window !== 'undefined' && isFoodWebMarketingRoot(window.location.pathname, window.location.hostname)) return <Landing/>;
@@ -79,6 +80,7 @@ function StorefrontHome(){
       {settings.pickupEnabled && <PickupPointSelector points={pickup.points} value={pickup.pickupLocationId} onChange={pickup.setPickupLocationId} loading={pickup.pointsLoading} error={pickup.pointsError} invalidQr={pickup.invalidQr}/>}
       {pickup.selectedPoint && pickup.availabilityError && <p className="store-point-stock store-point-stock--warning" role="status">{pickup.availabilityError}</p>}
       {!traditionalPresentation&&(catalogType==='all'||catalogType==='products')&&<section className="segment-catalog-intro" aria-label={`Catálogo de ${segment.label}`}><div><span className="eyebrow">{segment.heroEyebrow}</span><h2>{segment.heroTitle}</h2><p>{segment.heroDescription}</p></div><a href="#catalogo-produtos" className="segment-catalog-intro__link">Explorar {segment.catalogLabel.toLocaleLowerCase('pt-BR')} <ChevronRight size={17}/></a></section>}
+      {segment.id==='printing3d' && settings.showWhatsApp !== false && settings.whatsapp.replace(/\D/g,'').length >= 10 && <section className="segment-custom-quote" aria-label="Projeto personalizado"><div><h2>Tem uma ideia para imprimir?</h2><p>Converse com a loja e envie os detalhes ou o arquivo pelo WhatsApp. A loja combinará preço e prazo com você.</p><small>A conversa não cria um pedido automaticamente.</small></div><a href={getWhatsAppUrl(settings.whatsapp, `Olá, ${settings.name}! Gostaria de um orçamento para uma impressão 3D personalizada.`)} target="_blank" rel="noopener noreferrer">Pedir orçamento no WhatsApp <ChevronRight size={17}/></a></section>}
       <details className="food-order-guide"><summary>Informações para comprar</summary><section className="food-order-summary"><div><Truck size={17}/><strong>{settings.deliveryEnabled&&settings.pickupEnabled?'Delivery ou retirada':settings.deliveryEnabled?'Delivery':'Retirada'}</strong><span>{settings.minimumOrder>0?`Pedido mínimo ${currency.format(settings.minimumOrder)}`:'Sem pedido mínimo'}</span></div><div><Sparkles size={17}/><strong>{traditionalPresentation?'Peça em poucos minutos':'Escolha com tranquilidade'}</strong><span>{traditionalPresentation?'Personalize e finalize online':'Confira os detalhes de cada item'}</span></div></section></details>
 
       {(traditionalPresentation||catalogType==='all'||catalogType==='products')&&<div className="food-discovery-bar">
