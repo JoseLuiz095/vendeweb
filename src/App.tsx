@@ -34,6 +34,7 @@ const MasterSignupRequests=lazy(()=>import('./pages/master/SignupRequests'));
 const MasterPlans=lazy(()=>import('./pages/master/Plans'));
 const MasterPayments=lazy(()=>import('./pages/master/Payments'));
 const MasterDiagnostics=lazy(()=>import('./pages/master/Diagnostics'));
+const MasterStoreIndicators=lazy(()=>import('./pages/master/StoreIndicators'));
 const DemoProvisioning=lazy(()=>import('./pages/master/DemoProvisioning'));
 const Cart=lazy(()=>import('./pages/store/Cart'));
 const Checkout=lazy(()=>import('./pages/store/Checkout'));
@@ -149,6 +150,7 @@ export default function App() {
       <Route path="/admin-master/mfa" element={<MasterMfa />} />
       <Route path="/admin-master" element={<MasterDashboard />} />
       <Route path="/admin-master/lojas" element={<MasterStores />} />
+      <Route path="/admin-master/indicadores" element={<MasterStoreIndicators />} />
       <Route path="/admin-master/solicitacoes" element={<MasterSignupRequests />} />
       <Route path="/admin-master/planos" element={<MasterPlans />} />
       <Route path="/admin-master/pagamentos" element={<MasterPayments />} />

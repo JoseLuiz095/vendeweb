@@ -17,6 +17,7 @@ const navSections: Array<{ label: string; items: MasterNavItem[] }> = [
   { label: 'Visão geral', items: [{ to: '/admin-master', label: 'Painel', icon: LayoutDashboard, end: true }] },
   { label: 'Negócios', items: [
     { to: '/admin-master/lojas', label: 'Lojas', icon: Building2 },
+    { to: '/admin-master/indicadores', label: 'Indicadores das lojas', icon: Activity },
     { to: '/admin-master/demonstracao', label: 'Demonstração', icon: Building2 },
     { to: '/admin-master/solicitacoes', label: 'Solicitações', icon: UserPlus },
     { to: '/admin-master/pagamentos', label: 'Pagamentos', icon: WalletCards },
