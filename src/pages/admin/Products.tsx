@@ -25,6 +25,7 @@ export default function ProductsAdmin() {
   const segmentPresentation = segment.id !== 'food' && settings.visualTheme.preset !== 'doce_lua';
   const { showToast } = useToast();
   const [query, setQuery] = useState('');
+  const [visualCatalog, setVisualCatalog] = useState(true);
   const [status, setStatus] = useState('all');
   const [busyId, setBusyId] = useState('');
   const savingRef = useRef(false);
@@ -96,7 +97,8 @@ export default function ProductsAdmin() {
   return <>
     <div className="admin-page-title"><div><span className="eyebrow">OFERTAS DA LOJA</span><h1>Catálogo</h1><InfoHint>Crie cada tipo no módulo correspondente. Estoque, agenda, acesso e pagamento seguem regras próprias.</InfoHint></div><div className="catalog-create-actions"><Link className="primary-button" to="/admin/produtos/novo"><Plus size={18}/>Novo produto</Link>{canCreateServices&&<Link className="secondary-button" to="/admin/operacao?tab=services">Novo serviço ou consulta</Link>}{canCreateContent&&<Link className="secondary-button" to="/admin/operacao?tab=links">Novo conteúdo ou link</Link>}</div></div>
     <div className="catalog-limit-banner"><div><strong>{activeCount}/{limit ?? '∞'} produtos ativos</strong><span>{limit == null ? 'Sem limite de publicação neste plano.' : planUsage.canActivateProduct ? `Você ainda pode publicar ${Math.max(0, limit - activeCount)} produto(s).` : 'Limite de publicação atingido. Cadastre novos produtos como ocultos ou desative um item ativo.'}</span></div>{limit != null && <div className="catalog-limit-track"><span style={{ width: `${Math.min(100, (activeCount / Math.max(1, limit)) * 100)}%` }}/></div>}</div>
-    <section className="admin-card no-padding catalog-products-card">
+    <section className={`admin-card no-padding catalog-products-card${visualCatalog ? ' catalog-products-card--visual' : ''}`}>
+      <div className="catalog-view-controls" role="group" aria-label="Visualização do catálogo"><button type="button" className="secondary-button" aria-pressed={visualCatalog} onClick={() => setVisualCatalog(true)}>Ver imagens</button><button type="button" className="secondary-button" aria-pressed={!visualCatalog} onClick={() => setVisualCatalog(false)}>Ver tabela</button></div>
       <div className="table-toolbar catalog-toolbar"><div className="admin-search"><Search size={18}/><input value={query} onChange={event => setQuery(event.target.value)} placeholder={segmentPresentation ? segment.searchPlaceholder : 'Buscar produto...'} aria-label={segmentPresentation ? segment.searchPlaceholder : 'Buscar produto...'}/></div><label className="catalog-status-filter"><span>Mostrar</span><select aria-label="Filtrar produtos por status" value={status} onChange={event => setStatus(event.target.value)}><option value="all">Todos</option><option value="active">Publicados</option><option value="hidden">Ocultos</option><option value="unavailable">Indisponíveis</option></select></label><span aria-live="polite">{filtered.length} itens</span></div>
       {draft && editedProduct && <form ref={editorRef} className="catalog-quick-editor" onSubmit={saveQuick} aria-label={`Ajuste rápido de ${editedProduct.name}`}>
         <div><h2>Ajuste rápido</h2><p>{editedProduct.name}</p></div>

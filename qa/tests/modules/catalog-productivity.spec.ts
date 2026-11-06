@@ -61,6 +61,17 @@ async function catalogBackend(page: Page) {
   return { rows, writes, get reads() { return reads; } };
 }
 
+test('catálogo alterna entre cartões e tabela no desktop', async ({ page }) => {
+  await page.setViewportSize({ width: 1366, height: 900 });
+  await catalogBackend(page);
+  await page.goto('/admin/produtos');
+  await expect(page.locator('.products-mobile-list').getByText('Brigadeiro teste')).toBeVisible();
+  await page.getByRole('button', { name: 'Ver tabela' }).click();
+  await expect(page.locator('.products-desktop-table').getByText('Brigadeiro teste')).toBeVisible();
+  await page.getByRole('button', { name: 'Ver imagens' }).click();
+  await expect(page.locator('.products-mobile-list').getByText('Brigadeiro teste')).toBeVisible();
+});
+
 for (const width of [390, 1366]) {
   test(`duplicação cria rascunho independente e oculto em ${width}px`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width, height: 844 });
@@ -110,7 +121,7 @@ test('atualização de outra aba preserva os campos em edição', async ({ page 
   await page.evaluate(() => window.dispatchEvent(new StorageEvent('storage', { key: 'foodservice_store_sync_v1', newValue: String(Date.now()) })));
   await expect.poll(() => backend.reads).toBeGreaterThan(readsBefore);
   await expect(name).toHaveValue('Rascunho ainda não salvo');
-  await expect(page.getByLabel('Preço', { exact: true })).toHaveValue('18.5');
+  await expect.poll(async () => Number(await page.getByLabel('Preço', { exact: true }).inputValue())).toBe(18.5);
   expect(backend.writes).toEqual([]);
 });
 
@@ -170,7 +181,7 @@ for (const width of [390, 1366]) {
     expect(backend.rows.food_products[0]).toMatchObject({ price: 18.5, promotional_price: 17, stock_quantity: 50, stock_reserved_quantity: 7, internal_code: 'ORIGINAL-1' });
     expect(backend.rows.food_option_items[0].id).toBe(OPTION);
     await page.reload();
-    await expect(page.locator(width <= 760 ? '.products-mobile-list' : '.products-desktop-table').getByText('R$ 17,00', { exact: true })).toBeVisible();
+    await expect(page.locator('.products-mobile-list').getByText('R$ 17,00', { exact: true })).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
     await page.screenshot({ path: testInfo.outputPath(`catalogo-ajuste-${width}.png`), fullPage: true });
   });
