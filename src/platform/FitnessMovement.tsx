@@ -1,6 +1,10 @@
-import { createElement, useEffect, useId, useRef, useState } from 'react';
+import { createElement, lazy, Suspense, useEffect, useId, useRef, useState } from 'react';
 import { fitnessIllustrationByKey } from './fitnessExerciseIllustrationLibrary';
 import { fitnessMovementByKey, type FitnessMovementMedia } from './fitnessMovementLibrary';
+
+const FitnessThreeViewer = lazy(() => import('./FitnessThreeViewer').catch(() => ({
+  default: () => <p role="alert">Não foi possível carregar o visualizador. Feche esta visualização para voltar à demonstração anterior.</p>,
+})));
 
 const schematicPoses: Record<string, { name: string; body: string }> = {
   squat: { name: 'Agachamento', body: 'M170 67l-20 34-27 13 3 35 M150 101l34 16 13 32 M163 80l-31 2' },
@@ -21,7 +25,7 @@ function prefersReducedMotion() {
   return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 }
 
-function LoopingMovement({ movement }: { movement: FitnessMovementMedia }) {
+function ExistingMovement({ movement }: { movement: FitnessMovementMedia }) {
   const viewer = useRef<ModelViewerElement | null>(null);
   const frame = useRef<HTMLElement | null>(null);
   const [customElementReady, setCustomElementReady] = useState(false);
@@ -120,6 +124,14 @@ function LoopingMovement({ movement }: { movement: FitnessMovementMedia }) {
     {!modelReady && !error && <p role="status" className="business-muted">Carregando demonstração animada…</p>}
     {error && <p role="status" className="business-muted">{error}</p>}
   </figure>;
+}
+
+function LoopingMovement({ movement }: { movement: FitnessMovementMedia }) {
+  const [interactive, setInteractive] = useState(false);
+  return <div>
+    {interactive ? <Suspense fallback={<p role="status">Preparando visualização 3D…</p>}><FitnessThreeViewer movement={movement}/></Suspense> : <ExistingMovement movement={movement}/>}
+    <button type="button" className="secondary-button" onClick={() => setInteractive(value => !value)}>{interactive ? 'Fechar visualização 3D interativa' : 'Abrir visualização 3D interativa'}</button>
+  </div>;
 }
 
 function ExercisePose({src,alt,label}:{src:string;alt:string;label:string}) {

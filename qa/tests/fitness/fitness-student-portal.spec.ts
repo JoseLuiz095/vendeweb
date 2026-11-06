@@ -89,6 +89,20 @@ test('student sees a looping exercise animation and reduced motion starts paused
   await expect.poll(() => page.evaluate(() => (window as Window & {__fitnessAnimationCalls?:unknown[]}).__fitnessAnimationCalls?.at(-1))).toBe('paused');
 });
 
+test('student can open and close the interactive 3D view', async ({page}) => {
+  await mockStudent(page, 'desk:mini-squat');
+  await page.goto(`/fitness/${store}/treinos`);
+  await page.getByRole('button', {name:'Abrir visualização 3D interativa'}).click();
+  await expect(page.getByRole('region', {name:'Visualização 3D interativa'})).toBeVisible();
+  await expect(page.getByText('Modelo carregado. Use os controles para girar e reproduzir.')).toBeVisible({timeout: 20_000});
+  await page.getByRole('button', {name:'Girar à direita'}).click();
+  await page.getByRole('button', {name:'Reproduzir movimento 3D'}).click();
+  await expect(page.getByRole('button', {name:'Pausar movimento 3D'})).toBeVisible();
+  await expect(page.getByRole('button', {name:'Fechar visualização 3D interativa'})).toBeVisible();
+  await page.getByRole('button', {name:'Fechar visualização 3D interativa'}).click();
+  await expect(page.getByRole('region', {name:'Visualização 3D interativa'})).toHaveCount(0);
+});
+
 test('student sees both 2D reference poses assigned by the professional',async({page})=>{
   await mockStudent(page,'repdb:bench-press');
   await page.goto(`/fitness/${store}/treinos`);
