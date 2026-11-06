@@ -1,5 +1,6 @@
 import { InfoHint } from '../../components/ui/InfoHint';
 import PointDetailsEditor from '../../components/admin/PointDetailsEditor';
+import { ProductMedia } from '../../components/ProductMedia';
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { ArrowLeftRight, Boxes, Copy, Download, LoaderCircle, MapPin, Plus, RefreshCw, Search, Warehouse } from 'lucide-react';
 import QRCode from 'qrcode';
@@ -369,7 +370,7 @@ export default function StockLocationsAdmin() {
           const available = physical - reserved;
           const home = activeLocations.find((item) => item.is_default);
           return <article key={product.id} className="stock-location-product">
-            <div className="stock-location-product__overview"><strong>{product.name}</strong><span className={available < 0 ? 'stock-location-shortage' : available === 0 ? 'stock-location-unavailable' : ''}>{available} {available === 1 ? 'disponível' : 'disponíveis'}</span></div>
+            <div className="stock-location-product__overview"><div className="stock-location-product__identity"><ProductMedia className="stock-location-product__image" src={product.imageUrl} emoji={product.visualEmoji} imageCount={product.images.length} alt=""/><strong>{product.name}</strong></div><span className={available < 0 ? 'stock-location-shortage' : available === 0 ? 'stock-location-unavailable' : ''}>{available} {available === 1 ? 'disponível' : 'disponíveis'}</span></div>
             {available < 0 && <p className="stock-location-inconsistency" role="alert">Repor {-available} unidade(s) para atender às reservas.</p>}
             <details className="stock-location-product__details"><summary>Detalhes e ações</summary><p>{physical} total físico · {reserved} reservado(s)</p>
               <p>{salesToday === null ? 'Vendido hoje: consultando ou indisponível' : `Vendido hoje: ${salesToday.find((row) => row.product_id === product.id)?.net_sold || 0}`}</p>
