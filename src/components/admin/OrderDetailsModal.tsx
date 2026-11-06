@@ -104,6 +104,10 @@ export function OrderDetailsModal({ order, products, settings, onClose, onSave, 
     order.deliveryCity && order.deliveryState ? `${order.deliveryCity}/${order.deliveryState}` : order.deliveryCity || order.deliveryState,
     order.deliveryZipCode && `CEP ${order.deliveryZipCode}`,
   ].filter(Boolean).join(' · ');
+  const mapAddress = [
+    order.deliveryStreet && `${order.deliveryStreet}${order.deliveryNumber ? `, ${order.deliveryNumber}` : ''}`,
+    order.deliveryNeighborhood, order.deliveryCity, order.deliveryState, order.deliveryZipCode,
+  ].filter(Boolean).join(', ') || order.deliveryAddress;
 
   useEffect(() => {
     if (editing) return;
@@ -189,7 +193,7 @@ export function OrderDetailsModal({ order, products, settings, onClose, onSave, 
       <section className="order-details-modal__section order-details-modal__facts">
         <div className="order-details-modal__fact"><span><CreditCard size={16} />Pagamento</span><strong>{paymentLabel(order)}</strong></div>
         <div className="order-details-modal__fact"><span>{order.deliveryType === 'delivery' ? <Truck size={16} /> : <Store size={16} />}Forma de recebimento</span><strong>{order.deliveryType === 'delivery' ? 'Delivery' : 'Retirada'}{order.deliveryZoneName ? ` · ${order.deliveryZoneName}` : ''}</strong></div>
-        <div className="order-details-modal__fact"><span>{order.deliveryType === 'delivery' ? <MapPin size={16} /> : <Store size={16} />}Local / horário</span><strong>{order.scheduledFor ? formatDateTimeBR(order.scheduledFor) : 'Sem horário agendado'}</strong>{order.deliveryType === 'delivery' ? <small>{address || order.deliveryAddress || 'Endereço não informado'}{order.referencePoint ? ` · Ref.: ${order.referencePoint}` : ''}</small> : order.pickupLocationId ? <small>{points.find(point=>point.id===order.pickupLocationId)?.name || 'Ponto de retirada vinculado ao pedido'}</small> : settings.pickupInstructions ? <small>{settings.pickupInstructions}</small> : null}</div>
+        <div className="order-details-modal__fact"><span>{order.deliveryType === 'delivery' ? <MapPin size={16} /> : <Store size={16} />}Local / horário</span><strong>{order.scheduledFor ? formatDateTimeBR(order.scheduledFor) : 'Sem horário agendado'}</strong>{order.deliveryType === 'delivery' ? <><small>{address || order.deliveryAddress || 'Endereço não informado'}{order.referencePoint ? ` · Ref.: ${order.referencePoint}` : ''}</small>{mapAddress && <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapAddress)}`} target="_blank" rel="noopener noreferrer">Abrir endereço no Google Maps</a>}</> : order.pickupLocationId ? <small>{points.find(point=>point.id===order.pickupLocationId)?.name || 'Ponto de retirada vinculado ao pedido'}</small> : settings.pickupInstructions ? <small>{settings.pickupInstructions}</small> : null}</div>
       </section>
 
       <section className="order-details-modal__section order-stock-audit">
