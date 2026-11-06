@@ -5,3 +5,5 @@ Nas telas de todos os segmentos, priorize imagens pertinentes, nomes claros e a�
 Use cartões e cantos arredondados em harmonia com o sistema visual existente, com foco visível, contraste e funcionamento em celular e teclado. Mantenha alternativas textuais, informe quando uma imagem estiver indisponível e não apresente mídia que não corresponda ao item. No Fitness, demonstrações precisam corresponder ao exercício e ter licença adequada; a prescrição e as orientações pertencem ao profissional.
 
 Aplique a diretriz gradualmente às telas relevantes, preservando fluxos, permissões e informações obrigatórias de cada segmento. Imagens e 3D são recursos opcionais, não substituem textos necessários ou uma mídia validada.
+
+Para sequências de itens, considere cartões compactos com imagem quando disponível, nome e progresso, navegação anterior/próximo e foco no item selecionado. Preserve acesso por teclado, alternativa textual e responsividade. Adapte o padrão ao fluxo de cada segmento, sem presumir que todos tenham imagens ou progresso.

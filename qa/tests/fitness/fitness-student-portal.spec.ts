@@ -71,6 +71,20 @@ test('workout sequence stays within the selected training day', async ({page}) =
   await expect(page.getByRole('heading',{name:'Movimento B1'})).toBeVisible();
 });
 
+test('cartões permitem avançar e voltar na sequência', async ({page}) => {
+  await page.setViewportSize({width:390,height:844});
+  await mockStudent(page, '', [
+    {id:'a',position:1,name:'Supino reto com barra',sets:3,repetitions:'12',rest_seconds:60,load_or_effort:'Conforme ficha',instructions:'Orientação do profissional.',alternative:'Alternativa indicada.',media_key:'repdb:bench-press',day:'A'},
+    {id:'b',position:2,name:'Crucifixo com halteres',sets:3,repetitions:'10',rest_seconds:60,load_or_effort:'Conforme ficha',instructions:'Orientação do profissional.',alternative:'Alternativa indicada.',media_key:'',day:'A'},
+  ]);
+  await page.goto(`/fitness/${store}/treinos`);
+  await expect(page.getByRole('heading',{name:'Supino reto com barra'})).toBeVisible();
+  await page.getByRole('button',{name:'Próximo exercício'}).click();
+  await expect(page.getByRole('heading',{name:'Crucifixo com halteres'})).toBeVisible();
+  await page.getByRole('button',{name:'Exercício anterior'}).click();
+  await expect(page.getByRole('heading',{name:'Supino reto com barra'})).toBeVisible();
+});
+
 test('student sees a looping exercise animation and reduced motion starts paused', async ({page}) => {
   await page.setViewportSize({width:390,height:900});
   await page.emulateMedia({reducedMotion:'reduce'});

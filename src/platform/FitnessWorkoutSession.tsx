@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { FitnessMuscles } from './FitnessMuscles';
 import { FitnessMovement } from './FitnessMovement';
+import { fitnessIllustrationByKey } from './fitnessExerciseIllustrationLibrary';
 import type { FitnessWorkout } from '../services/fitnessApi';
 
 /** Session controls are deliberately volatile: the server has no progress/history contract yet. */
@@ -25,10 +26,10 @@ export function FitnessWorkoutSession({ workout }: { workout: FitnessWorkout }) 
   return <div className="fitness-session" aria-label={`Sequência de ${workout.title}`}>
     <label>Dia de treino<select value={day||days[0]} onChange={e=>{setDay(e.target.value);setCurrent(0);setRemaining(0);}}>{days.map(item=><option key={item} value={item}>Dia {item}</option>)}</select></label>
     <p className="business-muted">Sequência {current + 1} de {visible.length} · {progress} de {total} séries marcadas nesta sessão</p>
-    <nav className="fitness-session-steps" aria-label="Exercícios da ficha">
-      {visible.map((item, index) => <button type="button" key={item.id} aria-current={index === current ? 'step' : undefined} onClick={() => { setCurrent(index); setRemaining(0); }}>
-        {index + 1}. {item.name} <small>{completed[item.id] || 0}/{item.sets}</small>
-      </button>)}
+    <nav className="fitness-session-steps fitness-sequence-cards" aria-label="Exercícios da ficha">
+      {visible.map((item, index) => { const image = item.media_key ? fitnessIllustrationByKey.get(item.media_key) : undefined; return <button type="button" key={item.id} aria-current={index === current ? 'step' : undefined} onClick={() => { setCurrent(index); setRemaining(0); }}>
+        {image && <img src={`/assets/fitness-exercises/${image.id}-${image.pose === 'single' ? 'main' : 'start'}.webp`} alt="" loading="lazy"/>}<span><strong>{index + 1}. {item.name}</strong><small>{completed[item.id] || 0}/{item.sets} séries</small></span>
+      </button>; })}
     </nav>
     <div className="fitness-session-focus">
       <h4>{exercise.name}</h4><FitnessMovement kind={exercise.media_key}/><details><summary>Músculos trabalhados</summary><FitnessMuscles primary={exercise.primary_muscles} secondary={exercise.secondary_muscles}/></details>
@@ -41,6 +42,7 @@ export function FitnessWorkoutSession({ workout }: { workout: FitnessWorkout }) 
           setRemaining(exercise.rest_seconds);
         }}>Marcar série {Math.min(done + 1, exercise.sets)} concluída</button>
         {done > 0 && <button type="button" className="secondary-button" onClick={() => { setCompleted(previous => ({ ...previous, [exercise.id]: Math.max(0, (previous[exercise.id] || 0) - 1) })); setRemaining(0); }}>Desfazer última série</button>}
+        {current > 0 && <button type="button" className="secondary-button" onClick={() => { setCurrent(current - 1); setRemaining(0); }}>Exercício anterior</button>}
         {current < visible.length - 1 && <button type="button" className="secondary-button" onClick={() => { setCurrent(current + 1); setRemaining(0); }}>Próximo exercício</button>}
       </div>
       {remaining > 0 && <p role="timer" aria-label={`Descanso: ${remaining} segundos restantes`}>Descanso: {Math.floor(remaining / 60)}:{String(remaining % 60).padStart(2, '0')} <button type="button" className="text-link" onClick={() => setRemaining(0)}>Pular descanso</button></p>}

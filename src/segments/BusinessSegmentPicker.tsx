@@ -13,7 +13,7 @@ export function BusinessSegmentPicker({value,onChange,compact=false}:{value:Busi
       const Icon=icons[segment.id];
       return <label key={segment.id} className={value===segment.id?'is-selected':''}>
         <input type="radio" name="business-segment" value={segment.id} checked={value===segment.id} onChange={()=>onChange(segment.id)}/>
-        <Icon size={21} aria-hidden="true"/><span><strong>{segment.label}</strong><small>{segment.description}</small></span>
+        <span className="business-picker__icon" aria-hidden="true"><Icon size={21}/></span><span><strong>{segment.label}</strong><small>{segment.description}</small></span>
         {value===segment.id&&<Check size={16} className="business-picker__check" aria-hidden="true"/>}
       </label>;
     })}</div>
