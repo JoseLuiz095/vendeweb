@@ -15,6 +15,7 @@ for(const width of [320,390,768,1366])test(`conferência diária do ponto e vend
  await expect(page.getByRole('heading',{name:'Estoque e locais'})).toBeVisible();
  await expect(page.getByText('Conferência do dia',{exact:true})).toBeVisible();
  const item=page.locator('.stock-location-product').filter({hasText:'Brigadeiro teste'});
+ await expect(item.locator('.stock-location-product__image')).toBeVisible();
  await item.getByText('Detalhes e ações',{exact:true}).click();await expect(item).toContainText('Vendido hoje: 2');
  await expect(item.getByRole('button',{name:'Definir',exact:true})).toBeVisible();
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);

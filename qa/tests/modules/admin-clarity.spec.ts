@@ -15,6 +15,9 @@ for (const width of [320, 390, 768, 1366]) test(`admin enxuto e ajuda acessível
   await page.route('**/rest/v1/rpc/food_get_store_analytics_v1', r => r.fulfill({ json: report }));
   await page.goto('/admin/analytics');
   await expect(page.getByText('317 de 1000 sessões geraram pedido')).toBeVisible();
+  const journey = page.getByRole('region', { name: 'Resumo visual da jornada' });
+  await expect(journey).toContainText('1000');
+  await expect(journey).toContainText('317');
   const conversion = page.locator('.analytics-commercial-kpi').filter({ hasText: 'Conversão vitrine' });
   await expect(conversion).toContainText('31.7%');
   await page.getByRole('button', { name: 'Como a conversão é calculada', exact: true }).focus();
