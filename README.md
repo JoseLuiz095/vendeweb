@@ -1,5 +1,9 @@
 # VendeWeb — vendas e operação para pequenos negócios
 
+## Direitos autorais
+
+© 2026 José Luiz (JoseLuiz095) e demais titulares aplicáveis. Todos os direitos reservados. O repositório é público para visualização e avaliação; o uso e a reprodução do projeto estão sujeitos às condições descritas em [LICENSE](LICENSE), às licenças de terceiros e aos Termos de Serviço do GitHub.
+
 VendeWeb é uma plataforma multissetorial, com Food como uma de suas áreas. Consulte o [inventário de continuidade no GitHub e Supabase](docs/CONTINUIDADE_20261026.md) antes de publicar código ou revisar migrations.
 
 Endereço oficial: **https://www.vendeweb.com.br**. Links de loja, produto e QR Code compartilham o domínio oficial. Consulte [configuração de domínio e PWA](docs/DOMINIO_VENDEWEB.md) e [experiência comercial](docs/VENDEWEB_EXPERIENCIA.md).
