@@ -1,5 +1,5 @@
-import { CalendarDays, PackageCheck, RefreshCw } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { CalendarDays, Package, PackageCheck, RefreshCw, ShoppingCart, SlidersHorizontal } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { currency, formatDateTimeBR } from '../../utils/format';
 import {
   getPickupOrderSummary,
@@ -7,9 +7,13 @@ import {
   type PickupOrderSummaryPoint,
   type PickupOrderSummaryReport,
 } from '../../services/pickupOrderSummaryApi';
+import { restFetch } from '../../lib/supabaseRest';
+import { stockLocationsApi, type ProductLocationStock } from '../../services/stockLocationsApi';
+import type { Order, Product } from '../../types';
 import './pickup-point-order-summary.css';
 
-type Props = { storeId: string };
+type Props = { storeId: string; orders: Order[]; products: Product[]; onOpenOrder: (id: string) => void };
+type PickupPoint = { id: string; name: string; stock_location_id: string | null; active: boolean };
 
 const quantityFormat = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 0 });
 
@@ -62,29 +66,17 @@ function orderCaption(order: PickupOrderSummaryOrder) {
   return 'Pedido #' + order.orderNumber;
 }
 
-function PointBreakdown({ point }: { point: PickupOrderSummaryPoint }) {
+function PointBreakdown({ point, orders, onOpenOrder }: { point: PickupOrderSummaryPoint; orders: Order[]; onOpenOrder: (id: string) => void }) {
   return <details className="pickup-point-order-summary__breakdown">
-    <summary>Ver os {point.orderCount} pedidos e os produtos do ponto</summary>
-    {point.products.length > 0 && <>
-      <h4>Produtos</h4>
-      <div className="pickup-point-order-summary__products">
-        {point.products.map((product, index) => <article key={(product.productId || product.productName) + ':' + (product.variantName || '') + ':' + index}>
-          <div className="pickup-point-order-summary__product-name">
-            <strong>{product.productName}</strong>
-            {product.variantName && <span>{product.variantName}</span>}
-          </div>
-          <span>Pedidos <strong>{quantity(product.orderedQuantity)}</strong></span>
-          <span>Baixados <strong>{quantity(product.withdrawnQuantity)}</strong></span>
-          <strong>{currency.format(product.productValue)}</strong>
-        </article>)}
-      </div>
-    </>}
+    <summary><ShoppingCart size={17}/> {quantity(point.orderCount)} pedido(s) · {quantity(point.orderedQuantity)} produto(s) · {currency.format(point.productValue)}</summary>
     <h4>Pedidos</h4>
     {point.orders.length > 0
       ? <div className="pickup-point-order-summary__orders">
         {point.orders.map(order => <article key={order.id}>
           <header><strong>{orderCaption(order)}</strong><time>{formatDateTimeBR(order.createdAt)}</time></header>
           <p>{statusLabel(order.status)} · {paymentLabel(order.paymentStatus)}</p>
+          {orders.find(item => item.id === order.id)?.items?.length ? <ul>{orders.find(item => item.id === order.id)!.items!.map(item => <li key={item.id}>{quantity(item.quantity)} × {item.productName}{item.variantName ? ` · ${item.variantName}` : ''}</li>)}</ul> : <small>Produtos disponíveis ao abrir o pedido.</small>}
+          {orders.some(item => item.id === order.id) && <button type="button" className="secondary-button compact-button" onClick={() => onOpenOrder(order.id)}>Ver pedido</button>}
           <div>
             <span>Produtos <strong>{currency.format(order.productValue)}</strong></span>
             <span>Total do pedido <strong>{currency.format(order.orderTotal)}</strong></span>
@@ -96,7 +88,43 @@ function PointBreakdown({ point }: { point: PickupOrderSummaryPoint }) {
   </details>;
 }
 
-export default function PickupPointOrderSummary({ storeId }: Props) {
+function StockComparison({ pointId, points, balances, error, products, physical, setPhysical }: { pointId: string; points: PickupPoint[]; balances: ProductLocationStock[] | null; error: string; products: Product[]; physical: Record<string, string>; setPhysical: React.Dispatch<React.SetStateAction<Record<string, string>>> }) {
+  const locationId = points.find(point => point.id === pointId)?.stock_location_id;
+  if (!locationId) return <p>Este ponto não possui estoque vinculado para comparação.</p>;
+  if (error) return <p role="alert">{error}</p>;
+  if (!balances) return <p role="status">Carregando estoque digital…</p>;
+  const rows = balances.filter(balance => balance.location_id === locationId);
+  return <details className="pickup-point-order-summary__comparison"><summary><SlidersHorizontal size={17}/> Conferir estoque</summary>
+    <p>O saldo digital é atual, independentemente do período dos pedidos. Informe a contagem física; a diferença não altera o estoque.</p>
+    {rows.length ? rows.map(balance => {
+      const product = products.find(item => item.id === balance.product_id);
+      const key = pointId + ':' + balance.product_id;
+      const value = physical[key] ?? '';
+      const number = Number(value);
+      const valid = value.trim() !== '' && Number.isFinite(number) && number >= 0;
+      return <div className="pickup-comparison-row" key={key}><strong>{product?.name || 'Produto indisponível'}</strong><span>Digital: {quantity(balance.stock_quantity)}{balance.stock_reserved_quantity ? ' · Reservado: ' + quantity(balance.stock_reserved_quantity) : ''}</span><label>Contagem física<input type="number" min="0" step="1" value={value} onChange={event => setPhysical(current => ({ ...current, [key]: event.target.value }))}/></label><span>{valid ? (number === balance.stock_quantity ? 'Quantidades iguais' : 'Diferença: ' + quantity(number - balance.stock_quantity)) : 'Aguardando contagem'}</span></div>;
+    }) : <p>Não há saldos cadastrados para este estoque.</p>}
+  </details>;
+}
+
+export default function PickupPointOrderSummary({ storeId, orders, products, onOpenOrder }: Props) {
+  const [open, setOpen] = useState(false);
+  const [stockRefresh, setStockRefresh] = useState(0);
+  const [points, setPoints] = useState<PickupPoint[] | null>(null);
+  const [pointsError, setPointsError] = useState('');
+  const [balances, setBalances] = useState<ProductLocationStock[] | null>(null);
+  const [balancesError, setBalancesError] = useState('');
+  const [physical, setPhysical] = useState<Record<string, string>>({});
+  useEffect(() => {
+    let active = true; setPoints(null); setPointsError(''); setBalances(null); setPhysical({}); setOpen(false);
+    void restFetch<PickupPoint[]>(`food_pickup_locations?store_id=eq.${encodeURIComponent(storeId)}&select=id,name,stock_location_id,active`).then(value => { if (active) setPoints(value); }).catch(() => { if (active) setPointsError('Não foi possível verificar os pontos de retirada.'); });
+    return () => { active = false; };
+  }, [storeId]);
+  useEffect(() => {
+    if (!open) return; let active = true; setBalances(null); setBalancesError('');
+    void stockLocationsApi.list(storeId).then(([, values]) => { if (active) setBalances(values); }).catch(() => { if (active) setBalancesError('Não foi possível carregar o estoque digital. Atualize para tentar novamente.'); });
+    return () => { active = false; };
+  }, [storeId, open, stockRefresh]);
   const today = localDateInputValue();
   const [from, setFrom] = useState(today);
   const [to, setTo] = useState(today);
@@ -108,6 +136,7 @@ export default function PickupPointOrderSummary({ storeId }: Props) {
 
   useEffect(() => {
     let active = true;
+    if (!open) return () => { active = false; };
     if (from > to) {
       setReport(null);
       setLoading(false);
@@ -130,63 +159,45 @@ export default function PickupPointOrderSummary({ storeId }: Props) {
       setError(reason instanceof Error ? reason.message : 'Informe um período válido.');
     }
     return () => { active = false; };
-  }, [storeId, from, to, refreshKey]);
+  }, [storeId, from, to, refreshKey, open]);
 
-  const totals = useMemo(() => (report?.points || []).reduce((total, point) => ({
-    orders: total.orders + point.orderCount,
-    productValue: total.productValue + point.productValue,
-    ordered: total.ordered + point.orderedQuantity,
-    withdrawn: total.withdrawn + point.withdrawnQuantity,
-  }), { orders: 0, productValue: 0, ordered: 0, withdrawn: 0 }), [report]);
-
-  return <section id="pickup-point-order-summary" className="admin-card pickup-point-order-summary" aria-labelledby="pickup-point-order-summary-title">
-    <header className="pickup-point-order-summary__header">
-      <div>
-        <span className="eyebrow">RETIRADAS</span>
-        <h2 id="pickup-point-order-summary-title"><PackageCheck size={20}/>Resumo por ponto de retirada</h2>
-        <p>Confira os pedidos, o valor dos produtos e as quantidades baixadas em cada ponto.</p>
-      </div>
-      <button type="button" className="secondary-button compact-button" disabled={loading} onClick={() => { setCleared(false); setRefreshKey(value => value + 1); }}>
-        <RefreshCw size={15}/>{loading ? 'Atualizando…' : 'Atualizar'}
-      </button>
-      <button type="button" className="secondary-button compact-button" disabled={loading || cleared || !report} onClick={() => setCleared(true)}>Limpar visualização</button>
-    </header>
-
-    <div className="pickup-point-order-summary__filters">
-      <label><span><CalendarDays size={15}/>De</span><input type="date" value={from} onChange={event => setFrom(event.target.value)}/></label>
-      <label><span><CalendarDays size={15}/>Até</span><input type="date" value={to} onChange={event => setTo(event.target.value)}/></label>
+  if (points && points.length === 0) return null;
+  if (!points && !pointsError) return null;
+  return <details id="pickup-point-order-summary" className="admin-card pickup-point-order-summary" open={open} onToggle={event => setOpen(event.currentTarget.open)}>
+    <summary className="pickup-point-order-summary__toggle"><PackageCheck size={20}/><span><strong>Conferência dos pontos de retirada</strong><small>Estoque e pedidos para revisão</small></span></summary>
+    {pointsError && <p role="alert">{pointsError}</p>}
+    {open && points && <>
+    <div className="pickup-summary-toolbar">
+      <span>{from === to ? from.split('-').reverse().join('/') : from.split('-').reverse().join('/') + ' a ' + to.split('-').reverse().join('/')}</span>
+      <details className="pickup-point-order-summary__filter-toggle"><summary><CalendarDays size={16}/> Período</summary><div className="pickup-point-order-summary__filters"><label><span>De</span><input type="date" value={from} onChange={event => setFrom(event.target.value)}/></label><label><span>Até</span><input type="date" value={to} onChange={event => setTo(event.target.value)}/></label></div></details>
+      <button type="button" className="pickup-toolbar-action" disabled={loading} onClick={() => { setCleared(false); setRefreshKey(value => value + 1); setStockRefresh(value => value + 1); }}><RefreshCw size={16}/> {loading ? 'Atualizando…' : 'Atualizar'}</button>
+      <button type="button" className="pickup-toolbar-action" disabled={loading || cleared || !report} onClick={() => { setCleared(true); setPhysical({}); }}>Limpar visualização</button>
     </div>
-
-    <p className="pickup-point-order-summary__note">Por data do pedido. Baixas descontam devoluções. Limpar afeta apenas esta tela; atualizar recupera o histórico.</p>
-
     {error && <p className="pickup-point-order-summary__error" role="alert">{error}</p>}
     {loading && <p className="pickup-point-order-summary__loading" role="status">Carregando o resumo dos pontos…</p>}
 
     {cleared && !loading && <p role="status">Visualização limpa. Para consultar novamente, toque em Atualizar.</p>}
     {!loading && !error && report && !cleared && <>
-      <div className="pickup-point-order-summary__totals" aria-label="Totais do período">
-        <article><span>Pedidos</span><strong>{quantity(totals.orders)}</strong></article>
-        <article><span>Valor dos produtos</span><strong>{currency.format(totals.productValue)}</strong></article>
-        <article><span>Unidades pedidas</span><strong>{quantity(totals.ordered)}</strong></article>
-        <article><span>Estoque retirado líquido</span><strong>{quantity(totals.withdrawn)}</strong></article>
-      </div>
-
       {report.points.length > 0
         ? <div className="pickup-point-order-summary__points">
-          {report.points.map(point => <article key={point.pickupLocationId || 'no-point'} className="pickup-point-order-summary__point">
-            <header><h3>{point.name}</h3><span>{quantity(point.orderCount)} pedido(s) · {quantity(point.paidOrderCount)} pago(s) · {quantity(point.pendingPaymentOrderCount)} pendente(s)</span></header>
-            <div className="pickup-point-order-summary__point-totals">
-              <span>Produtos <strong>{currency.format(point.productValue)}</strong></span>
-              <span>Unidades pedidas <strong>{quantity(point.orderedQuantity)}</strong></span>
-              <span>Estoque retirado <strong>{quantity(point.withdrawnQuantity)}</strong></span>
-              {point.cancelledOrderCount > 0 && <span>Cancelados <strong>{quantity(point.cancelledOrderCount)}</strong></span>}
+          {report.points.map(point => <details key={point.pickupLocationId || 'no-point'} className="pickup-summary-point">
+            <summary><span><strong>{point.name}</strong><small>{quantity(point.orderCount)} pedido(s) · {quantity(point.orderedQuantity)} produto(s)</small></span><b>{currency.format(point.productValue)}</b></summary>
+            <div className="pickup-summary-point__body">
+              {point.products.length > 0 ? <div className="pickup-summary-products" aria-label={`Produtos de ${point.name}`}>{point.products.map((product, index) => {
+                const catalogProduct = products.find(item => item.id === product.productId);
+                return <article key={(product.productId || product.productName) + ':' + (product.variantName || '') + ':' + index} className="pickup-summary-product">
+                  {catalogProduct?.imageUrl ? <img src={catalogProduct.imageUrl} alt=""/> : <span className="pickup-summary-product__placeholder" aria-hidden="true"><Package size={22}/></span>}
+                  <strong>{product.productName}</strong>{product.variantName && <small>{product.variantName}</small>}<span>{quantity(product.orderedQuantity)} unidade(s)</span><b>{currency.format(product.productValue)}</b>
+                </article>;
+              })}</div> : <p className="pickup-point-order-summary__empty">Nenhum produto pedido neste período.</p>}
+              <p className="pickup-summary-caption">Valores e quantidades de produtos não incluem pedidos cancelados.</p>
+              {point.orderCount > 0 && <PointBreakdown point={point} orders={orders} onOpenOrder={onOpenOrder}/>}
+              {point.pickupLocationId && <StockComparison pointId={point.pickupLocationId} points={points} balances={balances} error={balancesError} products={products} physical={physical} setPhysical={setPhysical}/>}
             </div>
-            {point.orderCount > 0
-              ? <PointBreakdown point={point}/>
-              : <p className="pickup-point-order-summary__empty">Sem pedidos neste período.</p>}
-          </article>)}
+          </details>)}
         </div>
         : <p className="pickup-point-order-summary__empty">Nenhum ponto de retirada cadastrado.</p>}
     </>}
-  </section>;
+    </>}
+  </details>;
 }

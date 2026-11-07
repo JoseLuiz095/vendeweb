@@ -22,10 +22,22 @@
 .settings-index button{display:inline-flex;align-items:center;gap:6px;min-height:38px;padding:8px 10px;border:1px solid #e5e2da;border-radius:9px;background:#fafbf9;color:#273a2d;font:inherit;font-size:.75rem;font-weight:650;text-align:left;cursor:pointer}
 .settings-index button svg{flex:none;color:#4b8061}
 @media(max-width:1000px){.settings-index{grid-template-columns:1fr 1fr}.settings-index__group:last-child{grid-column:1/-1}}
-@media(max-width:760px){.orders-priority-nav{grid-template-columns:1fr;gap:8px}.orders-priority-nav button{min-height:66px;padding:12px 14px}.settings-index{grid-template-columns:1fr;gap:8px}.settings-index__group:last-child{grid-column:auto}.settings-index__group{padding:13px}.settings-index__group>div{flex-wrap:nowrap;overflow-x:auto;padding-bottom:3px}.settings-index button{flex:none}}
+@media(max-width:760px){.orders-priority-nav{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.orders-priority-nav button{min-height:66px;padding:10px;gap:8px}.orders-priority-nav button small{display:none}.orders-priority-nav button b{min-width:28px;height:28px}.settings-index{grid-template-columns:1fr;gap:8px}.settings-index__group:last-child{grid-column:auto}.settings-index__group{padding:13px}.settings-index__group>div{flex-wrap:nowrap;overflow-x:auto;padding-bottom:3px}.settings-index button{flex:none}}
 @media(prefers-reduced-motion:reduce){.orders-priority-nav button:hover,.settings-index button:hover{transform:none}}
 #settings-form{grid-template-columns:minmax(0,1fr)}
 #settings-form>aside{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-items:start;gap:14px}
 #settings-form>aside>.form-section{margin:0;min-width:0}
 #settings-form>aside>.settings-save-hint{grid-column:1/-1}
 @media(max-width:1050px){#settings-form>aside{grid-template-columns:minmax(0,1fr)}}
+.orders-compact-filters { min-width:0; }
+.orders-compact-filters > summary, .orders-payment-more > summary { display:flex; align-items:center; gap:7px; width:max-content; min-height:40px; padding:8px 12px; border:1px solid #d8ddd5; border-radius:9px; background:#fff; color:#304a39; font-weight:700; cursor:pointer; list-style:none; }
+.orders-compact-filters > summary::-webkit-details-marker, .orders-payment-more > summary::-webkit-details-marker { display:none; }
+.orders-compact-filters summary b { padding:2px 6px; border-radius:8px; background:#e6f4e8; font-size:.7rem; }
+.orders-compact-filters[open] > .toolbar-selects, .orders-compact-filters[open] > .orders-filter-actions { margin-top:12px; }
+.orders-compact-filters .orders-calendar-card { margin:12px 0 0; }
+.orders-payment-more > summary { min-height:38px; font-size:.75rem; }
+.orders-payment-more > div { display:flex; flex-wrap:wrap; gap:7px; padding-top:8px; }
+.orders-payment-inbox__actions .orders-payment-more { flex-basis:100%; }
+.orders-payment-inbox__actions .orders-payment-more > summary { margin-left:auto; }
+.orders-compact-filters summary:focus-visible, .orders-payment-more summary:focus-visible { outline:3px solid #39734c; outline-offset:2px; }
+@media(max-width:680px) { .orders-payment-inbox__actions { display:flex!important; flex-wrap:wrap; justify-content:flex-start; } .orders-payment-inbox__actions > .secondary-button, .orders-payment-inbox__actions > .order-payment-confirm-button { width:auto; flex:1 1 140px; } .orders-payment-inbox__actions .orders-payment-more > summary { margin-left:0; } .orders-mobile-card__customer > span, .orders-mobile-card__customer > small { display:none; } }
