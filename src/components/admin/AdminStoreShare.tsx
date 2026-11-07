@@ -1,3 +1,4 @@
+import PickupPoster from './PickupPoster';
 import '../store-share-target.css';
 import { Copy, Download, QrCode, Share2, X } from 'lucide-react';
 import QRCode from 'qrcode';
@@ -12,7 +13,7 @@ import { downloadQrImage, sharePixQrImage } from '../../utils/pixShare';
 import { getBusinessSegment } from '../../segments/businessSegments';
 
 export function AdminStoreShare() {
-  const { settings } = useStore();
+  const { settings, categories } = useStore();
   const catalogLabel = getBusinessSegment(settings.visualTheme).catalogLabel;
   const { showToast } = useToast();
   const [open, setOpen] = useState(false);
@@ -86,6 +87,7 @@ export function AdminStoreShare() {
         {target.error&&<div role="alert"><p>{target.error}</p><button type="button" className="secondary-button" onClick={target.retry}>Tentar carregar pontos</button></div>}
         {target.point&&<p>Retirada em <strong>{target.point.name}</strong>. A disponibilidade será confirmada no pedido.</p>}
         {qrCode ? <img className="admin-store-share-card__qr" src={qrCode} alt={`QR Code de ${targetName}`} /> : <div className="admin-store-share-card__qr-placeholder">Gerando QR Code…</div>}
+        {target.point && !target.loading && !target.error && <details className="pickup-poster-disclosure"><summary>Gerar panfleto do ponto</summary><PickupPoster key={`${settings.id}:${target.point.id}`} settings={settings} point={target.point} url={shareUrl} categories={categories} /></details>}
         <div className="admin-store-share-card__link"><input ref={linkRef} aria-label="Link para compartilhar" readOnly value={shareUrl} onClick={event=>event.currentTarget.select()}/><button type="button" className="secondary-button compact-button" disabled={target.loading} onClick={() => void copyLink()}><Copy size={15} />{copied?'Copiado':'Copiar link'}</button></div>
         {copied&&<p role="status">Link copiado.</p>}
         <div className="admin-store-share-card__actions">
