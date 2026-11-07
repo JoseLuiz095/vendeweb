@@ -47,6 +47,8 @@ export default function FitnessAdminPage() {
   const [reschedulePolicy,setReschedulePolicy]=useState('');
   const [cancelBefore,setCancelBefore]=useState(24);
   const [priceConfirmed,setPriceConfirmed]=useState(false);
+  const [agendaDate,setAgendaDate]=useState('');
+  const [agendaSettingsOpen,setAgendaSettingsOpen]=useState(false);
   const professional=status?.professionals.some(item=>item.user_id===user?.id&&item.active)===true;
   const selectedService=services.find(item=>item.id===serviceId);
   const selectedTerm=status?.terms.find(item=>item.service_id===serviceId);
@@ -66,7 +68,7 @@ export default function FitnessAdminPage() {
 
   useEffect(()=>{
     let current=true;
-    setStatus(null);setServices([]);setError('');setNotice('');setLoading(true);
+    setStatus(null);setServices([]);setError('');setNotice('');setAgendaDate('');setAgendaSettingsOpen(false);setLoading(true);
     if(!store){setLoading(false);return;}
     Promise.all([fitnessApi.status(store),businessApi.operate(store,'services.list',{limit:200})])
       .then(([nextStatus,nextServices])=>{if(current){
@@ -148,16 +150,33 @@ export default function FitnessAdminPage() {
   if(businessLoading||loading)return <div className="business-workspace"><p role="status">Carregando agenda da academia…</p></div>;
   if(businessError||error&&!status)return <div className="business-workspace"><div className="business-message business-message--error" role="alert"><strong>Agenda indisponível</strong><p>{businessError||error}</p><button type="button" onClick={()=>{setLoading(true);void reload().catch(cause=>setError((cause as Error).message)).finally(()=>setLoading(false));}}>Tentar novamente</button></div></div>;
   if(!isFitness)return <div className="business-workspace"><section className="business-card"><h1>Agenda Fitness/Academia</h1><p>Este painel pertence ao segmento Fitness/Academia.</p><Link to="/admin/negocio">Ver segmento da loja</Link></section></div>;
+  const appointments=(status?.appointments||[]).filter(item=>Number.isFinite(Date.parse(item.starts_at))).slice().sort((a,b)=>Date.parse(a.starts_at)-Date.parse(b.starts_at));
+  const localDate=(value:string)=>{const d=new Date(value);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;};
+  const nextAppointment=appointments.find(item=>Date.parse(item.starts_at)>=Date.now()&&!['cancelled','completed'].includes(item.status));
+  const visibleAppointments=agendaDate?appointments.filter(item=>localDate(item.starts_at)===agendaDate):appointments.filter(item=>Date.parse(item.starts_at)>=Date.now()&&!['cancelled','completed'].includes(item.status));
   return <div className="business-workspace fitness-admin">
     <header className="business-heading"><div><span className="eyebrow">FITNESS/ACADEMIA</span><h1>Fitness da loja</h1><InfoHint label="Sobre Agenda do Personal Trainer">Defina a disponibilidade real e publique serviços somente depois de confirmar as condições.</InfoHint></div><Link className="secondary-button" to="/admin/operacao?tab=services">Gerenciar serviços</Link></header>
     {error&&<div className="business-message business-message--error" role="alert"><strong>Não foi possível concluir</strong><p>{error}</p></div>}
     {notice&&<div className="business-message" role="status">{notice}</div>}
+    {moduleIsActive(business,'appointments')&&<section id="agenda-fitness" className="business-card fitness-agenda" aria-labelledby="fitness-agenda-title">
+      <div className="business-card-heading"><div><h2 id="fitness-agenda-title">Agenda</h2><p className="business-muted">Horários exibidos no fuso deste aparelho.</p></div><a href="#configuracoes-agenda" className="secondary-button" onClick={()=>setAgendaSettingsOpen(true)}>Disponibilidade e bloqueios</a></div>
+      <label className="fitness-agenda-date">Consultar dia <input type="date" value={agendaDate} onChange={event=>setAgendaDate(event.target.value)}/></label>
+      {agendaDate&&<button className="secondary-button" type="button" onClick={()=>setAgendaDate('')}>Ver próximos atendimentos</button>}
+      {!agendaDate&&nextAppointment&&<h3>Próximo atendimento</h3>}
+      {visibleAppointments.length?<ul className="fitness-agenda-list">{visibleAppointments.map(item=><li key={item.id}>
+        <strong>{dateTime(item.starts_at)} · {String(services.find(service=>service.id===item.service_id)?.name||'Serviço')}</strong>
+        {item.client_id&&studentSessions.find(student=>student.client_id===item.client_id)&&<span>{studentSessions.find(student=>student.client_id===item.client_id)?.name}</span>}
+        <span>Situação: {appointmentStatus[item.status]||item.status}</span>
+      </li>)}</ul>:<p className="business-muted">{agendaDate?'Nenhum atendimento neste dia entre os registros carregados.':'Nenhum próximo atendimento entre os registros carregados.'}</p>}
+      {appointments.length>=200&&<p className="business-muted">A consulta retorna até 200 registros; outros atendimentos podem não aparecer.</p>}
+      {moduleIsActive(business,'training')&&<p><a href="#ofertas-fitness">Consultar pedidos e ofertas Fitness</a> · Um pedido não significa que o horário esteja confirmado.</p>}
+    </section>}
     <section className="business-card"><div className="business-card-heading"><h2>Perfil profissional</h2><span className={`business-badge ${professional?'is-active':''}`}>{professional?'Ativo':'Pendente'}</span></div><p>{professional?'Sua conta está vinculada como profissional desta loja.':'Ative sua conta como Personal Trainer desta loja antes de oferecer horários.'}</p>{!professional&&<button className="primary-button" disabled={busy||!user} onClick={()=>void run(()=>fitnessApi.setProfessional(store,user!.id,true),'Perfil profissional ativado no servidor.')}>Ativar meu perfil profissional</button>}</section>
     <nav className="fitness-admin-nav" aria-label="Áreas do Fitness"><a href="#treinos">1. Modelos de treino</a><a href="#ofertas-fitness">2. Produtos e serviços</a><a href="#agenda-fitness">3. Agenda</a><a href="#alunos-fitness">4. Alunos</a></nav>
     {moduleIsActive(business,'training')&&<div id="treinos"><FitnessWorkouts store={store} professional={professional}/></div>}
     {moduleIsActive(business,'training')&&<div id="ofertas-fitness"><FitnessOffersAdmin store={store}/></div>}
     {moduleIsActive(business,'nutrition')&&<div id="nutricao"><FitnessNutrition store={store} editor/></div>}
-    <div id="agenda-fitness" className="fitness-admin-grid">
+    <details id="configuracoes-agenda" className="business-card" open={agendaSettingsOpen} onToggle={event=>setAgendaSettingsOpen(event.currentTarget.open)}><summary>Configurar disponibilidade e bloqueios</summary><div className="fitness-admin-grid">
       <section className="business-card">
         <h2>Disponibilidade semanal</h2><InfoHint label="Sobre Disponibilidade semanal">Defina o fuso local. O intervalo entre sessões é aplicado pelo servidor.</InfoHint>
         <form className="business-form-grid" onSubmit={saveWindow}>
@@ -181,9 +200,8 @@ export default function FitnessAdminPage() {
         </form>
         {status?.blocks.length?<ul className="fitness-records">{status.blocks.map(item=><li key={item.id}><strong>{dateTime(item.starts_at)} a {dateTime(item.ends_at)}</strong><span>{item.reason}</span><div className="fitness-appointment-actions"><button type="button" className="secondary-button" disabled={busy} onClick={()=>editBlock(item)}>Editar</button><button type="button" className="secondary-button" disabled={busy} onClick={()=>deleteBlock(item)}>Remover</button></div></li>)}</ul>:<p className="business-muted">Nenhum bloqueio registrado.</p>}
       </section>
-    </div>
+    </div></details>
     <section className="business-card"><h2>Publicar acompanhamento</h2><InfoHint label="Sobre Publicar acompanhamento">Cadastre o serviço no painel antes de publicá-lo. Nenhuma cobrança é feita pela agenda.</InfoHint><form className="business-form-grid" onSubmit={publish}><label>Serviço<select required value={serviceId} onChange={e=>{setServiceId(e.target.value);setPriceConfirmed(false);const term=status?.terms.find(item=>item.service_id===e.target.value);setCancelPolicy(term?.cancel_policy||'');setReschedulePolicy(term?.reschedule_policy||'');setCancelBefore((term?.cancel_before_minutes||1440)/60);}}><option value="">Selecione</option>{services.filter(item=>item.active!==false&&item.kind==='training').map(item=><option value={item.id} key={item.id}>{String(item.name)} · {money(item.price_cents)}</option>)}</select></label><div className="fitness-price">{selectedService?<><strong>Preço registrado: {money(selectedService.price_cents)}</strong><span>{isPublished?'Publicado':'Não publicado'}</span></>:<span>Selecione um serviço de treino ativo.</span>}</div><label className="fitness-wide">Regra de cancelamento<textarea required maxLength={1000} value={cancelPolicy} onChange={e=>setCancelPolicy(e.target.value)} placeholder="Informe a regra definida pelo negócio."/></label><label className="fitness-wide">Regra de reagendamento<textarea required maxLength={1000} value={reschedulePolicy} onChange={e=>setReschedulePolicy(e.target.value)} placeholder="Informe a regra definida pelo negócio."/></label><label>Antecedência mínima para cancelar (horas)<input required type="number" min="0" max="168" value={cancelBefore} onChange={e=>setCancelBefore(Number(e.target.value))}/></label><label className="fitness-check"><input type="checkbox" checked={priceConfirmed} onChange={e=>setPriceConfirmed(e.target.checked)}/><span>Conferi o preço deste serviço com o responsável.</span></label><div className="business-actions"><button className="primary-button" disabled={busy||!professional||!selectedService||!priceConfirmed}>Publicar condições</button></div></form></section>
-    <section className="business-card"><h2>Agendamentos</h2>{status?.appointments.length?<ul className="fitness-records">{status.appointments.map(item=><li key={item.id}><strong>{dateTime(item.starts_at)} · {String(services.find(service=>service.id===item.service_id)?.name||'Serviço')}</strong><span>Situação: {appointmentStatus[item.status]||item.status}</span></li>)}</ul>:<p className="business-muted">Nenhum agendamento registrado.</p>}</section>
     {moduleIsActive(business,'training')&&<section id="alunos-fitness" className="business-card" aria-labelledby="fitness-student-sessions-title">
       <h2 id="fitness-student-sessions-title">Alunos e sessões Fitness</h2>
       <p>Consultar e liberar sessões exige uma sessão Admin com MFA validada. Liberar a troca revoga a sessão atual e permite que o aluno entre de novo por SMS.</p>
