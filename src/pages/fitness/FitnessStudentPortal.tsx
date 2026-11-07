@@ -231,6 +231,7 @@ export default function FitnessStudentPortal() {
     <main className="auth-recovery-card">
       <span className="eyebrow">ÁREA DO ALUNO</span>
       <h1>Meu espaço Fitness</h1>
+      <p>Entre com o telefone da sua conta para acessar esta loja. Cada loja possui suas próprias permissões.</p>
       {!validStore ? <div className="form-error" role="alert">O link da loja é inválido. Peça ao profissional o endereço correto.</div>
         : initializing ? <p role="status">Verificando a sessão Fitness…</p>
         : !auth ? <div className="form-error" role="alert">O acesso ao Supabase não está configurado neste ambiente.</div>
@@ -266,7 +267,7 @@ export default function FitnessStudentPortal() {
           <section id="fitness-portal-profile" className="business-card" aria-labelledby="fitness-portal-profile-title"><h2 id="fitness-portal-profile-title">Perfil e segurança</h2><p>Telefone confirmado: <strong>{identityPhone.replace(/\d(?=\d{4})/g, '•')}</strong></p><p>A autorização vale para esta conta, aluno e loja. Ela não identifica o aparelho de forma infalível.</p><button className="secondary-button" disabled={busy} onClick={() => void signOutLocal(true)}>Sair do Fitness</button></section>
         </> : student ? <>
           <p role="alert">{blockedReason === 'SESSION_LIMIT'
-            ? 'Já existe outra sessão Fitness autorizada para este aluno nesta loja. Peça ao profissional para liberar a troca. Se esta já for uma sessão nova, toque em verificar liberação; caso contrário, saia e entre novamente por SMS.'
+            ? 'Sua conta já está em uso em outra sessão nesta loja. Se tiver acesso ao aparelho anterior, abra Perfil e segurança e toque em Sair do Fitness. Depois volte aqui e toque em Verificar liberação. Se não tiver acesso ao aparelho, procure o responsável pela loja para confirmar sua identidade e liberar a troca.'
             : 'Esta sessão foi revogada ou expirou. Entre novamente por SMS para criar uma sessão Fitness nova.'}</p>
           {blockedReason === 'SESSION_LIMIT' && <button className="secondary-button full-button" disabled={busy} onClick={() => void refreshAuthorization()}>Verificar liberação</button>}
           <button className="secondary-button full-button" disabled={busy} onClick={() => void signOutLocal(false)}>Sair e entrar novamente</button>
@@ -275,7 +276,7 @@ export default function FitnessStudentPortal() {
       {error && <div role="alert" className="form-error">{error}</div>}
       <section className="auth-security-note" aria-label="Recuperação da conta Fitness">
         <strong>Perdeu o aparelho ou o número?</strong>
-        <p>Se manteve o número, peça ao profissional da loja para liberar a sessão e depois entre novamente por SMS. Se perdeu o acesso ao número, contate o profissional para conferência manual da identidade. A troca do telefone altera a identidade Supabase compartilhada e deve ser feita pelo canal seguro de suporte, após confirmação do titular.</p>
+        <p>Se tiver o aparelho anterior, saia do Fitness nele para liberar a sessão. Se não tiver acesso ao aparelho, peça ao responsável pela loja para verificar sua identidade e liberar a troca; depois entre novamente com seu número por SMS. Se perdeu o número, procure o suporte pelo canal indicado pela loja para uma conferência segura. A troca do telefone afeta a conta compartilhada entre lojas e serviços.</p>
       </section>
       <Link className="back-link" to="/">Voltar ao VendeWeb</Link>
     </main>

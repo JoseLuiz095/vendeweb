@@ -58,7 +58,7 @@ export function FitnessOfferCheckout({ store, token, selected }: { store: string
       </article>)}</div>}
     {orders.some(order => order.state === 'pending') && (pix.pix_key || pix.pix_copy_paste) && <div className="fitness-workout-card">
       <h3>Pix dos pedidos pendentes</h3><p>Titular: <strong>{pix.holder_name || 'Confira no aplicativo do banco'}</strong></p>
-      <p>Copie o código e confira no banco o titular e o valor exato do pedido. Informe a referência à loja. O comprovante ou retorno da tela não libera o acesso.</p>
+      <p>Copie o código e confira no banco o titular e o valor exato do pedido. Informe a referência à loja. O envio de comprovante e o retorno da tela não confirmam o pagamento. A loja precisa conferir o crédito antes de liberar o conteúdo correspondente.</p>
       <code>{pix.pix_copy_paste || pix.pix_key}</code>
       <button type="button" className="secondary-button" onClick={() => void (async () => { try { await navigator.clipboard.writeText((pix.pix_copy_paste || pix.pix_key)!); setNotice('Pix copiado. Confira o valor e o recebedor antes de pagar.'); } catch { setError('Não foi possível copiar automaticamente. Selecione o código para copiar.'); } })()}>Copiar Pix</button>
     </div>}
