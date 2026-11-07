@@ -9,6 +9,8 @@ import { loadAnalyticsReport } from '../../services/analyticsApi';
 import type { AnalyticsReport, Order, PaymentMethod } from '../../types';
 import { currency } from '../../utils/format';
 import { planHasFeature } from '../../utils/plan';
+import AnalyticsOrderFlow from './AnalyticsOrderFlow';
+import AnalyticsFinanceSummary from './AnalyticsFinanceSummary';
 
 const paymentLabel: Record<PaymentMethod,string> = { confirm:'Na confirmação', pix:'PIX', card:'Cartão', cash:'Dinheiro' };
 const dayName = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
@@ -50,7 +52,7 @@ const emptyReport = (): AnalyticsReport => ({
 });
 
 export default function Analytics(){
-  const {orders,settings,loading,error,reloadAdmin,planUsage}=useStore();
+  const {orders,settings,loading,error,reloadAdmin,reloadOrders,planUsage}=useStore();
   const [rangeDays,setRangeDays]=useState(30);
   const [report,setReport]=useState<AnalyticsReport>(emptyReport);
   const [reportLoading,setReportLoading]=useState(true);
@@ -97,8 +99,14 @@ export default function Analytics(){
 
     <details className="analytics-privacy-note"><summary><ShieldCheck size={17}/>Privacidade das métricas</summary><p>O funil usa um identificador aleatório de navegação e eventos de uso da vitrine. Essa telemetria não recebe nome, telefone, e-mail, endereço, mensagem do cartão ou observações. Os dados do pedido continuam armazenados normalmente na área de Pedidos.</p></details>
 
+    <AnalyticsOrderFlow orders={orders} refresh={() => reloadOrders({ silent: true })}/>
+    {planHasFeature(planUsage.plan,'finance') && <AnalyticsFinanceSummary storeId={settings.id}/>}
+
     {reportLoading?<LoadingState label="Calculando funil de conversão..."/>:reportError?<section className="admin-card analytics-rollout-warning"><strong>Analytics de conversão ainda não disponível</strong><p>{reportError}</p><span>Os indicadores baseados em pedidos abaixo continuam funcionando. O funil volta a aparecer assim que o módulo de Analytics do banco estiver ativo.</span></section>:<>
-      <div className="analytics-commercial-grid"><article className="admin-card analytics-commercial-kpi"><span>Valor dos pedidos <InfoHint label="Sobre o valor dos pedidos">Soma dos pedidos não cancelados no período. Não equivale ao dinheiro recebido; confira recebimentos no Financeiro.</InfoHint></span><strong>{currency.format(report.revenue)}</strong></article><article className="admin-card analytics-commercial-kpi"><span>Ticket médio <InfoHint label="Sobre o ticket médio">Valor médio dos pedidos registrados no período.</InfoHint></span><strong>{currency.format(report.averageTicket)}</strong></article><article className="admin-card analytics-commercial-kpi"><span>Conversão vitrine → pedido <InfoHint label="Como a conversão é calculada">Sessões que geraram pedido ÷ sessões da vitrine × 100. Uma sessão pode gerar vários pedidos. Pedido criado não comprova pagamento. Compare cada loja com seu próprio histórico e com períodos de tráfego semelhante.</InfoHint></span><strong>{report.storefrontSessions?`${report.conversionRate.toFixed(1)}%`:"—"}</strong><small>{report.storefrontSessions?`${report.orderSessions} de ${report.storefrontSessions} sessões geraram pedido`:"Sem sessões registradas no período"}</small></article></div>
+      <details className="admin-card admin-secondary-details"><summary>Valores dos pedidos e conversão</summary><p>Os valores referem-se a pedidos, não necessariamente a pagamentos recebidos. <Link to="/admin/financeiro">Abrir Financeiro →</Link></p><div className="analytics-commercial-grid"><article className="admin-card analytics-commercial-kpi"><span>Valor dos pedidos <InfoHint label="Sobre o valor dos pedidos">Soma dos pedidos não cancelados no período. Não equivale ao dinheiro recebido; confira recebimentos no Financeiro.</InfoHint></span><strong>{currency.format(report.revenue)}</strong></article><article className="admin-card analytics-commercial-kpi"><span>Ticket médio <InfoHint label="Sobre o ticket médio">Valor médio dos pedidos registrados no período.</InfoHint></span><strong>{currency.format(report.averageTicket)}</strong></article><article className="admin-card analytics-commercial-kpi"><span>Conversão vitrine → pedido <InfoHint label="Como a conversão é calculada">Sessões que geraram pedido ÷ sessões da vitrine × 100. Uma sessão pode gerar vários pedidos. Pedido criado não comprova pagamento. Compare cada loja com seu próprio histórico e com períodos de tráfego semelhante.</InfoHint></span><strong>{report.storefrontSessions?`${report.conversionRate.toFixed(1)}%`:"—"}</strong><small>{report.storefrontSessions?`${report.orderSessions} de ${report.storefrontSessions} sessões geraram pedido`:"Sem sessões registradas no período"}</small></article></div></details>
+      <details className="admin-card admin-secondary-details"><summary>Jornada de compra</summary>
+      <section className="admin-card analytics-journey" aria-label="Resumo visual da jornada"><div className="admin-card__header"><div><span className="eyebrow">VISÃO RÁPIDA</span><h2>Jornada de compra</h2></div><Activity size={21}/></div><p>Sessões registradas em cada etapa no período selecionado.</p><div className="analytics-journey__steps">{[funnel[0],funnel[2],funnel[3],funnel[4]].map(({label,value,icon:Icon})=><article key={label}><Icon size={20} aria-hidden="true"/><div><span>{label}</span><strong>{value}</strong></div></article>)}</div><small>Pedidos registrados não confirmam pagamento.</small></section>
+      </details>
       <details className="admin-card admin-secondary-details"><summary>Funil de compra</summary>
       <div className="analytics-funnel-grid">{funnel.map(({label,value,detail,icon:Icon})=><article className="admin-card analytics-funnel-stat" key={label}><span><Icon size={18}/></span><div><small>{label}</small><strong>{value}</strong><p>{detail}</p></div></article>)}</div>
       </details>

@@ -14,7 +14,11 @@ for (const width of [320, 390, 768, 1366]) test(`admin enxuto e ajuda acessível
   await mockBackend(page, { auth: true });
   await page.route('**/rest/v1/rpc/food_get_store_analytics_v1', r => r.fulfill({ json: report }));
   await page.goto('/admin/analytics');
+  await page.getByText('Valores dos pedidos e conversão', { exact: true }).click();
   await expect(page.getByText('317 de 1000 sessões geraram pedido')).toBeVisible();
+  const journey = page.getByRole('region', { name: 'Resumo visual da jornada' });
+  await expect(journey).toContainText('1000');
+  await expect(journey).toContainText('317');
   const conversion = page.locator('.analytics-commercial-kpi').filter({ hasText: 'Conversão vitrine' });
   await expect(conversion).toContainText('31.7%');
   await page.getByRole('button', { name: 'Como a conversão é calculada', exact: true }).focus();
@@ -48,6 +52,7 @@ test('ausência de telemetria e módulo ausente não fingem conversão zero', as
     ? { status: 404, json: { code: 'PGRST202', message: 'Could not find food_get_store_analytics_v1 in schema cache' } }
     : { json: { ...report, storefrontSessions: 0, orderSessions: 0, conversionRate: 0 } }));
   await page.goto('/admin/analytics');
+  await page.getByText('Valores dos pedidos e conversão', { exact: true }).click();
   await expect(page.getByText('Sem sessões registradas no período')).toBeVisible();
   await expect(page.locator('.analytics-commercial-kpi').filter({ hasText: 'Conversão vitrine' }).locator('strong')).toHaveText('—');
   missing = true;

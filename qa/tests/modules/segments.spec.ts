@@ -1,5 +1,6 @@
 import { test, expect, type Page } from '@playwright/test';
 import { mockBackend, snapshot, store, STORE, USER } from './fixtures';
+import { buildStaticPixCopyPaste } from '../../../src/utils/pix';
 
 const profiles = [
   { id: 'retail', label: /Produtos e varejo/, catalog: 'Catálogo', search: /Buscar produtos/, hero: /Encontre o que combina/, admin: /Loja e catálogo/ },
@@ -59,6 +60,22 @@ async function mockSegmentStore(page: Page, segment: string, custom = false, mas
   });
   return { ...backend, settingsWrites, businessWrites };
 }
+
+test('cadastro mobile substitui chave por Pix Copia e Cola', async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const { settingsWrites } = await mockSegmentStore(page, 'retail', true);
+  await page.goto('/admin/configuracoes');
+  await page.locator('#settings-pix').getByRole('button', { name: 'PIX', exact: true }).click();
+  await expect(page.getByText(/Seu cadastro anterior usava uma chave Pix/)).toBeVisible();
+  await expect(page.getByLabel('Chave PIX', { exact: true })).toHaveCount(0);
+  const pix = buildStaticPixCopyPaste({ key: 'test@example.invalid', receiver: 'Loja Teste', city: 'Linhares', amount: 1 });
+  await page.getByLabel('Pix Copia e Cola', { exact: true }).fill(pix);
+  await page.getByText('Como obter este código no banco?').click();
+  await page.locator('#settings-pix').screenshot({ path: testInfo.outputPath('pix-mobile.png') });
+  await page.getByRole('button', { name: 'Salvar configurações', exact: true }).click();
+  await expect.poll(() => settingsWrites.length).toBe(1);
+  expect(settingsWrites[0]).toMatchObject({ pix_enabled: true, pix_receipt_mode: 'copy_paste', pix_copy_paste: pix });
+});
 
 for (const width of [390, 768, 1366]) {
   test(`cadastro herda ramo legado e permite escolher outro antes de gravar regras em ${width}px`, async ({ page }) => {

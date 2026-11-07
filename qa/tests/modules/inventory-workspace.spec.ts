@@ -31,6 +31,7 @@ for (const width of [320, 390, 768, 1366]) test(`uma área preserva busca e loca
   await expect(page.getByText('Repor 2 unidade(s) para atender às reservas.')).toBeVisible();
   await nav.getByRole('link', { name: 'Produtos e insumos' }).click();
   await expect(page.getByRole('region', { name: 'Estoque de produtos' })).toBeVisible();
+  await expect(page.locator('.inventory-command-row__image').first()).toBeVisible();
   await nav.getByRole('link', { name: 'Saldos por local' }).click();
   await expect(page.getByRole('combobox', { name: 'Local de estoque', exact: true })).toHaveValue(OTHER);
   await expect(page.getByRole('searchbox', { name: 'Buscar no local' })).toHaveValue(product.name);

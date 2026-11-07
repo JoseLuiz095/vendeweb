@@ -1,0 +1,5 @@
+.delivery-route-bar { display:grid; gap:4px; min-width:0; }
+.delivery-route-bar small, .delivery-route-bar [role="status"] { font-size:.68rem; line-height:1.3; }
+.delivery-route__actions { display:flex; flex-wrap:wrap; gap:6px; }
+.delivery-route__actions a { text-decoration:none; }
+@media(max-width:650px) { .delivery-route__actions { display:grid; grid-template-columns:1fr 1fr; } .delivery-route__actions a { text-align:center; justify-content:center; } }

@@ -64,7 +64,7 @@ export const validatePixCopyPasteBase = (raw: string) => {
   const merchant = fields.find((field) => field.id === '26');
   if (!merchant) throw new Error('O código PIX não possui os dados de recebimento esperados.');
   if (isDynamicPixPayload(merchant.value)) {
-    throw new Error('Este PIX é dinâmico e o valor é controlado pelo banco. Para valor automático pelo carrinho, gere no banco um PIX/QR estático sem valor fixo ou use a opção Chave PIX.');
+    throw new Error('Este Pix é dinâmico e o valor é controlado pelo banco. Gere no aplicativo do banco um Pix Copia e Cola estático sem valor fixo.');
   }
 
   return normalized;
