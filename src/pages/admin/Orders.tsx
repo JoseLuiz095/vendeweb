@@ -14,6 +14,7 @@ import QRCode from 'qrcode';
 import { ErrorState, LoadingState } from '../../components/ui/AsyncState';
 import { InfoHint } from '../../components/ui/InfoHint';
 import { OrderDetailsModal } from '../../components/admin/OrderDetailsModal';
+import { DeliveryRoute } from '../../components/admin/DeliveryRoute';
 import PickupPointOrderSummary from '../../components/admin/PickupPointOrderSummary';
 import { QuantityControl } from '../../components/QuantityControl';
 import { ProductMedia } from '../../components/ProductMedia';
@@ -1061,8 +1062,9 @@ export default function OrdersAdmin() {
 
     {settings.kdsEnabled && <section className="kds-board-v061"><div className="kds-board-v061__heading"><div><span className="eyebrow">COZINHA / KDS</span><h2><ChefHat size={21}/>Fila operacional</h2><InfoHint>O quadro é opcional e usa os mesmos pedidos da operação, sem uma nova tela ou permissão.</InfoHint></div><span>{kdsOrders.length} em andamento</span></div><div className="kds-columns-v061">{kdsStatuses.map((status) => <section key={status}><header><strong>{statusLabel[status]}</strong><span>{kdsOrders.filter((order) => order.status === status).length}</span></header><div>{kdsOrders.filter((order) => order.status === status).map((order) => <article key={order.id}><strong>#{formatOrderNumber(order.orderNumber)} · {order.customerName}</strong><span>{currency.format(order.total)} · {order.deliveryType === 'delivery' ? 'Delivery' : 'Retirada'}</span><div className="kds-status-buttons-v062">{operationalStatuses(order).filter((option)=>option.value !== 'cancelled').map((option)=><button type="button" key={option.value} className={order.status===option.value?'active':''} disabled={updatingId===order.id || order.status===option.value} onClick={()=>void changeStatusWithCustomerDraft(order,option.value)}>{option.label}</button>)}</div><button type="button" className="kds-cancel-v062" disabled={updatingId===order.id || order.status==='cancelled'} onClick={()=>void changeStatus(order.id,'cancelled')}>Cancelar</button>{settings.kdsNotifyCustomer && whatsappButton(order, 'status')}</article>)}</div></section>)}</div></section>}
 
-    {selectedOrderIds.length > 0 && <aside className="orders-batch-status-bar" aria-live="polite">
+    {selectedOrderIds.length > 0 && !detailsOrder && <aside className="orders-batch-status-bar" aria-live="polite">
       <div><strong>{selectedOrderIds.length} {selectedOrderIds.length === 1 ? 'pedido selecionado' : 'pedidos selecionados'}</strong><span>{pendingStatusChanges.length ? `${pendingStatusChanges.length} alteração${pendingStatusChanges.length === 1 ? '' : 'ões'} de status pendente${pendingStatusChanges.length === 1 ? '' : 's'}.` : 'Escolha o novo status nos pedidos selecionados.'}</span></div>
+      <DeliveryRoute key={settings.id} storeId={settings.id} orders={selectedOrderIds.map(id => orders.find(order => order.id === id && order.storeId === settings.id)).filter((order): order is Order => Boolean(order))}/>
       <div className="orders-batch-status-bar__actions"><button type="button" className="secondary-button compact-button" onClick={discardStatusDrafts} disabled={batchSaving}>Descartar</button><button type="button" className="primary-button compact-button" onClick={() => void saveStatusBatch()} disabled={!pendingStatusChanges.length || batchSaving}>{batchSaving ? 'Salvando...' : `Salvar ${pendingStatusChanges.length || ''} status`}</button></div>
     </aside>}
     {detailsOrder && <OrderDetailsModal key={`${detailsOrder.storeId}:${detailsOrder.id}`} order={detailsOrder} products={products} settings={settings} onClose={() => setDetailsOrderId(null)} onSave={saveOrderDetails} onCancelOrder={cancelOrderFromDetails} saving={detailsSaving} />}

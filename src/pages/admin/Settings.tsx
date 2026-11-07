@@ -12,7 +12,7 @@ import { ErrorState, LoadingState } from '../../components/ui/AsyncState';
 import { useStore } from '../../contexts/StoreContext';
 import { useToast } from '../../contexts/ToastContext';
 import type { PaymentMethod, StoreSettings } from '../../types';
-import { buildPixCopyPasteWithAmount, validatePixCopyPasteBase } from '../../utils/pix';
+import { buildPixCopyPasteWithAmount } from '../../utils/pix';
 import { formatOpeningSchedule, openingDayName } from '../../utils/storeHours';
 import { PasswordChangeCard } from '../../components/admin/PasswordChangeCard';
 import { FloatingSaveBar } from '../../components/admin/FloatingSaveBar';
@@ -47,7 +47,6 @@ export default function SettingsAdmin() {
   const [saving, setSaving] = useState(false);
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({ identity: false, service: true, alerts: true, growth: true, messages: true, confirm: true, pix: true, card: true, cash: true, order: true });
   const [messageCursor, setMessageCursor] = useState<{ key: keyof NonNullable<StoreSettings['messageTemplates']>; start: number; end: number }>({ key: 'received', start: 0, end: 0 });
-  const pixCopyPasteRef = useRef<HTMLTextAreaElement | null>(null);
   const canCustomBanner = planHasFeature(planUsage.plan, 'custom_banner');
   const canUseDoceLua = isDoceLuaStore(form);
   const businessProfile = getBusinessSegment(form.visualTheme);
@@ -142,15 +141,6 @@ export default function SettingsAdmin() {
       showToast(notificationError instanceof Error ? notificationError.message : 'Não foi possível enviar o teste.', 'error');
     }
   };
-  const activatePixReceiptMode = (mode: StoreSettings['pixReceiptMode']) => {
-    update('pixReceiptMode', mode);
-    if (mode === 'copy_paste') {
-      window.setTimeout(() => {
-        pixCopyPasteRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        pixCopyPasteRef.current?.focus();
-      }, 80);
-    }
-  };
   const movePaymentMethod = (method: PaymentMethod, direction: -1 | 1) => setForm((current) => {
     const order = [...current.paymentMethodOrder];
     const index = order.indexOf(method);
@@ -208,18 +198,11 @@ export default function SettingsAdmin() {
         showToast('Informe o nome do recebedor do PIX.', 'error');
         return;
       }
-      if (form.pixReceiptMode === 'key' && !form.pixKey.trim()) {
-        showToast('Informe a chave PIX.', 'error');
+      try {
+        buildPixCopyPasteWithAmount(form.pixCopyPaste, 1);
+      } catch (pixError) {
+        showToast(pixError instanceof Error ? pixError.message : 'PIX Copia e Cola inválido.', 'error');
         return;
-      }
-      if (form.pixReceiptMode === 'copy_paste') {
-        try {
-          validatePixCopyPasteBase(form.pixCopyPaste);
-          buildPixCopyPasteWithAmount(form.pixCopyPaste, 1);
-        } catch (pixError) {
-          showToast(pixError instanceof Error ? pixError.message : 'PIX Copia e Cola inválido.', 'error');
-          return;
-        }
       }
     }
 
@@ -227,6 +210,7 @@ export default function SettingsAdmin() {
     try {
       if (form.name !== settings.name) await assertStoreNameAvailable(form.id, form.name);
       let next = { ...form, name: cleanStoreName(form.name), openingHours: formatOpeningSchedule(form.openingSchedule), messageTemplates: normalizeCustomerMessageTemplates(messageTemplates) };
+      if (form.pixEnabled && form.showPixBeforeConfirmation) next = { ...next, pixReceiptMode: 'copy_paste' };
       if (!canUseDoceLua && next.visualTheme.preset === 'doce_lua') next = { ...next, visualTheme: { ...DEFAULT_STORE_VISUAL_THEME } };
       if (logoFile) {
         const upload = await uploadStoreAsset(logoFile, 'logo');
@@ -402,37 +386,19 @@ export default function SettingsAdmin() {
               <>
                 <label className="switch-row"><span><strong>Permitir pagamento direto por PIX</strong><small>Exibe o PIX no checkout e na confirmação</small></span><input type="checkbox" checked={form.showPixBeforeConfirmation} onChange={(e) => update('showPixBeforeConfirmation', e.target.checked)} /></label>
 
-                <div className="pix-mode-admin">
-                  <span className="admin-field-label">Como o cliente receberá o PIX?</span>
-                  <button type="button" className={form.pixReceiptMode === 'copy_paste' ? 'pix-mode-option selected' : 'pix-mode-option'} onClick={() => activatePixReceiptMode('copy_paste')}>
-                    <QrCode size={22} />
-                    <span><strong>PIX Copia e Cola <em>Recomendado</em></strong><small>O sistema coloca automaticamente o total do carrinho no código PIX.</small></span>
-                  </button>
-                  <button type="button" className={form.pixReceiptMode === 'key' ? 'pix-mode-option selected' : 'pix-mode-option'} onClick={() => activatePixReceiptMode('key')}>
-                    <CreditCard size={22} />
-                    <span><strong>Chave PIX</strong><small>O cliente copia a chave e informa o valor manualmente no banco.</small></span>
-                  </button>
-                </div>
-
-                {form.pixReceiptMode === 'copy_paste' ? (
-                  <>
-                    <label className="pix-copy-paste-field">PIX Copia e Cola base<textarea ref={pixCopyPasteRef} rows={5} value={form.pixCopyPaste} onChange={(e) => update('pixCopyPaste', e.target.value)} placeholder="Cole aqui o código PIX Copia e Cola gerado pelo seu banco" /></label>
+                <div className="admin-info-box"><Info size={17} /><span>Cadastre seu Pix Copia e Cola. Com um código estático compatível, a plataforma inclui o valor do pedido para o cliente pagar no aplicativo do banco.</span></div>
+                {form.pixReceiptMode === 'key' && <div className="admin-info-box"><Info size={17} /><span>Seu cadastro anterior usava uma chave Pix. Para continuar usando Pix ao salvar as configurações, informe abaixo um código Pix Copia e Cola.</span></div>}
+                    <label>Nome do recebedor<input value={form.pixReceiver} onChange={(e) => update('pixReceiver', e.target.value)} placeholder="Nome para identificar o recebedor" /></label>
+                    <label className="pix-copy-paste-field">Pix Copia e Cola<textarea rows={5} value={form.pixCopyPaste} onChange={(e) => update('pixCopyPaste', e.target.value)} placeholder="Cole aqui o código Pix Copia e Cola gerado pelo seu banco" /></label>
                     <details className="payment-help">
                       <summary><Info size={16} />Como obter este código no banco?</summary>
                       <div>
-                        <p>No aplicativo ou internet banking, procure por <strong>PIX → Receber/Cobrar → QR Code ou PIX Copia e Cola</strong>.</p>
-                        <p>Prefira gerar um <strong>PIX estático sem valor fixo</strong>. Copie o código completo e cole acima. A plataforma adicionará o total do pedido e recalculará o código automaticamente.</p>
-                        <p>Se o banco gerar um PIX dinâmico com cobrança/expiração controlada pelo próprio banco, use a opção <strong>Chave PIX</strong> nesta versão.</p>
+                        <p>1. No aplicativo do banco, abra <strong>Pix → Receber → QR Code ou Pix Copia e Cola</strong>. Os nomes podem variar conforme o banco.</p>
+                        <p>2. Escolha a chave da conta que receberá os pagamentos e gere um <strong>Pix estático sem valor</strong>. Não escolha uma cobrança dinâmica ou com vencimento.</p>
+                        <p>3. Copie o código completo, cole no campo acima e salve. O sistema usará os dados desse código e incluirá o total de cada pedido.</p>
+                        <p>O nome exibido no código ajuda na conferência, mas confirme também o recebedor no aplicativo do banco antes de pagar. Cobranças dinâmicas são controladas pelo banco e não podem ser usadas como base aqui.</p>
                       </div>
                     </details>
-                  </>
-                ) : (
-                  <>
-                    <label>Tipo da chave PIX<input value={form.pixKeyType} onChange={(e) => update('pixKeyType', e.target.value)} placeholder="CPF, CNPJ, telefone, e-mail ou aleatória" /></label>
-                    <label>Chave PIX<input value={form.pixKey} onChange={(e) => update('pixKey', e.target.value)} /></label>
-                  </>
-                )}
-                <label>Nome do recebedor<input value={form.pixReceiver} onChange={(e) => update('pixReceiver', e.target.value)} /></label>
               </>
             )}
           </section>
@@ -440,8 +406,8 @@ export default function SettingsAdmin() {
           <section id="settings-card" className={`admin-card form-section payment-admin-section settings-collapsible ${collapsedSections.card ? 'is-collapsed' : ''}`}>
             {sectionToggle('card', 'Cartão')}
             <div className="admin-card__header"><div><span className="eyebrow">PAGAMENTOS</span><h2>Cartão</h2></div><CreditCard size={21} /></div>
-            <label className="switch-row"><span><strong>Pagamento por cartão por aproximação (NFC)</strong><small>Permite cartão de crédito ou débito na entrega/retirada, com o WhatsApp disponível para confirmação.</small></span><input type="checkbox" checked={form.cardPaymentEnabled} disabled={form.showWhatsApp === false || !form.whatsapp.trim()} onChange={(e) => update('cardPaymentEnabled', e.target.checked)} /></label>
-            {form.cardPaymentEnabled && <div className="admin-info-box"><Info size={17} /><span>A plataforma não captura dados do cartão. A cobrança é presencial pela loja e o WhatsApp permanece disponível para orientar o cliente.</span></div>}
+            <label className="switch-row"><span><strong>Pagamento por cartão presencial</strong><small>A loja recebe com sua própria maquininha ou solução de terceiros e combina os detalhes com o cliente pelo WhatsApp.</small></span><input type="checkbox" checked={form.cardPaymentEnabled} disabled={form.showWhatsApp === false || !form.whatsapp.trim()} onChange={(e) => update('cardPaymentEnabled', e.target.checked)} /></label>
+            {form.cardPaymentEnabled && <div className="admin-info-box"><Info size={17} /><span>O cartão é recebido presencialmente pela loja, usando sua própria maquininha ou solução de terceiros. Combine os detalhes com o cliente pelo WhatsApp. A plataforma não cadastra nem processa dados de cartão.</span></div>}
             {(!form.whatsapp.trim() || form.showWhatsApp === false) && <div className="admin-info-box"><Info size={17} /><span>Cadastre um WhatsApp e deixe a exibição ativa para liberar esta forma de pagamento.</span></div>}
           </section>
 
