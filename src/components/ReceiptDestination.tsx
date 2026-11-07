@@ -146,7 +146,7 @@ export default function ReceiptDestination({
         </>}
     {reportError && <p role="alert">{reportError} Não foi possível confirmar o resultado; confira o pedido antes de tentar novamente.</p>}
     {reported && <p role="status">{'Pagamento marcado como pago.' + (autoPickedUp ? ' Retirada concluída e estoque baixado.' : '')}</p>}
-    {receiptToken && <p>Ao clicar, o pagamento é registrado e o WhatsApp abre com a mensagem do pedido. Quando o pedido veio pelo link do ponto e será retirado nesse mesmo ponto, a retirada e a baixa de estoque são concluídas automaticamente.</p>}
+    {receiptToken && <p>Ao clicar, o pagamento é informado e o WhatsApp abre com a mensagem do pedido. Se houver ponto de retirada selecionado, a retirada e a baixa de estoque são concluídas automaticamente. O recebimento deve ser conferido pela loja.</p>}
     {!receiptToken && <p>{requireReceiptToken ? 'A confirmação automática do pagamento está indisponível. Envie o comprovante e solicite a conferência da loja.' : 'Depois de pagar, anexe o comprovante na conversa do WhatsApp.'}</p>}
   </section>;
 }
