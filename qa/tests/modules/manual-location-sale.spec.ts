@@ -47,6 +47,20 @@ async function draft(page: Page) {
   return dialog;
 }
 
+test('seleção visual escolhe o produto para o pedido', async ({ page }) => {
+  await page.setViewportSize({ width: 1366, height: 900 });
+  await setup(page);
+  await page.getByRole('button', { name: 'Lançar pedido avulso' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Pedido avulso', exact: true });
+  await dialog.getByLabel('Estoque de saída', { exact: true }).selectOption(POINT);
+  const card = dialog.getByRole('button', { name: /Pipoca de Paçoca/ });
+  await card.click();
+  await expect(card).toHaveAttribute('aria-pressed', 'true');
+  await expect(dialog.locator('.manual-product-quick-add__product select')).toHaveValue(PRODUCT);
+  await dialog.getByRole('button', { name: 'Adicionar', exact: true }).click();
+  await expect(dialog.locator('.manual-item-stock')).toHaveText('Sicoob: 3 disponíveis no ponto');
+});
+
 for (const width of [320, 390, 1366]) test(`paçoca com 3 disponíveis em Sicoob e nova venda em ${width}px`, async ({ page }, info) => {
   await page.setViewportSize({ width, height: 844 });
   const state = await setup(page);

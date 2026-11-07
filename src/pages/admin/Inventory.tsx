@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { ErrorState, LoadingState } from '../../components/ui/AsyncState';
 import { FloatingSaveBar } from '../../components/admin/FloatingSaveBar';
+import { ProductMedia } from '../../components/ProductMedia';
 import { useStore } from '../../contexts/StoreContext';
 import { useToast } from '../../contexts/ToastContext';
 import { inventoryApi, inventoryLabels, inventoryUnitLabels } from '../../services/inventoryApi';
@@ -54,7 +55,7 @@ function ProductStockCard({ product, onAdjust, onSet, busy, expanded, onToggle, 
   const adjustBy = (direction: -1 | 1) => { if (Number.isInteger(adjustmentQuantity) && adjustmentQuantity > 0) onAdjust(product, direction * adjustmentQuantity, `Ajuste rápido: ${direction > 0 ? 'entrada' : 'saída'} de ${adjustmentQuantity} unidade(s)`); };
   const saveCount = (event: FormEvent) => { event.preventDefault(); const value = Number(draft); if (!Number.isInteger(value) || value < 0 || !reason.trim()) return; onSet(product, value, reason.trim()); };
   return <article id={`stock-row-${product.id}`} className={`inventory-product-card inventory-command-row${expanded ? ' is-open' : ''}`}>
-    <div className="inventory-command-row__name"><strong>{product.name}</strong><small>{product.active ? 'Publicado' : 'Inativo'} · Físico: {quantity}</small></div>
+    <div className="inventory-command-row__identity"><ProductMedia className="inventory-command-row__image" src={product.imageUrl} emoji={product.visualEmoji} imageCount={product.images.length} alt=""/><div className="inventory-command-row__name"><strong>{product.name}</strong><small>{product.active ? 'Publicado' : 'Inativo'} · Físico: {quantity}</small></div></div>
     <div className="inventory-command-row__availability"><strong className={shortage ? 'is-shortage' : zero ? 'is-zero' : low ? 'is-low' : ''}>{available}</strong><span>disponíveis</span>{(shortage || zero || low) && <em>{shortage ? `Repor ${-available} unidade(s)` : zero ? 'Sem estoque' : 'Estoque baixo'}</em>}</div>
     <div className="inventory-command-row__reserved"><span>Reservado</span><strong>{reserved > 0 ? `−${reserved}` : 0}</strong></div>
     <button type="button" className="secondary-button compact-button inventory-command-row__action" aria-expanded={expanded} aria-controls={`stock-details-${product.id}`} onClick={onToggle}>{expanded ? 'Fechar' : 'Ajustar'}</button>

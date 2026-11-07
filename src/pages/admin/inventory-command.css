@@ -23,6 +23,7 @@
 .inventory-command__list { gap: 0; border-top: 1px solid #e9ede8; }
 .inventory-command-row.inventory-product-card { display: grid; grid-template-columns: minmax(0, 1fr) minmax(110px, auto) minmax(90px, auto) auto; gap: 12px; align-items: center; padding: 11px 3px; border: 0; border-bottom: 1px solid #e9ede8; border-radius: 0; min-width: 0; }
 .inventory-command-row__name { display: grid; gap: 3px; min-width: 0; }
+.inventory-command-row__identity{display:flex;align-items:center;gap:10px;min-width:0}.inventory-command-row__image{display:grid;place-items:center;width:48px;height:48px;max-width:48px;flex:0 0 48px;object-fit:cover;border-radius:11px;background:#f2f7f2}
 .inventory-command-row__name strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .84rem; }
 .inventory-command-row__name small, .inventory-command-row__reserved span { color: var(--muted); font-size: .67rem; }
 .inventory-command-row__availability { display: flex; gap: 5px; align-items: baseline; flex-wrap: wrap; }
