@@ -1,6 +1,3 @@
-Warning: truncated output (original token count: 26080)
-Total output lines: 1177
-
 import './orders-settings-navigation.css';
 import './food-order-actions.css';
 import {orderSchedulePresentation} from '../../utils/orderSchedulePresentation';
@@ -892,7 +889,74 @@ export default function OrdersAdmin() {
       order.customerPhone || '',
       order.source ? orderSourceLabel[order.source] : 'Site',
       order.deliveryType === 'delivery' ? 'Delivery' : 'Retirada',
-      order.scheduledFor ? for…1080 tokens truncated…`Selecionar pedido ${order.orderNumber || order.id}`} /><span><strong>#{order.orderNumber ? formatOrderNumber(order.orderNumber) : order.id.slice(0, 8)}</strong></span></label><small className="order-fee-note">{orderSourceLabel[order.source || 'site']}</small>{order.whatsappClickedAt ? <small className="order-fee-note">WhatsApp aberto</small> : null}{highlighted ? <small>Pedido vindo do Financeiro</small> : null}</td>
+      order.scheduledFor ? formatDateTimeBR(order.scheduledFor) : '',
+      paymentLabel[order.paymentMethod],
+      statusLabel[order.status],
+      currency.format(order.total),
+      order.items?.map((item) => `${item.quantity}x ${item.productName}`).join(' | ') || '',
+    ]));
+    showToast(`${filtered.length} pedido${filtered.length === 1 ? '' : 's'} exportado${filtered.length === 1 ? '' : 's'}.`, 'success');
+  };
+
+  const recoveryOrders = useMemo(() => {
+    const now = Date.now();
+    return orders.filter((order) => {
+      const age = now - new Date(order.createdAt).getTime();
+      return settings.salesRecoveryEnabled && !dismissedRecoveryIds.includes(order.id) && Boolean(order.customerPhone) && order.status === 'received' && !order.whatsappClickedAt && age >= settings.salesRecoveryMinutes * 60_000 && age <= (settings.salesRecoveryWindowHours ?? 48) * 60 * 60_000;
+    }).slice(0, 12);
+  }, [dismissedRecoveryIds, orders, settings.salesRecoveryEnabled, settings.salesRecoveryMinutes, settings.salesRecoveryWindowHours]);
+
+  const dismissRecoveryOrder = (orderId: string) => {
+    setDismissedRecoveryIds((current) => {
+      const next = [...new Set([...current, orderId])];
+      try { window.localStorage.setItem(recoveryStorageKey, JSON.stringify(next)); } catch { /* armazenamento local pode estar bloqueado */ }
+      return next;
+    });
+  };
+
+  const customers = useMemo<CustomerSummary[]>(() => {
+    const map = new Map<string, CustomerSummary>();
+    for (const order of orders) {
+      const key = normalizeWhatsappPhone(order.customerPhone);
+      if (!key || order.status === 'cancelled') continue;
+      const current = map.get(key);
+      if (!current) {
+        map.set(key, { key, name: order.customerName, phone: order.customerPhone || key, orders: 1, total: order.total, lastAt: order.createdAt });
+      } else {
+        current.orders += 1;
+        current.total += order.total;
+        if (new Date(order.createdAt).getTime() > new Date(current.lastAt).getTime()) { current.lastAt = order.createdAt; current.name = order.customerName; }
+      }
+    }
+    return [...map.values()].sort((a, b) => new Date(b.lastAt).getTime() - new Date(a.lastAt).getTime()).slice(0, 20);
+  }, [orders]);
+
+  const comeBackCustomers = useMemo(() => customers.filter((customer) => (Date.now() - new Date(customer.lastAt).getTime()) >= (settings.crmComeBackDays ?? 21) * 86_400_000), [customers, settings.crmComeBackDays]);
+
+  const kdsOrders = useMemo(() => orders.filter((order) => kdsStatuses.includes(order.status)), [orders]);
+
+  useEffect(() => {
+    if (!highlightedOrderId) return;
+    const highlightedOrder = orders.find((order) => order.id === highlightedOrderId);
+    if (!highlightedOrder) return;
+    setQuery(''); setStatusFilter('all');
+    if (isHistoryOrder(highlightedOrder)) setHistoryOpen(true);
+    const timer = window.setTimeout(() => (rowsRef.current[highlightedOrderId] || mobileRowsRef.current[highlightedOrderId])?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 180);
+    return () => window.clearTimeout(timer);
+  }, [highlightedOrderId, orders]);
+
+  const whatsappButton = (order: Order, kind: 'status' | 'recovery') => (
+    <button type="button" className={`order-whatsapp-action-v061 ${kind === 'status' && notifyOrderId === order.id ? 'is-recommended-v063' : ''}`} disabled={!order.customerPhone} onClick={() => { openCustomerWhatsapp(order.customerPhone, kind === 'recovery' ? buildSalesRecoveryMessage(settings.name, order, settings.messageTemplates) : buildOrderStatusMessage(settings.name, order, settings.messageTemplates)); if (kind === 'status') setNotifyOrderId(null); }}>
+      <MessageCircle size={15}/>{kind === 'recovery' ? 'Recuperar venda' : notifyOrderId === order.id ? 'Enviar atualização' : 'Avisar cliente'}
+    </button>
+  );
+
+  const renderDesktopOrder = (order: Order) => {
+    const highlighted = order.id === highlightedOrderId;
+    const draftStatus = statusDrafts[order.id] || order.status;
+    const selected = selectedOrderIds.includes(order.id);
+    return <tr key={`desktop-${order.id}`} ref={(node) => { rowsRef.current[order.id] = node; }} className={highlighted ? 'order-row-highlighted' : ''}>
+      <td><label className="order-select-checkbox"><input type="checkbox" checked={selected} onChange={() => toggleOrderSelection(order.id)} aria-label={`Selecionar pedido ${order.orderNumber || order.id}`} /><span><strong>#{order.orderNumber ? formatOrderNumber(order.orderNumber) : order.id.slice(0, 8)}</strong></span></label><small className="order-fee-note">{orderSourceLabel[order.source || 'site']}</small>{order.whatsappClickedAt ? <small className="order-fee-note">WhatsApp aberto</small> : null}{highlighted ? <small>Pedido vindo do Financeiro</small> : null}</td>
       <td><div className="order-customer"><strong>{order.customerName}</strong><span>{order.customerPhone || 'Sem telefone informado'}</span>{order.acquisitionSource ? <small>Origem: {({ instagram: 'Instagram', whatsapp: 'WhatsApp', google: 'Google', indicacao: 'Indicação', outro: 'Outro' } as const)[order.acquisitionSource]}</small> : null}{order.customerInstagram ? <small>{order.customerInstagram}</small> : null}</div></td>
       <td><div className="order-customer"><strong>{order.deliveryType === 'delivery' ? 'Delivery' : 'Retirada'}</strong>{order.deliveryType === 'delivery' && order.deliveryZoneName ? <span>{order.deliveryZoneName}{order.deliveryFee ? ` · ${currency.format(order.deliveryFee)}` : ''}</span> : null}{scheduleInfo(order)&&<span className={`order-schedule-label ${scheduleInfo(order)?.future?'is-future':''}`}>{scheduleInfo(order)?.label}<small>Horário da loja · {scheduleInfo(order)?.timezone}</small></span>}{order.preparationEstimateMinutes ? <span>Estimativa: até {order.preparationEstimateMinutes} min</span> : null}</div></td>
       <td><div className="order-customer"><strong>{paymentLabel[order.paymentMethod]}</strong>{order.paymentMethod === 'cash' && order.needsChange && order.changeFor ? <span>Troco para {currency.format(order.changeFor)}</span> : null}</div></td>
