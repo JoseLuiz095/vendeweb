@@ -1,4 +1,6 @@
 import AdminRoutineActions from '../../components/admin/AdminRoutineActions';
+import FitnessDashboard from '../../components/admin/FitnessDashboard';
+import { useAuth } from '../../contexts/AuthContext';
 import {useBusinessStatus} from '../../platform/useBusinessStatus';
 import { InfoHint } from '../../components/ui/InfoHint';
 import { ArrowUpRight, Boxes, CalendarDays, CheckCircle2, Circle, CircleDollarSign, Clock3, Eye, Link2, Megaphone, MessageCircle, PackageCheck, PackageOpen, PackageX, Rocket, ShoppingBag, Tags, Users } from 'lucide-react';
@@ -19,6 +21,7 @@ import './dashboard-simple.css';
 
 export default function Dashboard(){
   const {products,categories,deliveryZones,orders,settings,planUsage,loading,error,reloadAdmin}=useStore();
+  const {membership}=useAuth();
   const {state:business}=useBusinessStatus(settings.id);
   const [metricState,setMetricState]=useState<{storeId:string;data:DashboardMetrics|null;error:string;loading:boolean}|null>(null);
   const [metricRetry,setMetricRetry]=useState(0);
@@ -79,7 +82,8 @@ export default function Dashboard(){
   const {steps:readiness,readyCount,total,percent:readinessPercent,launchReady}=readinessState;
 
 
-  return <>
+  const isFitness=business?.profile?.primary_segment==='fitness';
+  const existingDashboard=<>
     <div className="admin-page-title"><div><span className="eyebrow">VISÃO GERAL</span><h1>{segmentPresentation?segment.adminTitle:'Painel do estabelecimento'}</h1><p>{serviceFirst?`Acesse primeiro as rotinas de ${segment.id==='personal'?'alunos e atendimentos':segment.id==='nutrition'?'clientes e consultas':'campanhas e conteúdo'} e mantenha o catálogo comercial organizado.`:segmentPresentation?'Seu catálogo, pedidos e recebimentos em um só lugar. Organize a operação e acompanhe cada venda.':'Acompanhe a operação e deixe o cardápio pronto para receber pedidos.'}</p></div><a className="secondary-button" href={publicStorefrontPath(settings.slug)} target="_blank" rel="noreferrer"><Eye size={17}/>Abrir loja <ArrowUpRight size={16}/></a></div>
 
 
@@ -107,4 +111,5 @@ export default function Dashboard(){
 
 
   </>;
+  return isFitness&&business ? <><FitnessDashboard storeId={settings.id} storeName={settings.name} timezone={timezone} business={business} limited={Boolean(membership?.limitedAccess)} metrics={metrics} metricsLoading={metricsLoading} metricsError={metricsError}/><details className="fitness-home-more"><summary>Mais ferramentas e informações da loja</summary>{existingDashboard}</details></> : existingDashboard;
 }

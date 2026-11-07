@@ -1,6 +1,6 @@
 import { InfoHint } from '../components/ui/InfoHint';
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { businessApi, moduleIsActive, type BusinessRecord } from './api';
 import { useBusinessStatus } from './useBusinessStatus';
@@ -19,6 +19,7 @@ const appointmentStatus:Record<string,string>={scheduled:'Agendado',confirmed:'C
 
 export default function FitnessAdminPage() {
   const {membership,user}=useAuth();
+  const location=useLocation();
   const store=membership?.storeId || '';
   const activeStore=useRef(store);activeStore.current=store;
   const {state:business,loading:businessLoading,error:businessError}=useBusinessStatus(store);
@@ -141,6 +142,8 @@ export default function FitnessAdminPage() {
     void run(()=>fitnessApi.publishService({store,service:serviceId,cancelPolicy:cancelPolicy.trim(),reschedulePolicy:reschedulePolicy.trim(),cancelBeforeMinutes:cancelBefore*60,priceConfirmed:true}),'Serviço publicado no servidor.');
   };
 
+  useEffect(()=>{if (!businessLoading && !loading && location.hash) document.getElementById(location.hash.slice(1))?.scrollIntoView();},[businessLoading,loading,location.hash]);
+
   const isFitness=business?.profile?.primary_segment==='fitness';
   if(businessLoading||loading)return <div className="business-workspace"><p role="status">Carregando agenda da academia…</p></div>;
   if(businessError||error&&!status)return <div className="business-workspace"><div className="business-message business-message--error" role="alert"><strong>Agenda indisponível</strong><p>{businessError||error}</p><button type="button" onClick={()=>{setLoading(true);void reload().catch(cause=>setError((cause as Error).message)).finally(()=>setLoading(false));}}>Tentar novamente</button></div></div>;
@@ -153,7 +156,7 @@ export default function FitnessAdminPage() {
     <nav className="fitness-admin-nav" aria-label="Áreas do Fitness"><a href="#treinos">1. Modelos de treino</a><a href="#ofertas-fitness">2. Produtos e serviços</a><a href="#agenda-fitness">3. Agenda</a><a href="#alunos-fitness">4. Alunos</a></nav>
     {moduleIsActive(business,'training')&&<div id="treinos"><FitnessWorkouts store={store} professional={professional}/></div>}
     {moduleIsActive(business,'training')&&<div id="ofertas-fitness"><FitnessOffersAdmin store={store}/></div>}
-    {moduleIsActive(business,'nutrition')&&<FitnessNutrition store={store} editor/>}
+    {moduleIsActive(business,'nutrition')&&<div id="nutricao"><FitnessNutrition store={store} editor/></div>}
     <div id="agenda-fitness" className="fitness-admin-grid">
       <section className="business-card">
         <h2>Disponibilidade semanal</h2><InfoHint label="Sobre Disponibilidade semanal">Defina o fuso local. O intervalo entre sessões é aplicado pelo servidor.</InfoHint>
