@@ -16,5 +16,7 @@ test('resumo mostra pedidos carregados e abre o pedido exato', async ({ page }) 
   await expect(link).toHaveAttribute('href', `/admin/pedidos?highlight=${id}`);
   await link.click();
   await expect(page).toHaveURL(new RegExp(`/admin/pedidos\\?highlight=${id}`));
-  await expect(page.locator('.order-row-highlighted').first()).toBeVisible();
+  const highlighted = page.locator('.orders-mobile-card.order-row-highlighted');
+  await expect(highlighted).toBeVisible();
+  await expect(highlighted).toBeInViewport();
 });

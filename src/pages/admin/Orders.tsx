@@ -941,7 +941,10 @@ export default function OrdersAdmin() {
     if (!highlightedOrder) return;
     setQuery(''); setStatusFilter('all');
     if (isHistoryOrder(highlightedOrder)) setHistoryOpen(true);
-    const timer = window.setTimeout(() => (rowsRef.current[highlightedOrderId] || mobileRowsRef.current[highlightedOrderId])?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 180);
+    const timer = window.setTimeout(() => {
+      const visible = [rowsRef.current[highlightedOrderId], mobileRowsRef.current[highlightedOrderId]].find((node) => node && node.getClientRects().length > 0);
+      visible?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 180);
     return () => window.clearTimeout(timer);
   }, [highlightedOrderId, orders]);
 
@@ -1031,7 +1034,7 @@ export default function OrdersAdmin() {
         </details>
         <div className="orders-toolbar__sync" aria-live="polite"><span>{pendingOrders.length} no Financeiro · {processingOrders.length} na operação · {futureOrders.length} agendados futuros nesta lista · {historyOrders.length} no histórico</span>{scheduledDateFilter && <button type="button" className="orders-active-filter" onClick={clearScheduledFilter}><CalendarDays size={14}/>Agendados: {scheduledFilterLabel}<Slash size={14}/></button>}{refreshError ? <strong className="orders-refresh-error" role="status">{refreshError}</strong> : <small>{lastUpdatedAt ? `Atualizado às ${lastUpdatedAt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}` : 'Atualização automática ativa'}</small>}<button type="button" className="secondary-button compact-button" onClick={() => void refreshOrders()} disabled={refreshing} aria-busy={refreshing}><RefreshCw size={15} className={refreshing ? 'spin' : ''}/>{refreshing ? 'Atualizando...' : refreshError ? 'Tentar novamente' : 'Atualizar'}</button></div>
       </div>
-      {highlightedOrderId && <div className="highlight-order-banner">O pedido relacionado vindo do Financeiro foi destacado abaixo.</div>}
+      {highlightedOrderId && <div className="highlight-order-banner">O pedido selecionado foi destacado abaixo.</div>}
        {filtered.length === 0 && <div className="admin-empty"><ShoppingBag size={32}/><strong>Nenhum pedido encontrado</strong><span>Ajuste os filtros ou aguarde o próximo pedido.</span></div>}
         {(!queue||queue==='fulfillment')&&<section id="orders-fulfillment" className="orders-collection-section orders-collection-section--processing" aria-labelledby="processing-orders-title">
           <header className="orders-collection-heading"><div><span className="eyebrow">OPERAÇÃO</span><h2 id="processing-orders-title">Recebidos · hoje e em andamento</h2><InfoHint>Pedidos sem agendamento futuro ou com prazo até hoje. Entregas dos próximos dias ficam no grupo separado abaixo.</InfoHint></div><strong>{processingOrders.length}</strong></header>
