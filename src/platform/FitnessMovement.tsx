@@ -32,6 +32,7 @@ function ExistingMovement({ movement }: { movement: FitnessMovementMedia }) {
   const [modelReady, setModelReady] = useState(false);
   const [playIntent, setPlayIntent] = useState(() => !prefersReducedMotion());
   const [inView, setInView] = useState(false);
+  const [replay, setReplay] = useState(0);
   const [pageVisible, setPageVisible] = useState(() => !document.hidden);
   const [error, setError] = useState('');
 
@@ -92,11 +93,13 @@ function ExistingMovement({ movement }: { movement: FitnessMovementMedia }) {
       return;
     }
     element.currentTime = 0;
+    const stop = window.setTimeout(() => setPlayIntent(false), 12000);
     void Promise.resolve(element.play({ repetitions: Infinity })).catch(() => {
       setError('Não foi possível reproduzir esta demonstração neste aparelho.');
       setPlayIntent(false);
     });
-  }, [customElementReady, inView, modelReady, pageVisible, playIntent]);
+    return () => window.clearTimeout(stop);
+  }, [customElementReady, inView, modelReady, pageVisible, playIntent, replay]);
 
   const mediaLabelId = useId();
   return <figure ref={frame} className="fitness-movement fitness-movement--loop" aria-labelledby={mediaLabelId}>
@@ -107,7 +110,7 @@ function ExistingMovement({ movement }: { movement: FitnessMovementMedia }) {
       'camera-controls': true,
       'disable-zoom': true,
       loading: 'lazy',
-      alt: `${movement.label}: demonstração 3D ilustrativa em repetição contínua.`,
+      alt: `${movement.label}: demonstração 3D ilustrativa.`,
       'aria-label': `${movement.label}: demonstração animada em loop.`,
     })}
     <figcaption id={mediaLabelId}>
@@ -115,11 +118,8 @@ function ExistingMovement({ movement }: { movement: FitnessMovementMedia }) {
       <span>{movement.credit}. Demonstração visual geral, sem carga e sem substituir a orientação do profissional.</span>
     </figcaption>
     <div className="fitness-movement-controls">
-      <button type="button" className="secondary-button" aria-pressed={playIntent} onClick={() => {
-        if (!playIntent && viewer.current) viewer.current.currentTime = 0;
-        setPlayIntent(value => !value);
-      }}>{playIntent ? 'Pausar demonstração' : 'Reproduzir demonstração'}</button>
-      <span>Loop contínuo · sem áudio</span>
+      <button type="button" className="secondary-button" aria-label="Rever demonstração do exercício" title="Rever demonstração" onClick={() => { setReplay(value => value + 1); setPlayIntent(true); }}>↻</button>
+      <span>Demonstração breve · sem áudio</span>
     </div>
     {!modelReady && !error && <p role="status" className="business-muted">Carregando demonstração animada…</p>}
     {error && <p role="status" className="business-muted">{error}</p>}
@@ -139,16 +139,25 @@ function ExercisePose({src,alt,label}:{src:string;alt:string;label:string}) {
   return <figure>{failed?<p role="status">Imagem indisponível. Consulte as instruções do profissional.</p>:<img src={src} alt={alt} loading="lazy" decoding="async" onError={()=>setFailed(true)}/>}<figcaption>{label}</figcaption></figure>;
 }
 
+function AnimatedPoses({ base, label }: { base: string; label: string }) {
+  const [run, setRun] = useState(0);
+  return <div className="fitness-pose-demo">
+    <div key={run} className="fitness-pose-animation" role="img" aria-label={`${label}: duas posições ilustrativas. Consulte as instruções da ficha.`}>
+      <img src={`${base}-start.webp`} alt="" loading="lazy" />
+      <img src={`${base}-peak.webp`} alt="" loading="lazy" />
+    </div>
+    <button type="button" className="secondary-button fitness-pose-replay" onClick={() => setRun(value => value + 1)} aria-label="Rever demonstração do exercício" title="Rever demonstração">↻</button>
+    <span className="business-muted">Demonstração ilustrativa. As posições não substituem as instruções do profissional.</span>
+  </div>;
+}
+
 export function FitnessMovement({ kind }: { kind?: string }) {
   const id = useId();
   const illustration = kind ? fitnessIllustrationByKey.get(kind) : undefined;
   if (illustration) {
     const base = `/assets/fitness-exercises/${illustration.id}`;
     return <figure className="fitness-movement fitness-movement--illustrated">
-      <div className={`fitness-movement-poses${illustration.pose === 'single' ? ' fitness-movement-poses--single' : ''}`} role="group" aria-label={`Poses ilustradas do exercício ${illustration.label}`}>
-        <ExercisePose key={`${base}-start`} src={`${base}-${illustration.pose === 'single' ? 'main' : 'start'}.webp`} alt={`${illustration.label} · posição inicial`} label={illustration.pose === 'single' ? 'Referência' : 'Início'}/>
-        {illustration.pose !== 'single' && <ExercisePose key={`${base}-peak`} src={`${base}-peak.webp`} alt={`${illustration.label} · posição principal do movimento`} label="Movimento"/>}
-      </div>
+      {illustration.pose === 'single' ? <div className="fitness-movement-poses fitness-movement-poses--single"><ExercisePose key={`${base}-main`} src={`${base}-main.webp`} alt={`${illustration.label} · referência`} label="Referência"/></div> : <AnimatedPoses key={base} base={base} label={illustration.label}/>}
       <figcaption><strong>{illustration.label} · ilustração 2D</strong><span>Use as imagens para reconhecer as posições. A execução, amplitude e carga devem seguir a ficha revisada pelo profissional.</span><a href="https://repdb.co" target="_blank" rel="noreferrer">Ilustrações de exercício por RepDB</a></figcaption>
     </figure>;
   }

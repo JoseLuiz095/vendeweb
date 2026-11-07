@@ -15,7 +15,8 @@ const foodIllustration = (name:string,state:string) => {
   if(['salada de alface e tomate','salada de alface com tomate'].includes(value))return 'salad';
   return '';
 };
-export function FitnessMealView({meal}:{meal:Meal}) {
+export function FitnessMealView({meal, compact=false}:{meal:Meal; compact?:boolean}) {
+  if (compact) return <article className="fitness-meal-view"><h4>{meal.day} · {meal.name} {meal.time}</h4><p>Toque em um alimento para ver os detalhes.</p><div className="fitness-food-list">{meal.items.map((item,index)=>{ const illustration=foodIllustration(item.name,item.weight_state); return <details key={index} className="fitness-food-detail"><summary><strong>{item.name}</strong><span>{item.amount} {item.unit==='unit'?'unidade(s)':item.unit}</span></summary><div>{illustration?<span aria-hidden="true" className={`fitness-food-image fitness-food-image--${illustration}`}/>:<span aria-hidden="true" className="fitness-food-icon">{foodIcon(item.name)}</span>}<p><strong>{item.amount} {item.unit==='unit'?'unidade(s)':item.unit}</strong> · {weightStates[item.weight_state]}</p>{item.household_measure&&<p>{item.household_measure}</p>}{item.group&&<p>{item.group}</p>}{item.alternatives&&<p><strong>Substituições aprovadas:</strong> {item.alternatives}</p>}<small>Ilustração: não representa a quantidade prescrita.</small></div></details>})}</div>{(meal.instructions||meal.seasonings)&&<details><summary>Preparo e temperos</summary>{meal.instructions&&<p>{meal.instructions}</p>}{meal.seasonings&&<p>{meal.seasonings}</p>}</details>}</article>;
   const compatible=meal.items.length>0&&meal.items.every(item=>item.unit==='g'&&item.weight_state===meal.items[0].weight_state&&item.weight_state!=='not_applicable');
   return <article className="fitness-meal-view">
     <h4>{meal.day} · {meal.name} {meal.time}</h4>
