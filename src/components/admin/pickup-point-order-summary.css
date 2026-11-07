@@ -216,3 +216,44 @@
     align-items: flex-start;
   }
 }
+.pickup-point-order-summary { display:block; }
+.pickup-point-order-summary__toggle { display:flex; align-items:center; gap:12px; cursor:pointer; list-style:none; color:#254b37; min-height:42px; }
+.pickup-point-order-summary__toggle::-webkit-details-marker { display:none; }
+.pickup-point-order-summary__toggle span { display:grid; gap:3px; }
+.pickup-point-order-summary__toggle small { color:#64746b; font-size:.78rem; }
+.pickup-point-order-summary__toggle::after { content:'+'; margin-left:auto; font-size:1.3rem; }
+.pickup-point-order-summary[open] > .pickup-point-order-summary__toggle::after { content:'−'; }
+.pickup-point-order-summary__header { margin-top:18px; flex-wrap:wrap; }
+.pickup-point-order-summary__header > div { display:block; flex:1 1 240px; }
+.pickup-point-order-summary__filter-toggle, .pickup-point-order-summary__comparison { margin-top:12px; }
+.pickup-point-order-summary__filter-toggle > summary, .pickup-point-order-summary__comparison > summary { cursor:pointer; color:#28543a; font-weight:700; padding:8px 0; }
+.pickup-comparison-row { display:flex; flex-wrap:wrap; align-items:center; gap:10px; padding:10px; border-top:1px solid #e0e6df; }
+.pickup-comparison-row > strong { flex:1 1 160px; }
+.pickup-comparison-row label { display:flex; align-items:center; gap:6px; }
+.pickup-comparison-row input { width:75px; padding:6px; border:1px solid #b9c8ba; border-radius:6px; }
+.pickup-point-order-summary summary:focus-visible { outline:3px solid #39734c; outline-offset:3px; }
+@media(max-width:760px) { .pickup-point-order-summary__header > div { flex:0 1 auto; } }
+.pickup-summary-toolbar { display:flex; flex-wrap:wrap; align-items:center; gap:8px; padding:14px 0; border-bottom:1px solid #e7ece7; }
+.pickup-summary-toolbar > span { margin-right:auto; color:#52655a; font-size:.8rem; font-weight:700; }
+.pickup-summary-toolbar .pickup-point-order-summary__filter-toggle { margin:0; }
+.pickup-summary-toolbar summary,.pickup-toolbar-action { display:inline-flex; align-items:center; gap:5px; padding:7px 9px; border:1px solid #dce5dd; border-radius:8px; background:#fff; color:#28543a; font:inherit; font-size:.75rem; font-weight:700; cursor:pointer; list-style:none; }
+.pickup-summary-toolbar .pickup-point-order-summary__filter-toggle > summary { padding:7px 9px; }
+.pickup-point-order-summary__filters { padding:10px 0; }
+.pickup-point-order-summary__points { padding-top:12px; }
+.pickup-summary-point { border:1px solid #dfe8df; border-radius:12px; overflow:hidden; background:#fff; }
+.pickup-summary-point > summary { display:flex; align-items:center; gap:12px; padding:13px; cursor:pointer; list-style:none; }
+.pickup-summary-point > summary::-webkit-details-marker { display:none; }
+.pickup-summary-point > summary > span { display:grid; gap:3px; min-width:0; flex:1; }
+.pickup-summary-point > summary small { color:#64746b; font-size:.75rem; }
+.pickup-summary-point > summary b { color:#28543a; white-space:nowrap; }
+.pickup-summary-point > summary::after { content:'+'; color:#28543a; font-size:1.2rem; }
+.pickup-summary-point[open] > summary::after { content:'−'; }
+.pickup-summary-point__body { padding:0 13px 13px; }
+.pickup-summary-products { display:flex; overflow-x:auto; gap:8px; padding:4px 0 10px; }
+.pickup-summary-product { display:grid; align-content:start; gap:4px; flex:0 0 122px; min-width:0; padding:8px; border:1px solid #e3ebe3; border-radius:10px; font-size:.75rem; }
+.pickup-summary-product img,.pickup-summary-product__placeholder { display:grid; place-items:center; width:100%; height:72px; object-fit:cover; border-radius:7px; background:#f2f7f2; color:#64816d; }
+.pickup-summary-product strong { overflow-wrap:anywhere; }
+.pickup-summary-product small,.pickup-summary-product > span:not(.pickup-summary-product__placeholder) { color:#66786d; }
+.pickup-summary-caption { margin:0 0 8px; font-size:.7rem!important; }
+.pickup-point-order-summary__breakdown > summary,.pickup-point-order-summary__comparison > summary { display:flex; align-items:center; gap:7px; cursor:pointer; padding:10px 0; }
+.pickup-point-order-summary__comparison { border-top:1px solid #e0e5e2; margin-top:0; }
