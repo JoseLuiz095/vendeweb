@@ -23,3 +23,15 @@
 .order-details-modal__add-product { display: flex; flex-wrap: wrap; align-items: end; gap: 8px; margin-top: 12px; }
 .order-details-modal__add-product label, .order-details-modal__add-product small { flex-basis: 100%; }
 .order-details-modal__add-product select { flex: 1 1 180px; min-width: 0; }
+.order-details-modal__expand { display:block; }
+.order-details-modal__expand summary { display:flex; align-items:center; justify-content:space-between; gap:10px; min-height:40px; cursor:pointer; font-weight:700; }
+.order-details-modal__expand summary span, .order-details-modal__quick-facts span { display:flex; align-items:center; gap:7px; }
+.order-details-modal__expand summary strong { color:var(--admin-accent,#9b5136); }
+.order-details-modal__expand summary small { color:var(--muted); font-weight:400; }
+.order-details-modal__quick-facts { display:flex; flex-wrap:wrap; gap:10px 20px; grid-column:1 / -1; font-size:.85rem; font-weight:700; }
+.order-details-modal__facts .order-details-modal__fact:last-child { grid-column:1 / -1; }
+.order-details-modal__facts { padding-block:10px; }
+.order-details-modal__section { gap:8px; padding-block:10px; }
+.order-details-modal__header { margin-bottom:10px; }
+.order-details-modal__expand-all { display:block; width:100%; min-height:40px; padding:7px 10px; border:1px solid #eadbd4; border-radius:9px; background:#fff8f4; color:var(--admin-accent,#9b5136); font:inherit; font-weight:700; text-align:center; cursor:pointer; }
+.order-details-modal__contact { padding:8px 0; font-size:.82rem; overflow-wrap:anywhere; }

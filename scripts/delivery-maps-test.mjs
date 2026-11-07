@@ -1,0 +1,16 @@
+import { strict as assert } from 'node:assert';
+import { deliveryMapAddress, deliveryRouteUrl, deliverySearchUrl, deliveryWhatsAppUrl } from '../src/utils/deliveryMaps.ts';
+const first = { deliveryStreet: 'Rua São João', deliveryNumber: '12', deliveryNeighborhood: 'Centro', deliveryCity: 'Vitória', deliveryState: 'ES', deliveryZipCode: '29000-000' };
+assert.equal(deliveryMapAddress(first), 'Rua São João, 12, Centro, Vitória - ES, 29000-000');
+assert.equal(deliveryMapAddress({ deliveryAddress: 'Endereço legado' }), 'Endereço legado');
+assert.equal(deliveryMapAddress({}), '');
+assert.equal(new URL(deliverySearchUrl(deliveryMapAddress(first))).searchParams.get('query'), deliveryMapAddress(first));
+const url = new URL(deliveryRouteUrl(['A', 'B', 'C', 'D']));
+assert.equal(url.searchParams.get('waypoints'), 'A|B|C');
+assert.equal(url.searchParams.get('destination'), 'D');
+assert.equal(url.searchParams.has('origin'), false);
+assert.equal(deliveryRouteUrl(['A', 'B', 'C', 'D', 'E']), null);
+assert.equal(deliveryRouteUrl(['A', '']), null);
+assert.equal(deliveryRouteUrl(['a'.repeat(2100)]), null);
+assert.equal(new URL(deliveryWhatsAppUrl('Rua São João\nhttps://example.com')).searchParams.get('text'), 'Rua São João\nhttps://example.com');
+console.log('delivery maps: validações aprovadas');
