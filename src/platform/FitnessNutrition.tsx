@@ -7,6 +7,13 @@ const blankItem=():MealItem=>({name:'',group:'',amount:0,unit:'g',weight_state:'
 const blankMeal=():Meal=>({day:'',name:'',time:'',instructions:'',seasonings:'',items:[blankItem()]});
 const blankPlan=():NutritionPlan=>({id:'',student_user_id:'',title:'',valid_until:'',meals:[blankMeal()],reported_restrictions:'',notes:'',status:'draft'});
 
+function StudentMeals({ meals }: { meals: Meal[] }) {
+  const [selected, setSelected] = useState(0);
+  if (!meals.length) return <p>Nenhuma refeição cadastrada.</p>;
+  const index = Math.min(selected, meals.length - 1);
+  return <div><label>Refeição <select value={index} onChange={event => setSelected(Number(event.target.value))}>{meals.map((meal,i)=><option key={i} value={i}>{meal.day} · {meal.name} {meal.time}</option>)}</select></label><FitnessMealView meal={meals[index]} compact/><div className="fitness-session-actions"><button type="button" className="secondary-button" disabled={index===0} onClick={()=>setSelected(index-1)}>Refeição anterior</button><button type="button" className="secondary-button" disabled={index===meals.length-1} onClick={()=>setSelected(index+1)}>Próxima refeição</button></div></div>;
+}
+
 export function FitnessNutrition({store,token,editor=false}:{store:string;token?:string;editor?:boolean}) {
   const [plans,setPlans]=useState<NutritionPlan[]>([]),[students,setStudents]=useState<AuthorizedStudent[]>([]);
   const [draft,setDraft]=useState<NutritionPlan|null>(null),[busy,setBusy]=useState(false),[loading,setLoading]=useState(true),[error,setError]=useState(''),[notice,setNotice]=useState('');
@@ -53,7 +60,7 @@ export function FitnessNutrition({store,token,editor=false}:{store:string;token?
       <label>Observações profissionais<textarea maxLength={2000} value={draft.notes} onChange={e=>setDraft({...draft,notes:e.target.value})}/></label>
       <div className="business-actions"><button className="primary-button" disabled={busy}>Salvar rascunho alimentar</button><button type="button" className="secondary-button" onClick={()=>setDraft(null)}>Fechar editor</button></div>
     </form>}
-    {plans.map(plan=><article className="fitness-workout-card" key={plan.id}><h3>{plan.title}</h3><p>{plan.status==='approved'?'Aprovado':plan.status==='draft'?'Rascunho':'Revogado'} · Validade: {plan.valid_until}</p><p>{plan.professional_name} · CRN {plan.registration}</p>{plan.reported_restrictions&&<p>Restrições informadas: {plan.reported_restrictions}</p>}{plan.meals.map((meal,index)=><FitnessMealView key={index} meal={meal}/>)}{plan.notes&&<p>{plan.notes}</p>}
+    {plans.map(plan=><article className="fitness-workout-card" key={plan.id}><h3>{plan.title}</h3><p>{plan.status==='approved'?'Aprovado':plan.status==='draft'?'Rascunho':'Revogado'} · Validade: {plan.valid_until}</p><p>{plan.professional_name} · CRN {plan.registration}</p>{plan.reported_restrictions&&<p>Restrições informadas: {plan.reported_restrictions}</p>}{editor?plan.meals.map((meal,index)=><FitnessMealView key={index} meal={meal}/>):<StudentMeals meals={plan.meals}/>}{plan.notes&&<p>{plan.notes}</p>}
       {editor&&plan.status==='draft'&&<div className="business-actions"><button className="secondary-button" disabled={busy} onClick={()=>setDraft(structuredClone(plan))}>Editar plano</button><button className="primary-button" disabled={busy} onClick={()=>{if(window.confirm('Você é a nutricionista responsável e revisou todas as porções, restrições e instruções?'))void act(()=>nutritionApi.approve(store,plan.id),'Plano aprovado pela nutricionista.');}}>Aprovar após revisão CRN</button></div>}
     </article>)}
   </section>;
