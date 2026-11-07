@@ -14,6 +14,7 @@ import QRCode from 'qrcode';
 import { ErrorState, LoadingState } from '../../components/ui/AsyncState';
 import { InfoHint } from '../../components/ui/InfoHint';
 import { OrderDetailsModal } from '../../components/admin/OrderDetailsModal';
+import { DeliveryRoute } from '../../components/admin/DeliveryRoute';
 import PickupPointOrderSummary from '../../components/admin/PickupPointOrderSummary';
 import { QuantityControl } from '../../components/QuantityControl';
 import { useStore } from '../../contexts/StoreContext';
@@ -22,10 +23,7 @@ import { stockLocationsApi, type StockLocation, type ProductLocationStock } from
 import { trackInteraction } from '../../services/interactionTelemetry';
 import { currency, formatDateTimeBR, roundMoney } from '../../utils/format';
 import type { ManualOrderInput, ManualOrderItemInput, ManualOrderSource, Order, OrderStatus, PaymentMethod } from '../../types';
-import { formatOrderNumber } from '../../utils/orderConfirmation';
-import { copyText } from '../../utils/clipboard';
-import { buildPixPayloadWithAmount } from '../../utils/pix';
-import { sharePixQrImage } from '../../utils/pixShare';
+import { formatOm '../../utils/pixShare';
 import { buildComeBackMessage, buildOrderStatusMessage, buildSalesRecoveryMessage, normalizeWhatsappPhone, openCustomerWhatsapp } from '../../utils/customerSales';
 import { downloadCsv } from '../../utils/exportCsv';
 
@@ -1059,8 +1057,9 @@ export default function OrdersAdmin() {
         </details>}
 
     </section>
-    {selectedOrderIds.length > 0 && <aside className="orders-batch-status-bar" aria-live="polite">
+    {selectedOrderIds.length > 0 && !detailsOrder && <aside className="orders-batch-status-bar" aria-live="polite">
       <div><strong>{selectedOrderIds.length} {selectedOrderIds.length === 1 ? 'pedido selecionado' : 'pedidos selecionados'}</strong><span>{pendingStatusChanges.length ? `${pendingStatusChanges.length} alteração${pendingStatusChanges.length === 1 ? '' : 'ões'} de status pendente${pendingStatusChanges.length === 1 ? '' : 's'}.` : 'Escolha o novo status nos pedidos selecionados.'}</span></div>
+      <DeliveryRoute key={settings.id} storeId={settings.id} orders={selectedOrderIds.map(id => orders.find(order => order.id === id && order.storeId === settings.id)).filter((order): order is Order => Boolean(order))}/>
       <div className="orders-batch-status-bar__actions"><button type="button" className="secondary-button compact-button" onClick={discardStatusDrafts} disabled={batchSaving}>Descartar</button><button type="button" className="primary-button compact-button" onClick={() => void saveStatusBatch()} disabled={!pendingStatusChanges.length || batchSaving}>{batchSaving ? 'Salvando...' : `Salvar ${pendingStatusChanges.length || ''} status`}</button></div>
     </aside>}
     {detailsOrder && <OrderDetailsModal key={`${detailsOrder.storeId}:${detailsOrder.id}`} order={detailsOrder} products={products} settings={settings} onClose={() => setDetailsOrderId(null)} onSave={saveOrderDetails} onCancelOrder={cancelOrderFromDetails} saving={detailsSaving} />}

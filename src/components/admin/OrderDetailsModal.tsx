@@ -4,8 +4,10 @@ import { useEffect, useRef, useState } from 'react';
 import { useModalAccessibility } from '../useModalAccessibility';
 import type { Order, OrderDetailsUpdate, OrderItem, Product, StoreSettings } from '../../types';
 import './order-details-mobile.css';
+import './delivery-route.css';
 import { currency, formatDateTimeBR } from '../../utils/format';
 import { formatOrderNumber } from '../../utils/orderConfirmation';
+import { deliveryMapAddress, deliverySearchUrl, deliveryWhatsAppUrl } from '../../utils/deliveryMaps';
 
 type OrderDetailsModalProps = {
   order: Order;
@@ -29,6 +31,7 @@ type DraftItem = OrderItem & { replacementProductId?: string };
 
 export function OrderDetailsModal({ order, products, settings, onClose, onSave, onCancelOrder, saving }: OrderDetailsModalProps) {
   const [editing, setEditing] = useState(false);
+  const [detailsExpanded, setDetailsExpanded] = useState(false);
   const [points,setPoints]=useState<Array<{id:string;name:string;stock_location_id:string}>>([]);
   const [pointsError,setPointsError]=useState('');
   const [auditOpen,setAuditOpen]=useState(false);
@@ -97,6 +100,9 @@ export function OrderDetailsModal({ order, products, settings, onClose, onSave, 
     return !original || item.quantity!==original.quantity || Boolean(item.replacementProductId);
   }));
   const draftSubtotal=draftItems.reduce((sum,item)=>sum+item.itemTotal,0);
+  const mapAddress = deliveryMapAddress(order);
+  const mapUrl = mapAddress ? deliverySearchUrl(mapAddress) : '';
+  const deliveryMessage = `Entrega do pedido #${formatOrderNumber(order.orderNumber)}\nEndereço: ${mapAddress}${order.deliveryComplement ? ` · ${order.deliveryComplement}` : ''}${order.referencePoint ? `\nReferência: ${order.referencePoint}` : ''}\n${mapUrl}`;
   const address = [
     order.deliveryStreet && `${order.deliveryStreet}${order.deliveryNumber ? `, ${order.deliveryNumber}` : ''}`,
     order.deliveryComplement,
@@ -177,20 +183,23 @@ export function OrderDetailsModal({ order, products, settings, onClose, onSave, 
         <span className={`order-details-modal__payment-status ${order.paymentStatus === 'paid' ? 'is-paid' : ''}`}>{order.paymentStatus === 'paid' ? order.paymentReportedByCustomer?'Pago informado pelo cliente':'Recebido' : 'A receber'}</span>
       </div>
 
-      <section className="order-details-modal__section">
-        <div className="order-details-modal__section-title"><Store size={17} /><h3>Produtos solicitados</h3></div>
+      <button type="button" className="order-details-modal__expand-all" aria-expanded={detailsExpanded} onClick={() => setDetailsExpanded(value => !value)}>{detailsExpanded ? 'Recolher detalhes' : 'Ver detalhes do pedido'}</button>
+      {detailsExpanded && <div className="order-details-modal__contact"><strong>Cliente:</strong> {order.customerName}{order.customerPhone && <> · <strong>Telefone:</strong> {order.customerPhone}</>}</div>}
+      <details open={detailsExpanded} onToggle={event => setDetailsExpanded(event.currentTarget.open)} className="order-details-modal__section order-details-modal__expand">
+        <summary><span><Store size={17} /> Produtos <small>· {order.items?.length || 0} item(ns)</small></span><strong>{currency.format(order.total)}</strong></summary>
         {order.items?.length ? <div className="order-details-modal__items">{order.items.map((item) => <article className="order-details-modal__item" key={item.id}>
           <div><strong>{item.quantity}x {item.productName}</strong>{item.variantName && <small>{item.variantName}</small>}{item.options.length > 0 && <ul>{item.options.map((option) => <li key={option.id}>{option.quantity > 1 ? `${option.quantity}x ` : ''}{option.groupName}: {option.optionName}{option.priceDelta ? ` · ${option.priceDelta > 0 ? '+' : ''}${currency.format(option.priceDelta)}` : ''}</li>)}</ul>}</div>
           <strong>{currency.format(item.itemTotal)}</strong>
         </article>)}</div> : <p className="order-details-modal__empty">Este pedido não possui itens detalhados disponíveis.</p>}
         <div className="order-details-modal__summary"><span>Subtotal<strong>{currency.format(order.subtotal)}</strong></span>{order.deliveryFee ? <span>Entrega<strong>{currency.format(order.deliveryFee)}</strong></span> : null}<span className="is-total">Total<strong>{currency.format(order.total)}</strong></span></div>
-      </section>
+      </details>
 
       <section className="order-details-modal__section order-details-modal__facts">
-        <div className="order-details-modal__fact"><span><CreditCard size={16} />Pagamento</span><strong>{paymentLabel(order)}</strong></div>
-        <div className="order-details-modal__fact"><span>{order.deliveryType === 'delivery' ? <Truck size={16} /> : <Store size={16} />}Forma de recebimento</span><strong>{order.deliveryType === 'delivery' ? 'Delivery' : 'Retirada'}{order.deliveryZoneName ? ` · ${order.deliveryZoneName}` : ''}</strong></div>
+        <div className="order-details-modal__quick-facts"><span><CreditCard size={16} /> {paymentLabel(order)}</span><span>{order.deliveryType === 'delivery' ? <Truck size={16} /> : <Store size={16} />} {order.deliveryType === 'delivery' ? 'Delivery' : 'Retirada'}{order.deliveryZoneName ? ` · ${order.deliveryZoneName}` : ''}</span></div>
         <div className="order-details-modal__fact"><span>{order.deliveryType === 'delivery' ? <MapPin size={16} /> : <Store size={16} />}Local / horário</span><strong>{order.scheduledFor ? formatDateTimeBR(order.scheduledFor) : 'Sem horário agendado'}</strong>{order.deliveryType === 'delivery' ? <small>{address || order.deliveryAddress || 'Endereço não informado'}{order.referencePoint ? ` · Ref.: ${order.referencePoint}` : ''}</small> : order.pickupLocationId ? <small>{points.find(point=>point.id===order.pickupLocationId)?.name || 'Ponto de retirada vinculado ao pedido'}</small> : settings.pickupInstructions ? <small>{settings.pickupInstructions}</small> : null}</div>
       </section>
+
+      {order.deliveryType === 'delivery' && (mapUrl ? <div className="delivery-route__actions"><a className="secondary-button" href={mapUrl} target="_blank" rel="noopener noreferrer">Abrir endereço no Maps</a><a className="secondary-button" href={deliveryWhatsAppUrl(deliveryMessage)} target="_blank" rel="noopener noreferrer">Compartilhar entrega no WhatsApp</a></div> : <p>Endereço insuficiente para abrir no Maps.</p>)}
 
       <section className="order-details-modal__section order-stock-audit">
         <button type="button" className="order-stock-audit__toggle" aria-expanded={auditOpen} onClick={()=>setAuditOpen(value=>!value)}><History size={17}/> Estoque deste pedido <span>{auditOpen?'Ocultar':'Ver movimentos'}</span></button>
@@ -214,10 +223,7 @@ export function OrderDetailsModal({ order, products, settings, onClose, onSave, 
           <label>Agendamento<input type="datetime-local" value={draft.scheduledFor || ''} onChange={(event) => setDraft((current) => ({ ...current, scheduledFor: event.target.value }))} /></label>
           <label className="full">Observação<textarea rows={3} maxLength={500} value={draft.notes || ''} onChange={(event) => setDraft((current) => ({ ...current, notes: event.target.value }))} /></label>
         </div>
-      </section> : <section className="order-details-modal__section">
-        <div className="order-details-modal__section-title"><Pencil size={17} /><h3>Observações</h3></div>
-        <p className="order-details-modal__notes">{order.notes || 'Nenhuma observação registrada.'}</p>
-      </section>}
+      </section> : detailsExpanded && order.notes ? <section className="order-details-modal__section"><div className="order-details-modal__section-title"><Pencil size={17} /><h3>Observações</h3></div><p className="order-details-modal__notes">{order.notes}</p></section> : null}
 
       <div className="master-modal-actions order-details-modal__actions">
         {editing ? <><button type="button" className="secondary-button" onClick={() => setEditing(false)} disabled={saving}>Cancelar</button><button type="button" className="primary-button" onClick={() => void submit()} disabled={saving || !draft.customerName.trim() || (canEditItems && draftItems.length === 0)}><Save size={16} />{saving ? 'Salvando...' : 'Salvar alterações'}</button></> : <><button type="button" className="secondary-button" onClick={onClose}>Fechar</button>{order.paymentStatus !== 'paid' && order.status !== 'cancelled' && onCancelOrder && <button type="button" className="order-details-modal__cancel-button" onClick={() => void cancelOrder()} disabled={cancelling}><Ban size={16}/>{cancelling ? 'Cancelando...' : 'Cancelar pedido'}</button>}{canEdit && <button type="button" className="primary-button" onClick={() => setEditing(true)}><Pencil size={16} />Editar pedido</button>}</>}
