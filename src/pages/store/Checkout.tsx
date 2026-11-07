@@ -338,7 +338,6 @@ export default function Checkout() {
     if(receiptContactsEnabled&&receiptSourceCode){if(pickup.pointsLoading)return 'Aguarde a consulta do ponto de origem do comprovante.';if(pickup.pointsError||!pickup.points.some(p=>p.short_code.toUpperCase()===receiptSourceCode))return 'O ponto do link está indisponível. Abra o link geral da loja ou confira outro link antes de confirmar.';}
     if (form.fulfillment === 'pickup' && pickup.pointsLoading) return 'Aguarde a consulta dos pontos de retirada.';
     if (form.fulfillment === 'pickup' && pickup.pointsError) return pickup.pointsError;
-    if (form.fulfillment === 'pickup' && pickup.points.length && !pickup.selectedPoint) return 'Selecione um ponto de retirada disponível.';
     if (pointInsufficientItems.length) return `Estoque insuficiente em ${pickup.selectedPoint?.name}. Ajuste as quantidades ou escolha outro ponto.`;
     if (form.customerName.trim().length < 2) return 'Informe seu nome.';
     const phoneDigits = form.customerPhone.replace(/\D/g, '');
@@ -505,7 +504,7 @@ export default function Checkout() {
 
       <aside className="order-summary checkout-summary">
         <span className="eyebrow">RESUMO</span>
-        <div className="store-checkout-context"><strong>{settings.name}</strong><span>{form.fulfillment === 'pickup' ? pickup.selectedPoint ? `Retirada em ${pickup.selectedPoint.name} · validação no pedido` : pickup.pointsLoading ? 'Consultando ponto de retirada…' : pickup.points.length ? 'Escolha o ponto de retirada' : 'Local de retirada combinado com a loja' : 'Entrega no endereço informado'}</span></div>
+        <div className="store-checkout-context"><strong>{settings.name}</strong><span>{form.fulfillment === 'pickup' ? pickup.selectedPoint ? `Retirada em ${pickup.selectedPoint.name} · validação no pedido` : pickup.pointsLoading ? 'Consultando ponto de retirada…' : 'Estoque principal · retirada a combinar com a loja' : 'Entrega no endereço informado'}</span></div>
          <div className="checkout-items-mini">{items.map((item) => { const product = products.find((candidate) => candidate.id === item.productId); const config = product?.partyOrderConfig?.enabled ? product.partyOrderConfig : readPartyConfig(product?.optionGroups || []); return <div key={item.id}><span>{item.quantity}x {item.productName}{config && <small>{item.partyPackageWeightGrams || config.packageWeightGrams} g por pacote · encomenda para festa</small>}{item.options.length > 0 && <small>{item.options.map((option) => option.itemName).join(' · ')}</small>}</span><strong>{currency.format(cartItemUnitTotal(item) * item.quantity)}</strong></div>; })}</div>
         {!quickId && <details className="checkout-quantity-editor"><summary>Editar quantidades</summary>{items.map(item => {
           const product=products.find(candidate=>candidate.id===item.productId);

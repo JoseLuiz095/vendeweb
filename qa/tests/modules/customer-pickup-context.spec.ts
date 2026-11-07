@@ -118,3 +118,18 @@ test('QR inválido exige escolha explícita e permite trocar o ponto sem perder 
   await expect(page.getByText('Ponto escolhido: Loja Norte')).toBeVisible();
   await expect(page.getByText('Brigadeiro teste').first()).toBeVisible();
 });
+
+test('único ponto permite voltar ao estoque principal sem perder o carrinho', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await mockBackend(page);
+  await page.route('**/rest/v1/rpc/food_get_public_pickup_locations_v1', route => route.fulfill({ json: [center] }));
+  await page.route('**/rest/v1/rpc/food_get_public_location_availability_v1', route => route.fulfill({ json: [{ product_id: PRODUCT, available: 20, available_elsewhere: false }] }));
+  await page.goto('/doce-lua/produto/brigadeiro-teste');
+  await page.getByRole('button', { name: 'Adicionar ao carrinho', exact: true }).click();
+  await page.goto('/doce-lua/carrinho?ponto=centro');
+  await expect(page.getByText('Local identificado: Loja Centro')).toBeVisible();
+  await page.getByText('Trocar ponto').click();
+  await page.getByRole('combobox', { name: 'Ponto de retirada' }).selectOption('');
+  await expect(page.getByRole('combobox', { name: 'Ponto de retirada' })).toHaveValue('');
+  await expect(page.getByText('Brigadeiro teste').first()).toBeVisible();
+});
