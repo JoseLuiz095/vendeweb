@@ -27,6 +27,7 @@ export function FitnessOffersAdmin({ store }: { store: string }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  const [loaded, setLoaded] = useState(false);
   const [orderFilter, setOrderFilter] = useState<'pending' | 'all'>('pending');
 
   const reload = useCallback(async () => {
@@ -37,11 +38,12 @@ export function FitnessOffersAdmin({ store }: { store: string }) {
     ]);
     setOffers(nextOffers); setOrders(nextOrders); setWorkouts(nextWorkouts);
     setServices(nextServices.items || []); setStaff(nextStaff.filter(item => item.professional_active));
+    setLoaded(true);
   }, [store]);
   useEffect(() => {
     let active = true;
-    setOffers([]); setOrders([]); setDraft(blank); setError('');
-    void reload().catch(cause => { if (active) setError((cause as Error).message); });
+    setOffers([]); setOrders([]); setDraft(blank); setError(''); setLoaded(false);
+    void reload().catch(() => { if (active) setError('Não foi possível carregar ofertas e profissionais. Verifique a configuração do serviço e tente novamente.'); });
     return () => { active = false; };
   }, [reload]);
 
@@ -88,8 +90,10 @@ export function FitnessOffersAdmin({ store }: { store: string }) {
     <h2>Produtos, serviços e fichas</h2>
     <p>Cadastre a oferta que o aluno compra na loja. A ficha deve ser aprovada pelo profissional antes da publicação. O pedido só concede acesso após conferência do Pix no extrato e confirmação com MFA.</p>
     {error && <p role="alert" className="business-message business-message--error">{error}</p>}
+    {!loaded && error && <button type="button" className="secondary-button" onClick={() => { setError(''); void reload().catch(() => setError('Não foi possível carregar ofertas e profissionais. Verifique a configuração do serviço e tente novamente.')); }}>Tentar novamente</button>}
+    {!loaded && !error && <p role="status" className="business-muted">Carregando ofertas e profissionais…</p>}
     {notice && <p role="status" className="business-message">{notice}</p>}
-    <form className="business-form-grid" onSubmit={save}>
+    {loaded && <><form className="business-form-grid" onSubmit={save}>
       <label>Tipo de oferta<select value={draft.kind} onChange={e => setDraft({ ...blank, kind: e.target.value as FitnessOfferKind })}>{Object.entries(kindLabels).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>
       <label>Nome<input required minLength={3} maxLength={120} value={draft.name} onChange={e => setDraft({ ...draft, name: e.target.value })}/></label>
       <label>Preço em R$<input required inputMode="decimal" type="number" step="0.01" min="0.01" value={price} onChange={e => setPrice(e.target.value)}/></label>
@@ -120,6 +124,6 @@ export function FitnessOffersAdmin({ store }: { store: string }) {
       <p>{order.student_name} · {money(order.price_cents)} · Ref. {order.id}</p>
       {order.state === 'pending' && <button className="primary-button" disabled={busy} onClick={() => void confirm(order, 'confirm')}>Conferi o Pix: liberar acesso</button>}
       {order.state === 'paid' && <button className="secondary-button" disabled={busy} onClick={() => void confirm(order, 'refund')}>Registrar reembolso e revogar</button>}
-    </article>)}</div>}
+    </article>)}</div>}</>}
   </section>;
 }
