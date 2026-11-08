@@ -7,6 +7,7 @@ import { useBusinessStatus } from './useBusinessStatus';
 import { fitnessApi, type FitnessBlock, type FitnessStatus, type FitnessStudent, type FitnessWindow } from '../services/fitnessApi';
 import { FitnessWorkouts } from './FitnessWorkouts';
 import { FitnessOffersAdmin } from './FitnessOffersAdmin';
+import './business.css';
 import './fitness.css';
 import { FitnessNutrition } from './FitnessNutrition';
 

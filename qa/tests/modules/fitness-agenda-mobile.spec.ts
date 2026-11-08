@@ -16,6 +16,7 @@ test('agenda mostra registros reais da resposta e separa configuração no celul
   await expect(agenda).toContainText('Nenhum atendimento neste dia');
   await agenda.getByRole('link', { name: 'Disponibilidade e bloqueios' }).click();
   await expect(page.locator('#configuracoes-agenda')).toHaveAttribute('open', '');
+  await expect(page.locator('#configuracoes-agenda .business-form-grid').first()).toHaveCSS('display', 'grid');
   await page.getByRole('button', { name: 'Abrir menu' }).click();
   await expect(page.getByRole('dialog', { name: 'Menu do negócio' })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
