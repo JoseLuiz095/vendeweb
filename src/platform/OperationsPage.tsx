@@ -25,9 +25,11 @@ export default function OperationsPage() {
   const isCurrent=()=>mounted.current&&activeStore.current===store;
   const {state,error:statusError,loading:statusLoading,reload:reloadStatus}=useBusinessStatus(store);
   const [tab,setTab]=useState<Tab>(requestedTab||'clients');const [lists,setLists]=useState(emptyLists);
+  const [failedLists,setFailedLists]=useState<Tab[]>([]);
   const [values,setValues]=useState<Record<string,string>>({});const [editing,setEditing]=useState('');
   const [loading,setLoading]=useState(false);const [busy,setBusy]=useState(false);const [error,setError]=useState('');const [notice,setNotice]=useState('');
   const [query,setQuery]=useState('');
+  const [clientFilter,setClientFilter]=useState<'all'|'active'|'archived'>('all');
   const [staff,setStaff]=useState<StaffMember[]>([]);
   const [staffError,setStaffError]=useState('');
   const [providerUser,setProviderUser]=useState('');
@@ -38,6 +40,7 @@ export default function OperationsPage() {
   const [profileRegistration,setProfileRegistration]=useState('');
   const profile=state?.profile?getBusinessSegment(state.profile.primary_segment):null;
   const clientLabel=['personal','fitness'].includes(profile?.id||'')?'Alunos':'Clientes';
+  const fitnessClients=profile?.id==='fitness'&&tab==='clients';
   const labels:Record<Tab,string>={clients:clientLabel,services:'Serviços e pacotes',appointments:'Agenda',followups:'Acompanhamentos',campaigns:'Campanhas',links:'Links comerciais'};
   const permitted=(Object.keys(tabModules) as Tab[]).filter(key=>moduleIsActive(state,tabModules[key]));
   const permissionKey=permitted.join(',');
@@ -49,15 +52,18 @@ export default function OperationsPage() {
     return()=>{active=false;};
   },[store,canAssign,permissionKey]);
   const load=useCallback(async()=>{
-    const entries=await Promise.all((permissionKey.split(',').filter(Boolean) as Tab[]).map(async key=>[key,(await businessApi.operate(store,`${key}.list`)).items||[]] as const));
-    return {...emptyLists(),...Object.fromEntries(entries)};
+    const keys=permissionKey.split(',').filter(Boolean) as Tab[];
+    const results=await Promise.allSettled(keys.map(key=>businessApi.operate(store,`${key}.list`)));
+    const next=emptyLists();const failed:Tab[]=[];
+    results.forEach((result,index)=>{if(result.status==='fulfilled'&&Array.isArray(result.value.items))next[keys[index]]=result.value.items;else failed.push(keys[index]);});
+    return {lists:next,failed};
   },[store,permissionKey]);
   useEffect(()=>{
-    let active=true;setLists(emptyLists());setError('');setNotice('');setValues({});setEditing('');setQuery('');
+    let active=true;setLists(emptyLists());setFailedLists([]);setError('');setNotice('');setValues({});setEditing('');setQuery('');
     const permittedTabs=permissionKey.split(',').filter(Boolean) as Tab[];
     const first=requestedTab&&permittedTabs.includes(requestedTab)?requestedTab:permittedTabs[0];if(first)setTab(first);
     if(!first||!store){setLoading(false);return;}
-    setLoading(true);void load().then(next=>{if(active)setLists(next);}).catch(e=>{if(active)setError((e as Error).message);}).finally(()=>{if(active)setLoading(false);});
+    setLoading(true);void load().then(next=>{if(active){setLists(next.lists);setFailedLists(next.failed);}}).catch(e=>{if(active)setError((e as Error).message);}).finally(()=>{if(active)setLoading(false);});
     return()=>{active=false;};
   },[load,store,permissionKey,requestedTab]);
   const choices=(key:Tab)=>lists[key].filter(item=>item.active!==false).map(item=>({id:item.id,name:String(item.name||item.title||item.label||item.id)}));
@@ -72,7 +78,10 @@ export default function OperationsPage() {
   const recordStatus=(item:BusinessRecord)=>fields[tab].find(field=>field.key==='status')?.options?.find(option=>option.id===item.status)?.name
     || ({completed:'Concluído',cancelled:'Cancelado',pending:'Pendente',done:'Concluído'} as Record<string,string>)[String(item.status)]
     || String(item.status||(item.active===false?'Arquivado':'Ativo'));
-  const records=useMemo(()=>lists[tab].filter(item=>`${JSON.stringify(item)} ${recordStatus(item)}`.toLocaleLowerCase('pt-BR').includes(query.toLocaleLowerCase('pt-BR'))),[lists,tab,query]);
+  const records=useMemo(()=>lists[tab].filter(item=>{
+    if(fitnessClients&&clientFilter!=='all'&&(item.active===false)!==(clientFilter==='archived'))return false;
+    return `${JSON.stringify(item)} ${recordStatus(item)}`.toLocaleLowerCase('pt-BR').includes(query.toLocaleLowerCase('pt-BR'));
+  }),[lists,tab,query,fitnessClients,clientFilter]);
   const reset=()=>{setValues({});setEditing('');setProviderUser('');};
   const changeTab=(next:Tab)=>{setTab(next);reset();setQuery('');setNotice('');};
   const submit=async(event:FormEvent)=>{
@@ -100,12 +109,12 @@ export default function OperationsPage() {
         if(typeof id!=='string')throw new Error('Serviço salvo, mas o servidor não retornou o identificador para atribuir o prestador.');
         await professionalApi.assign(store,id,providerUser);
       }
-      const next=await load();if(!isCurrent())return;setLists(next);reset();setNotice(`${labels[tab]}: registro salvo no servidor.`);
+      const next=await load();if(!isCurrent())return;setLists(next.lists);setFailedLists(next.failed);reset();setNotice(`${labels[tab]}: registro salvo no servidor.`);
     }catch(e){if(isCurrent())setError((e as Error).message);}finally{if(isCurrent())setBusy(false);}
   };
   const updateState=async(item:BusinessRecord,action:string)=>{
     if(busy)return;setBusy(true);setError('');setNotice('');
-    try{await businessApi.operate(store,`${tab}.${action}`,{id:item.id,...(tab==='followups'?{status:'done'}:{})});const next=await load();if(!isCurrent())return;setLists(next);setNotice('Alteração salva. O histórico foi preservado.');}
+    try{await businessApi.operate(store,`${tab}.${action}`,{id:item.id,...(tab==='followups'?{status:'done'}:{})});const next=await load();if(!isCurrent())return;setLists(next.lists);setFailedLists(next.failed);setNotice('Alteração salva. O histórico foi preservado.');}
     catch(e){if(isCurrent())setError((e as Error).message);}finally{if(isCurrent())setBusy(false);}
   };
   const edit=(item:BusinessRecord)=>{
@@ -123,12 +132,13 @@ export default function OperationsPage() {
     finally{if(isCurrent())setBusy(false);}
   };
   return <div className="business-workspace"><header className="business-heading"><div><span className="eyebrow">{profile?.label||'OPERAÇÃO'}</span><h1>{profile?.adminTitle||'Minha operação'}</h1><InfoHint>Contatos, compromissos e tarefas com acesso verificado por negócio.</InfoHint></div><Link className="secondary-button" to="/admin/negocio">Ver meus módulos</Link></header>
-    {(statusError||error)&&<div className="business-message business-message--error" role="alert"><strong>Não foi possível carregar ou salvar</strong><p>{error||statusError}</p><button type="button" onClick={()=>{void reloadStatus();if(permissionKey)void load().then(next=>{if(isCurrent())setLists(next);}).catch(e=>{if(isCurrent())setError((e as Error).message);});}}>Tentar novamente</button></div>}
+    {(statusError||error||failedLists.includes(tab))&&<div className="business-message business-message--error" role="alert"><strong>Não foi possível carregar ou salvar</strong><p>{error||statusError||`Não foi possível consultar ${labels[tab].toLocaleLowerCase('pt-BR')}. Tente novamente.`}</p><button type="button" onClick={()=>{void reloadStatus();if(permissionKey)void load().then(next=>{if(isCurrent()){setLists(next.lists);setFailedLists(next.failed);setError('');}}).catch(e=>{if(isCurrent())setError((e as Error).message);});}}>Tentar novamente</button></div>}
     {notice&&<p className="business-message" role="status">{notice}</p>}
     {(statusLoading||loading)&&<p role="status">Carregando operação…</p>}
     {!statusLoading&&!loading&&state&&!permitted.length&&<section className="business-card"><h2>Prepare os módulos do negócio</h2><InfoHint label="Sobre Prepare os módulos do negócio">Seu catálogo e os pedidos continuam disponíveis. Configure o segmento ou solicite ao Master os módulos complementares.</InfoHint><Link className="primary-button" to="/admin/negocio">Configurar segmento e módulos</Link></section>}
     {!statusLoading&&!loading&&permitted.length>0&&<><nav className="business-tabs" aria-label="Operação por módulo">{permitted.map(key=><button key={key} type="button" aria-pressed={tab===key} onClick={()=>changeTab(key)}>{labels[key]}</button>)}</nav>
-      {['personal','nutrition'].includes(profile?.id||'')&&<p className="business-muted">Área administrativa de atendimento. Não registre prontuários, diagnósticos ou informações de saúde nestes formulários.</p>}
+      {['personal','fitness','nutrition'].includes(profile?.id||'')&&<p className="business-muted">Área administrativa de atendimento. Não registre prontuários, diagnósticos ou informações de saúde nestes formulários.</p>}
+      {fitnessClients&&<section className="business-card fitness-client-guide" aria-labelledby="fitness-client-guide-title"><div><span className="eyebrow">JORNADA DO ALUNO</span><h2 id="fitness-client-guide-title">Do cadastro à ficha</h2><p>Cadastre o contato para organizar a operação. O cadastro, por si só, não cria acesso nem atribui uma ficha.</p></div><ol><li><strong>1. Cadastre o aluno</strong><span>Informe nome e contato para identificá-lo.</span></li><li><strong>2. Vincule o acesso</strong><span>O aluno precisa de uma conta vinculada para receber a ficha.</span></li><li><strong>3. Atribua o treino</strong><span>Depois da revisão profissional, selecione o aluno na ficha aprovada.</span></li></ol>{moduleIsActive(state,'training')&&<Link className="secondary-button" to="/admin/fitness#treinos">Ir para fichas de treino</Link>}</section>}
       {tab==='campaigns'||tab==='links'?<p className="business-muted">Planejamento comercial e links. As campanhas não publicam automaticamente em redes sociais.</p>:null}
       {tab==='services'&&canAssign&&<section className="business-card"><h2>Prestadores da loja</h2><p>Um serviço profissional só aparece na vitrine após atribuir uma conta ativa com nome e registro. Confirme o registro junto ao conselho antes de publicar.</p>{staffError&&<p role="alert">Não foi possível consultar a equipe: {staffError}. É necessária a migração de identidade profissional.</p>}{membership?.role==='owner'&&<form className="business-form-grid" onSubmit={event=>void saveProfile(event)}><label>Conta da equipe<select required value={profileUser} onChange={event=>{const selected=staff.find(item=>item.user_id===event.target.value);setProfileUser(event.target.value);setProfileName(selected?.name||'');setProfileRegistration(selected?.registration||'');}}><option value="">Selecione uma conta vinculada a esta loja</option>{staff.map(item=><option value={item.user_id} key={item.user_id}>{item.email}</option>)}</select></label><label>Nome profissional<input required minLength={3} maxLength={120} value={profileName} onChange={event=>setProfileName(event.target.value)}/></label><label>Área<select value={profileKind} onChange={event=>{const kind=event.target.value as ProfessionalKind;setProfileKind(kind);setProfileCouncil(kind==='nutrition'?'CRN':kind==='training'?'CREF':'OUTRO');}}><option value="general">Outro serviço profissional</option>{moduleIsActive(state,'training')&&<option value="training">Treinamento</option>}{moduleIsActive(state,'nutrition')&&<option value="nutrition">Nutrição</option>}</select></label><label>Conselho<select value={profileCouncil} onChange={event=>setProfileCouncil(event.target.value as Council)}><option value="CRN">CRN</option><option value="CREF">CREF</option>{profileKind==='general'&&<option value="OUTRO">Outro</option>}</select></label><label>Registro (inclua a região quando aplicável)<input required minLength={3} maxLength={50} value={profileRegistration} onChange={event=>setProfileRegistration(event.target.value)} placeholder="Número e região informados pelo profissional"/></label><div className="business-actions"><button className="secondary-button" disabled={busy||!profileUser}>Confirmar prestador</button></div></form>}{!staff.some(item=>item.professional_active)&&<p role="status" className="business-muted">Ainda não há prestador confirmado. Vincule primeiro a conta da profissional à loja; nenhum nome ou CRN fictício é criado aqui.</p>}</section>}
       <div className="business-operation-grid"><section className="business-card"><h2>{editing?'Editar registro':`Novo registro · ${labels[tab].toLocaleLowerCase('pt-BR')}`}</h2><form id="business-record-form" className="business-form-grid" onSubmit={e=>void submit(e)}>
@@ -137,8 +147,8 @@ export default function OperationsPage() {
         {tab==='appointments'&&(!lists.clients.length||!lists.services.length)&&<p>Cadastre um cliente e um serviço antes de agendar. Datas são salvas em UTC e exibidas no horário deste dispositivo.</p>}
         <div className="business-actions"><button className="primary-button" disabled={busy||!moduleIsActive(state,tabModules[tab])}>{busy?'Salvando…':'Salvar registro'}</button>{editing&&<button className="secondary-button" type="button" onClick={reset}>Cancelar edição</button>}</div>
       </form></section>
-      <section className="business-card"><div className="business-card-heading"><h2>{labels[tab]}</h2><span className="business-badge">{records.length} registros</span></div><label className="business-search">Buscar registros<input type="search" value={query} onChange={e=>setQuery(e.target.value)} placeholder="Nome, título ou situação"/></label>
-      {!records.length?<div className="business-empty"><strong>{query?'Nenhum resultado para esta busca':'Comece pelo primeiro registro'}</strong><p>{query?'Tente outro termo.':'Use o formulário para organizar esta parte do negócio.'}</p></div>:<ul className="business-record-list">{records.map(item=><li key={item.id}><div><strong>{String(item.name||item.title||item.label||(tab==='appointments'?lists.clients.find(client=>client.id===item.client_id)?.name:'')||'Atendimento')}</strong><small>{tab==='appointments'?`${dateLabel(item.starts_at)} · ${String(lists.services.find(service=>service.id===item.service_id)?.name||'Serviço')}`:tab==='followups'?dateLabel(item.due_at):tab==='campaigns'?dateLabel(item.ends_at):tab==='links'?String(item.url):String(item.email||item.phone||item.description||'')}</small><span>{recordStatus(item)}</span></div><div className="business-record-actions"><button type="button" disabled={busy} onClick={()=>edit(item)}>Editar</button>{tab==='appointments'?<><button type="button" disabled={busy||['completed','cancelled'].includes(String(item.status))} onClick={()=>void updateState(item,'complete')}>Concluir</button><button type="button" disabled={busy||['completed','cancelled'].includes(String(item.status))} onClick={()=>void updateState(item,'cancel')}>Cancelar</button></>:tab==='followups'?<button type="button" disabled={busy||item.status==='done'} onClick={()=>void updateState(item,'status')}>Concluir tarefa</button>:<button type="button" disabled={busy||item.active===false||(tab==='campaigns'&&item.status==='cancelled')} onClick={()=>void updateState(item,'archive')}>Arquivar</button>}</div></li>)}</ul>}
+      <section className="business-card"><div className="business-card-heading"><h2>{labels[tab]}</h2>{!failedLists.includes(tab)&&<span className="business-badge">{records.length} registros carregados</span>}</div><label className="business-search">{fitnessClients?'Buscar aluno':'Buscar registros'}<input type="search" value={query} onChange={e=>setQuery(e.target.value)} placeholder={fitnessClients?'Nome, e-mail ou telefone':'Nome, título ou situação'}/></label>{fitnessClients&&<label className="business-search">Situação do cadastro<select value={clientFilter} onChange={event=>setClientFilter(event.target.value as 'all'|'active'|'archived')}><option value="all">Todos</option><option value="active">Ativos</option><option value="archived">Arquivados</option></select></label>}
+      {!records.length?<div className="business-empty"><strong>{error||failedLists.includes(tab)?'Não foi possível confirmar os registros':query||fitnessClients&&clientFilter!=='all'?'Nenhum resultado para este filtro':'Comece pelo primeiro registro'}</strong><p>{error||failedLists.includes(tab)?'Tente atualizar a consulta antes de concluir que a lista está vazia.':query||fitnessClients&&clientFilter!=='all'?'Ajuste a busca ou o filtro.':fitnessClients?'Cadastre um aluno e depois vincule seu acesso para atribuir uma ficha.':'Use o formulário para organizar esta parte do negócio.'}</p></div>:<ul className="business-record-list">{records.map(item=><li key={item.id}><div><strong>{String(item.name||item.title||item.label||(tab==='appointments'?lists.clients.find(client=>client.id===item.client_id)?.name:'')||'Atendimento')}</strong><small>{tab==='appointments'?`${dateLabel(item.starts_at)} · ${String(lists.services.find(service=>service.id===item.service_id)?.name||'Serviço')}`:tab==='followups'?dateLabel(item.due_at):tab==='campaigns'?dateLabel(item.ends_at):tab==='links'?String(item.url):String(item.email||item.phone||item.description||'')}</small><span>{recordStatus(item)}</span></div><div className="business-record-actions"><button type="button" disabled={busy} onClick={()=>edit(item)}>Editar</button>{tab==='appointments'?<><button type="button" disabled={busy||['completed','cancelled'].includes(String(item.status))} onClick={()=>void updateState(item,'complete')}>Concluir</button><button type="button" disabled={busy||['completed','cancelled'].includes(String(item.status))} onClick={()=>void updateState(item,'cancel')}>Cancelar</button></>:tab==='followups'?<button type="button" disabled={busy||item.status==='done'} onClick={()=>void updateState(item,'status')}>Concluir tarefa</button>:<button type="button" disabled={busy||item.active===false||(tab==='campaigns'&&item.status==='cancelled')} onClick={()=>void updateState(item,'archive')}>Arquivar</button>}</div></li>)}</ul>}
       <p className="business-muted">Lista limitada pelo servidor. Desativar um módulo preserva seus registros.</p></section></div>
     </>}
   </div>;
