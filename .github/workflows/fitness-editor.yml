@@ -3,6 +3,9 @@ on:
   pull_request:
     paths:
       - 'src/platform/FitnessWorkout*'
+      - 'supabase/migrations/20261109015413_fitness_workout_editor_compat.sql'
+      - 'scripts/fitness-workout-compat-test.mjs'
+      - 'scripts/fitness-workout-advanced-sequence-test.mjs'
       - 'src/platform/FitnessExerciseFields.tsx'
       - 'src/platform/fitness.css'
       - 'src/services/fitnessApi.ts'
@@ -21,6 +24,8 @@ jobs:
         with:
           node-version: '22.18.0'
       - run: npm ci
+      - run: node scripts/fitness-workout-compat-test.mjs
+      - run: node scripts/fitness-workout-advanced-sequence-test.mjs
       - run: npm ci --prefix qa
       - run: npm exec --prefix qa -- playwright install --with-deps chromium
       - run: npm exec --prefix qa -- playwright test --config qa/fitness-editor.config.ts
