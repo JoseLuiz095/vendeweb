@@ -16,9 +16,11 @@ export function FitnessExerciseFields({ exercise, onChange }: { exercise: Fitnes
   const [showPreview, setShowPreview] = useState(false);
   const previewId = useId();
   const [showAll, setShowAll] = useState(false);
+  const [group, setGroup] = useState('');
   const search = normalizeText(mediaSearch);
-  const illustrations = fitnessExerciseIllustrations.filter(item => `repdb:${item.id}` === exercise.media_key || !search || normalizeText(`${item.label} ${item.group}`).includes(search));
+  const illustrations = fitnessExerciseIllustrations.filter(item => (!group || item.group === group) && (!search || normalizeText(`${item.label} ${item.group}`).includes(search)));
   const movements = fitnessMovementLibrary.filter(item => item.key === exercise.media_key || !search || normalizeText(`${item.label} ${item.group}`).includes(search));
+  const selectedIllustration = fitnessExerciseIllustrations.find(item => `repdb:${item.id}` === exercise.media_key);
   const illustrationGroups = fitnessIllustrationGroups.filter(group => illustrations.some(item => item.group === group));
   const movementGroups = fitnessMovementGroups.filter(group => movements.some(item => item.group === group));
 
@@ -31,15 +33,17 @@ export function FitnessExerciseFields({ exercise, onChange }: { exercise: Fitnes
         <input type="checkbox" checked={(exercise[key] || []).includes(value)} onChange={event => onChange({ [key]: event.target.checked ? [...(exercise[key] || []), value] : (exercise[key] || []).filter(item => item !== value) })}/><span>{label}</span>
       </label>)}
     </fieldset>)}</details>
-    <label>Buscar exercício<input type="search" maxLength={80} value={mediaSearch} onChange={event => setMediaSearch(event.target.value)} placeholder="Ex.: supino, halter, costas"/></label>
+    <label>Buscar exercício ou equipamento pelo nome<input type="search" maxLength={80} value={mediaSearch} onChange={event => setMediaSearch(event.target.value)} placeholder="Ex.: supino, halter, costas"/></label>
+    <label>Grupo muscular<select value={group} onChange={event => { setGroup(event.target.value); setShowAll(false); }}><option value="">Todos os grupos</option>{fitnessIllustrationGroups.map(item => <option key={item} value={item}>{item}</option>)}</select></label>
     <section className="fitness-exercise-picker" aria-label="Biblioteca visual de exercícios">
-      <div><strong>Escolha um exercício</strong><p>Selecione a imagem que corresponde ao movimento prescrito.</p></div>
+      <div><strong>Escolha um exercício</strong><p>Confira se a ilustração corresponde ao movimento prescrito e revise a técnica antes de atribuir.</p></div>
       {illustrations.length === 0 ? <p>Nenhum exercício encontrado. Tente outro nome ou grupo muscular.</p> : <div className="fitness-exercise-cards">{illustrations.slice(0, showAll ? undefined : 24).map(item => <button type="button" className="fitness-exercise-card" aria-pressed={exercise.media_key === `repdb:${item.id}`} key={item.id} onClick={() => { onChange({ name:item.label, media_key:`repdb:${item.id}` }); setShowPreview(true); }}><img loading="lazy" src={`/assets/fitness-exercises/${item.id}-${item.pose === 'single' ? 'main' : 'start'}.webp`} alt=""/><span><strong>{item.label}</strong><small>{item.group} · 2D</small></span></button>)}</div>}
       {illustrations.length > 24 && <button type="button" className="secondary-button" onClick={() => setShowAll(value => !value)}>{showAll ? 'Mostrar menos' : `Mostrar mais exercícios (${illustrations.length - 24})`}</button>}
     </section>
     <details><summary>Escolher movimento 3D</summary><p>Selecione um movimento e confira se ele corresponde ao exercício prescrito.</p>{movements.length === 0 ? <p>Nenhum movimento 3D encontrado para este filtro.</p> : <div className="fitness-visual-library">{movements.map(item=><button type="button" className="fitness-visual-library__item" key={item.key} onClick={()=>{onChange({name:item.label,media_key:item.key});setShowPreview(true);}}><span>{item.label}<small>{item.group} · animação 3D</small></span></button>)}</div>}</details>
     <details><summary>Outras opções de demonstração</summary><label>Demonstração do movimento<select value={exercise.media_key || ''} onChange={event => onChange({ media_key: event.target.value })}>
       <option value="">Somente instrução profissional</option>
+      {selectedIllustration && !illustrations.some(item => item.id === selectedIllustration.id) && <option value={`repdb:${selectedIllustration.id}`}>{selectedIllustration.label} · selecionado</option>}
       <optgroup label="Ilustração esquemática original · 2D">
         <option value="squat">Agachamento esquemático</option><option value="row">Remada esquemática</option><option value="bridge">Ponte de quadril esquemática</option><option value="hinge">Flexão de quadril esquemática</option><option value="lunge">Avanço esquemático</option>
       </optgroup>

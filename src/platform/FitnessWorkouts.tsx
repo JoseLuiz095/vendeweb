@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
 import { fitnessApi, type FitnessStudent, type FitnessWorkout } from '../services/fitnessApi';
 import { FitnessExerciseFields } from './FitnessExerciseFields';
 import { FitnessWorkoutSession } from './FitnessWorkoutSession';
+import { moveWorkoutExercise } from './fitnessWorkoutOrder';
 
 const levels: Record<FitnessWorkout['level'],string> = { basic:'Básico',medium:'Médio',advanced:'Avançado' };
 
@@ -51,6 +52,10 @@ export function FitnessWorkouts({store,professional}:{store:string;professional:
     }catch(cause){if(activeStore.current===store)setError((cause as Error).message);return false;}
     finally{if(activeStore.current===store)setBusy(false);}
   };
+  const moveExercise=(index:number,direction:-1|1)=>setEditing(current=>{
+    if(!current)return current;
+    return {...current,exercises:moveWorkoutExercise(current.exercises,index,direction)};
+  });
   const saveEdit=(event:FormEvent)=>{
     event.preventDefault();
     if(!editing)return;
@@ -84,7 +89,10 @@ export function FitnessWorkouts({store,professional}:{store:string;professional:
         {editing?.id===workout.id&&<form className="fitness-workout-edit" onSubmit={saveEdit} onInvalidCapture={event=>{const panel=(event.target as HTMLElement).closest('details');if(panel)panel.open=true;}}>
           <label>Título<input required maxLength={120} value={editing.title} onChange={event=>setEditing({...editing,title:event.target.value})}/></label>
           <label>Descrição<textarea maxLength={1000} value={editing.description} onChange={event=>setEditing({...editing,description:event.target.value})}/></label>
-          {editing.exercises.map((exercise,index)=><details key={exercise.id} open={editing.exercises.length===1}><summary>Exercício {index+1}: {exercise.name||'Novo exercício'}</summary><fieldset><legend>Detalhes do exercício {index+1}</legend><FitnessExerciseFields exercise={exercise} onChange={patch=>setEditing(current=>current&&({...current,exercises:current.exercises.map((row,i)=>i===index?{...row,...patch}:row)}))}/>
+          <div className="fitness-editor-heading"><div><h4>Exercícios da ficha</h4><p className="business-muted">Abra um exercício para editar os detalhes. Use as setas para alterar a sequência.</p></div><span className="business-badge">Rascunho</span></div>
+          <nav className="fitness-editor-days" aria-label="Navegar por dia de treino">{'ABCDEFG'.split('').filter(day=>editing.exercises.some(exercise=>(exercise.day||'A')===day)).map(day=><a key={day} href={`#fitness-day-${workout.id}-${day}`}>Treino {day}</a>)}</nav>
+          {editing.exercises.map((exercise,index)=><div className="fitness-editor-row" key={exercise.id} id={editing.exercises.findIndex(row=>(row.day||'A')===(exercise.day||'A'))===index?`fitness-day-${workout.id}-${exercise.day||'A'}`:undefined}>
+            <details open={editing.exercises.length===1}><summary><span className="fitness-editor-summary"><strong>{index+1}. {exercise.name||'Novo exercício'}</strong><small>Treino {exercise.day||'A'} · {exercise.sets} séries · {exercise.repetitions||'repetições a definir'}</small></span></summary><fieldset><legend>Detalhes do exercício {index+1}</legend><FitnessExerciseFields exercise={exercise} onChange={patch=>setEditing(current=>current&&({...current,exercises:current.exercises.map((row,i)=>i===index?{...row,...patch}:row)}))}/>
             <label>Nome<input required value={exercise.name} onChange={event=>setEditing(current=>current&&({...current,exercises:current.exercises.map((row,i)=>i===index?{...row,name:event.target.value}:row)}))}/></label>
             <label>Séries<input required type="number" min="1" max="20" value={exercise.sets} onChange={event=>setEditing(current=>current&&({...current,exercises:current.exercises.map((row,i)=>i===index?{...row,sets:Number(event.target.value)}:row)}))}/></label>
             <label>Repetições<input required value={exercise.repetitions} onChange={event=>setEditing(current=>current&&({...current,exercises:current.exercises.map((row,i)=>i===index?{...row,repetitions:event.target.value}:row)}))}/></label>
@@ -93,7 +101,7 @@ export function FitnessWorkouts({store,professional}:{store:string;professional:
             <label>Instruções<textarea required value={exercise.instructions} onChange={event=>setEditing(current=>current&&({...current,exercises:current.exercises.map((row,i)=>i===index?{...row,instructions:event.target.value}:row)}))}/></label>
             <label>Alternativa<input required value={exercise.alternative} onChange={event=>setEditing(current=>current&&({...current,exercises:current.exercises.map((row,i)=>i===index?{...row,alternative:event.target.value}:row)}))}/></label>
             <button type="button" className="text-link" disabled={editing.exercises.length<=1} onClick={()=>setEditing({...editing,exercises:editing.exercises.filter((_,i)=>i!==index)})}>Remover exercício {index+1}</button>
-          </fieldset></details>)}
+          </fieldset></details><div className="fitness-editor-order" role="group" aria-label={`Ordem de ${exercise.name||`exercício ${index+1}`}`}><button type="button" className="secondary-button" disabled={index===0||busy} onClick={()=>moveExercise(index,-1)} aria-label={`Subir ${exercise.name||`exercício ${index+1}`}`}>↑</button><button type="button" className="secondary-button" disabled={index===editing.exercises.length-1||busy} onClick={()=>moveExercise(index,1)} aria-label={`Descer ${exercise.name||`exercício ${index+1}`}`}>↓</button></div></div>)}
           <button type="button" className="secondary-button" disabled={editing.exercises.length>=30} onClick={()=>setEditing({...editing,exercises:[...editing.exercises,{id:crypto.randomUUID(),position:editing.exercises.length+1,name:'',sets:1,repetitions:'',rest_seconds:0,load_or_effort:'',instructions:'',alternative:'',day:'A'}]})}>Adicionar exercício</button>
           <div className="fitness-appointment-actions"><button type="submit" className="primary-button" disabled={busy}>Salvar revisão</button><button type="button" className="secondary-button" disabled={busy} onClick={()=>setEditing(null)}>Cancelar</button></div>
         </form>}

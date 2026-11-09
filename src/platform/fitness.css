@@ -95,3 +95,18 @@
 
 /* Compact student views use the existing store theme when available. */
 .fitness-pose-demo{position:relative;display:grid;gap:.5rem;max-width:520px}.fitness-pose-animation{display:grid;border-radius:var(--food-store-radius,10px);background:var(--food-store-surface,#fff);overflow:hidden}.fitness-pose-animation img{grid-area:1/1;width:100%;height:220px;object-fit:contain}.fitness-pose-animation img:last-child{opacity:0;animation:fitness-pose-frames 2s steps(1,end) 6}.fitness-pose-replay{position:absolute;right:.5rem;top:.5rem;width:44px;min-height:44px;font-size:1.4rem}.fitness-food-list{display:grid;gap:.5rem}.fitness-food-detail{border:1px solid var(--food-store-border,#dce7df);border-radius:var(--food-store-radius,10px);padding:.7rem;background:var(--food-store-surface,#fff)}.fitness-food-detail summary{cursor:pointer;display:flex;justify-content:space-between;gap:.75rem;min-height:44px;align-items:center}.fitness-food-detail summary:focus-visible,.fitness-pose-replay:focus-visible{outline:3px solid var(--food-store-primary,#245b41);outline-offset:2px}.fitness-food-detail>div{padding:.5rem}.fitness-food-detail small{display:block}.fitness-food-detail .fitness-food-image{width:120px;height:120px}@keyframes fitness-pose-frames{0%,100%{opacity:0}50%{opacity:1}}@media(prefers-reduced-motion:reduce){.fitness-pose-animation img:last-child{animation:none;opacity:0}}
+
+/* Editor de ficha: ações de sequência acessíveis por toque e teclado. */
+.fitness-editor-heading{display:flex;align-items:start;justify-content:space-between;gap:12px}
+.fitness-editor-heading h4,.fitness-editor-heading p{margin:0 0 4px}
+.fitness-editor-days{display:flex;gap:8px;overflow-x:auto;padding:2px 0 6px}
+.fitness-editor-days a{display:inline-flex;align-items:center;min-height:44px;white-space:nowrap;padding:8px 14px;border:1px solid #bdcebf;border-radius:8px;color:#245b41;font-weight:600;text-decoration:none}
+.fitness-editor-days a:focus-visible,.fitness-editor-order button:focus-visible{outline:3px solid #80a58b;outline-offset:2px}
+.fitness-editor-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:start;border:1px solid #dce7df;border-radius:10px;background:#fff;padding:8px;scroll-margin-top:80px}
+.fitness-editor-row details{min-width:0}
+.fitness-editor-row summary{cursor:pointer;min-height:44px;padding:4px}
+.fitness-editor-summary{display:inline-grid;gap:3px;vertical-align:middle;max-width:100%;overflow-wrap:anywhere}
+.fitness-editor-summary small{font-size:.85rem;color:#52675a}
+.fitness-editor-order{display:flex;gap:4px}
+.fitness-editor-order button{min-width:44px;min-height:44px;padding:4px}
+@media(max-width:390px){.fitness-editor-row{grid-template-columns:minmax(0,1fr)}.fitness-editor-order{justify-content:flex-end}}
