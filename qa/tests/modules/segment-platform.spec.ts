@@ -21,7 +21,7 @@ test('falha de uma lista não oculta alunos e permite recuperar a consulta', asy
   await expect(page.getByText('Comece pelo primeiro registro')).toBeVisible();
 });
 
-for (const width of [390, 1366]) {
+for (const width of [320, 390, 768, 1366]) {
   test(`jornada e filtro de alunos Fitness em ${width}px`, async ({ page }, testInfo) => {
     const { state, initialBusiness, status } = await mockSegmentPlatform(page, { initial: 'personal' });
     state.stores.get(initialBusiness.id)!.lists.clients.push(
@@ -34,15 +34,21 @@ for (const width of [390, 1366]) {
     });
     await page.setViewportSize({ width, height: 844 });
     await page.goto('/admin/operacao?tab=clients');
-    await expect(page.getByRole('heading', { name: 'Do cadastro à ficha' })).toBeVisible();
-    await expect(page.getByText('O cadastro, por si só, não cria acesso nem atribui uma ficha.')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Como começar' })).toBeVisible();
+    await expect(page.getByText('Informe nome e contato. O cadastro não cria acesso nem atribui uma ficha.')).toBeVisible();
     await page.screenshot({ path: testInfo.outputPath(`previa-alunos-${width}.png`), fullPage: true });
-    await page.getByLabel('Situação do cadastro').selectOption('archived');
+    await page.getByRole('button', { name: 'Arquivados', exact: true }).click();
     await expect(page.locator('.business-record-list')).toContainText('Aluno fictício arquivado');
     await expect(page.locator('.business-record-list')).not.toContainText('Aluno fictício ativo');
-    await page.getByLabel('Situação do cadastro').selectOption('all');
+    await page.getByRole('button', { name: 'Todos', exact: true }).click();
     await page.getByLabel('Buscar aluno').fill('11999990000');
     await expect(page.locator('.business-record-list')).toContainText('Aluno fictício ativo');
+    await page.getByRole('button', { name: 'Vincular acesso' }).click();
+    await expect(page.getByText('Para receber uma ficha, o aluno precisa ter uma conta vinculada à loja.', { exact: false })).toBeVisible();
+    await page.getByRole('button', { name: 'Cadastrar aluno', exact: true }).first().click();
+    await expect(page.locator('#business-record-form input').first()).toBeFocused();
+    await page.getByRole('button', { name: 'Cancelar', exact: true }).click();
+    await expect(page.locator('#business-record-form')).toBeHidden();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 3)).toBe(true);
   });
 }
