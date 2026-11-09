@@ -1,4 +1,5 @@
 import { InfoHint } from '../components/ui/InfoHint';
+import { SupabaseHttpError } from '../lib/supabaseRest';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { fitnessApi, type FitnessStudent, type FitnessWorkout } from '../services/fitnessApi';
 import { FitnessWorkoutEditor } from './FitnessWorkoutEditor';
@@ -51,6 +52,20 @@ export function FitnessWorkouts({store,professional}:{store:string;professional:
     }catch(cause){if(activeStore.current===store)setError((cause as Error).message);return false;}
     finally{if(activeStore.current===store)setBusy(false);}
   };
+  const copyWorkout=async(workout:FitnessWorkout)=>{
+    if(busy)return;
+    setBusy(true);setError('');setNotice('');
+    try {
+      await fitnessApi.reviseWorkout(store,workout.id);
+      try {await reload();if(activeStore.current===store)setNotice('Nova versão criada como rascunho. A versão aprovada foi preservada.');}
+      catch {if(activeStore.current===store)setError('A cópia foi criada no servidor, mas a lista não atualizou. Recarregue antes de repetir.');}
+    } catch(cause) {
+      if(activeStore.current!==store)return;
+      if(cause instanceof SupabaseHttpError && cause.status===404 && (cause.details==='PGRST202' || /could not find the function[^\n]*food_fitness_workout_revision_v1/i.test(cause.message))) {
+        setEditing({...workout,id:'',source:'custom',status:'draft',approved_at:null,exercises:workout.exercises.map(exercise=>({...exercise,id:crypto.randomUUID()}))});
+      } else setError((cause as Error).message);
+    } finally {if(activeStore.current===store)setBusy(false);}
+  };
   const saveEdit=(draft:FitnessWorkout)=>{
     void run(()=>fitnessApi.saveWorkout(store,draft),'Ficha em rascunho salva no servidor.').then(saved=>{if(saved)setEditing(null);});
   };
@@ -84,7 +99,7 @@ export function FitnessWorkouts({store,professional}:{store:string;professional:
         <p className="business-muted">{workout.exercises.length} {workout.exercises.length===1?'exercício':'exercícios'}</p><details><summary>Ver detalhes e exercícios</summary><p>{workout.description}</p>{workout.professional&&<p className="business-provider">Responsável: <strong>{workout.professional.name}</strong> · {workout.professional.council} {workout.professional.registration}</p>}
         <ol>{workout.exercises.map(exercise=><li key={exercise.id}><strong>{exercise.name}</strong><span>{exercise.sets} séries · {exercise.repetitions} repetições · {exercise.rest_seconds}s de descanso</span><span>Carga/esforço: {exercise.load_or_effort}</span><span>Instruções: {exercise.instructions}</span><span>Alternativa: {exercise.alternative}</span></li>)}</ol></details>
         {workout.status==='draft'&&<div className="fitness-appointment-actions"><button type="button" className="secondary-button" disabled={busy||!professional} onClick={()=>setEditing({...workout,exercises:workout.exercises.map(exercise=>({...exercise}))})}>Revisar e editar</button><button type="button" className="primary-button" disabled={busy||!professional} onClick={()=>void run(()=>fitnessApi.approveWorkout(store,workout.id),'Ficha aprovada pelo Personal Trainer no servidor.')}>Aprovar após revisão profissional</button></div>}
-        {workout.status==='approved'&&<button type="button" className="secondary-button" disabled={busy||!professional} onClick={()=>void run(()=>fitnessApi.reviseWorkout(store,workout.id),'Nova versão criada como rascunho. A versão aprovada foi preservada.')}>Criar cópia para adaptar</button>}
+        {workout.status==='approved'&&<button type="button" className="secondary-button" disabled={busy||!professional} onClick={()=>void copyWorkout(workout)}>Criar cópia para adaptar</button>}
         {workout.status==='approved'&&<div className="fitness-appointment-actions"><p className="business-muted">Atribua a ficha a cada aluno após revisão individual.</p><label>Aluno<select value={selectedStudent[workout.id]||''} onChange={event=>setSelectedStudent(current=>({...current,[workout.id]:event.target.value}))}><option value="">Selecione um aluno com conta vinculada</option>{students.map(student=><option value={student.client_id} key={student.client_id}>{student.name}</option>)}</select></label><button type="button" className="secondary-button" disabled={busy||!professional||!selectedStudent[workout.id]} onClick={()=>{
           const student=students.find(item=>item.client_id===selectedStudent[workout.id]);
           if(!student||!window.confirm(`Atribuir a ficha ${workout.title} a ${student.name} após revisão individual?`))return;

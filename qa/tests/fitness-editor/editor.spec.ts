@@ -34,3 +34,15 @@ for (const width of [320,390,768,1366]) test(`criação, falha e recuperação p
   await expect(page.getByLabel('Repetições de Leg press')).toHaveValue('10');
   expect(await page.evaluate(()=>document.documentElement.scrollWidth <= innerWidth + 1)).toBeTruthy();
 });
+
+
+test('adapta uma cópia sem modificar a ficha aprovada', async ({page}) => {
+  await page.goto('/qa/fitness-editor-harness.html?approved=1');
+  await page.getByRole('button',{name:'Criar cópia para adaptar'}).click();
+  await expect(page.getByRole('heading',{name:'Criar ficha de treino'})).toBeVisible();
+  await page.getByLabel('Nome da ficha').fill('Ficha adaptada');
+  await expect(page.getByLabel('Repetições de Exercício existente')).toHaveValue('10');
+  page.once('dialog',dialog=>dialog.accept());
+  await page.getByRole('button',{name:'Cancelar'}).click();
+  await expect(page.getByRole('heading',{name:'Básico · Ficha aprovada'})).toBeVisible();
+});

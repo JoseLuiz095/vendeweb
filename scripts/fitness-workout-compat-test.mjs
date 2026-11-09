@@ -1,0 +1,75 @@
+import { PGlite } from '@electric-sql/pglite';
+import { readFileSync } from 'node:fs';
+import { randomUUID } from 'node:crypto';
+import assert from 'node:assert/strict';
+const db = new PGlite();
+const rows = async(sql,args=[]) => (await db.query(sql,args)).rows;
+const rpc = async(name,args=[]) => (await rows(`select public.${name}(${args.map((_,i)=>`$${i+1}`).join(',')}) as result`,args))[0].result;
+const [owner,student,stranger,otherOwner,store,other,client] = Array.from({length:7},randomUUID);
+const session = async user => {await db.exec('reset role');await db.query("select set_config('request.jwt.claim.sub',$1,false)",[user]);await db.exec('set role authenticated')};
+try {
+await db.exec(`
+create role anon; create role authenticated; create schema auth; create schema food_fitness_private;
+create function auth.uid() returns uuid language sql stable as $$select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid$$;
+create table public.food_stores(id uuid primary key);
+create table public.test_owners(store_id uuid, user_id uuid);
+create function food_fitness_private.is_fitness(p_store uuid) returns boolean language sql stable security definer set search_path='' as $$select exists(select 1 from public.food_stores where id=p_store)$$;
+create function food_fitness_private.can_configure(p_store uuid) returns boolean language sql stable security definer set search_path='' as $$select exists(select 1 from public.test_owners where store_id=p_store and user_id=auth.uid())$$;
+create table public.food_fitness_workouts(id uuid primary key,store_id uuid not null references public.food_stores(id),title text not null,level text not null,source text not null,description text not null,created_by uuid,created_at timestamptz default now(),updated_at timestamptz default now(),status text default 'draft',unique(id,store_id));
+create table public.food_fitness_exercises(id uuid primary key default gen_random_uuid(),store_id uuid not null,workout_id uuid not null,position int not null,name text not null,sets int not null check(sets between 1 and 20),repetitions text not null,rest_seconds int not null,load_or_effort text not null,instructions text not null,alternative text not null,foreign key(workout_id,store_id) references public.food_fitness_workouts(id,store_id) on delete cascade);
+create table public.food_fitness_workout_assignments(workout_id uuid,store_id uuid,client_id uuid,active boolean default true);
+create table public.food_fitness_students(store_id uuid,client_id uuid,user_id uuid);
+alter table public.food_fitness_exercises enable row level security;
+grant usage on schema public to authenticated; grant select on public.food_fitness_exercises to authenticated;
+create policy read_student on public.food_fitness_exercises for select to authenticated using (exists(select 1 from public.food_fitness_workout_assignments a join public.food_fitness_students s on s.client_id=a.client_id and s.store_id=a.store_id where a.workout_id=food_fitness_exercises.workout_id and a.store_id=food_fitness_exercises.store_id and a.active and s.user_id=auth.uid()));
+grant select on public.food_fitness_workout_assignments,public.food_fitness_students to authenticated;
+
+`);
+const baseline=readFileSync('supabase/migrations/20261027182706_food_fitness_workouts_20261027.sql','utf8');
+for(const name of ['food_fitness_save_workout','food_fitness_list_workouts']) {
+  const start=baseline.indexOf(`create function public.${name}(`); const end=baseline.indexOf('$$;',start)+3;
+  await db.exec(baseline.slice(start,end));
+}
+await db.query('insert into public.food_stores values($1),($2)',[store,other]);
+await db.query('insert into public.test_owners values($1,$2),($3,$4)',[store,owner,other,otherOwner]);
+await db.query('insert into public.food_fitness_students values($1,$2,$3)',[store,client,student]);
+const existing=randomUUID();
+await db.query("insert into public.food_fitness_workouts(id,store_id,title,level,source,description,created_by,status) values($1,$2,'Ficha existente','basic','custom','',$3,'approved')",[existing,store,owner]);
+await db.query("insert into public.food_fitness_exercises(store_id,workout_id,position,name,sets,repetitions,rest_seconds,load_or_effort,instructions,alternative) values($1,$2,1,'Antigo',1,'10',30,'leve','Instruções','Alternativa')",[store,existing]);
+const listStart=baseline.indexOf('create function public.food_fitness_list_workouts(');
+const listEnd=baseline.indexOf('$$;',listStart)+3;
+const originalList=baseline.slice(listStart,listEnd).replace('create function','create or replace function');
+await db.exec(originalList.replace('Acesso negado.','Contrato alterado.'));
+await assert.rejects(()=>db.exec(readFileSync('supabase/migrations/20261109015413_fitness_workout_editor_compat.sql','utf8')),/Contratos Fitness diferentes/);
+await db.exec('rollback');
+assert.equal((await rows("select count(*)::int n from information_schema.columns where table_schema='public' and table_name='food_fitness_exercises' and column_name='day'"))[0].n,0);
+await db.exec(originalList);
+await db.exec(readFileSync('supabase/migrations/20261109015413_fitness_workout_editor_compat.sql','utf8'));
+assert.equal((await rows('select day,name from public.food_fitness_exercises where workout_id=$1',[existing]))[0].name,'Antigo');
+assert.equal((await rows('select day from public.food_fitness_exercises where workout_id=$1',[existing]))[0].day,'A');
+const exercise = {name:'Movimento teste',sets:3,repetitions:'10',rest_seconds:30,load_or_effort:'leve',instructions:'Movimento de teste',alternative:'Outra opção',day:'B',professional_notes:'nota privada',media_key:'repdb:bench-press'};
+await session(owner);
+const saved=await rpc('food_fitness_save_workout',[store,null,'basic','Ficha teste','',JSON.stringify([exercise]),'custom']);
+let loaded=(await rpc('food_fitness_list_workouts',[store])).find(w=>w.id===saved.id);
+assert.equal(loaded.exercises[0].professional_notes,'nota privada');
+assert.equal(loaded.exercises[0].day,'B');
+const legacy={...exercise};delete legacy.professional_notes;
+await assert.rejects(()=>rpc('food_fitness_save_workout',[store,saved.id,'basic','Não apagar','',JSON.stringify([legacy]),'custom']),/Atualize a página/);
+loaded=(await rpc('food_fitness_list_workouts',[store])).find(w=>w.id===saved.id);assert.equal(loaded.exercises[0].professional_notes,'nota privada');
+await rpc('food_fitness_save_workout',[store,saved.id,'basic','Editada','',JSON.stringify([{...exercise,sets:4}]),'custom']);
+loaded=(await rpc('food_fitness_list_workouts',[store])).find(w=>w.id===saved.id);assert.equal(loaded.exercises[0].sets,4);assert.equal(loaded.exercises[0].professional_notes,'nota privada');
+await assert.rejects(()=>rpc('food_fitness_save_workout',[store,saved.id,'basic','Rollback','',JSON.stringify([{...exercise,sets:0}]),'custom']));
+loaded=(await rpc('food_fitness_list_workouts',[store])).find(w=>w.id===saved.id);assert.equal(loaded.title,'Editada');assert.equal(loaded.exercises[0].professional_notes,'nota privada');
+const advancedWithoutNote=await rpc('food_fitness_save_workout',[store,null,'basic','Ficha sem nota','',JSON.stringify([{...exercise,professional_notes:''}]),'custom']);
+const oldClient={...legacy};delete oldClient.day;delete oldClient.media_key;
+await assert.rejects(()=>rpc('food_fitness_save_workout',[store,advancedWithoutNote.id,'basic','Não perder detalhes','',JSON.stringify([oldClient]),'custom']),/preservar os detalhes/);
+const preserved=(await rpc('food_fitness_list_workouts',[store])).find(w=>w.id===advancedWithoutNote.id);assert.equal(preserved.exercises[0].day,'B');assert.equal(preserved.exercises[0].media_key,'repdb:bench-press');
+const legacySaved=await rpc('food_fitness_save_workout',[store,null,'basic','Ficha antiga','',JSON.stringify([legacy]),'custom']);
+assert.ok(legacySaved.id);
+await session(otherOwner);await assert.rejects(()=>rpc('food_fitness_save_workout',[other,saved.id,'basic','Invasão','',JSON.stringify([exercise]),'custom']));assert.deepEqual(await rpc('food_fitness_list_workouts',[other]),[]);
+await session(stranger);await assert.rejects(()=>rpc('food_fitness_save_workout',[store,null,'basic','Invasão','',JSON.stringify([exercise]),'custom']));
+await db.exec('reset role');await db.query("update public.food_fitness_workouts set status='approved' where id=$1",[saved.id]);await db.query('insert into public.food_fitness_workout_assignments values($1,$2,$3,true)',[saved.id,store,client]);
+await session(student);const studentRows=await rpc('food_fitness_list_workouts',[store]);assert.equal(studentRows.length,1);assert.equal('professional_notes' in studentRows[0].exercises[0],false);assert.equal(studentRows[0].exercises[0].day,'B');
+const direct=await rows('select * from public.food_fitness_exercises');assert.equal(direct.length,1);assert.equal('professional_notes' in direct[0],false);await assert.rejects(()=>rows('select * from food_fitness_private.workout_exercise_notes'));
+console.log('OK: notas privadas, edição, cliente antigo, rollback, isolamento e leitura do aluno.');
+} finally { await db.close(); }
