@@ -1,0 +1,2 @@
+import { defineConfig, devices } from '@playwright/test';
+export default defineConfig({testDir:'./tests/fitness-editor',workers:1,timeout:30000,reporter:'list',use:{baseURL:'http://127.0.0.1:5176',locale:'pt-BR',...devices['Desktop Chrome'],screenshot:'only-on-failure',trace:'retain-on-failure'},webServer:{command:'npm --prefix .. run dev -- --host 127.0.0.1 --port 5176 --strictPort',url:'http://127.0.0.1:5176/qa/fitness-editor-harness.html',timeout:30000},projects:[{name:'chromium'}]});
