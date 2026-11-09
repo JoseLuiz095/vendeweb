@@ -1,7 +1,7 @@
 import { useMemo, useState, type FormEvent } from 'react';
 import type { FitnessExercise, FitnessWorkout } from '../services/fitnessApi';
 import { normalizeText } from '../utils/text';
-import { fitnessExerciseIllustrations, fitnessIllustrationGroups } from './fitnessExerciseIllustrationLibrary';
+import { fitnessExerciseIllustrations, fitnessIllustrationGroups, type FitnessExerciseIllustration } from './fitnessExerciseIllustrationLibrary';
 import { FitnessExerciseFields } from './FitnessExerciseFields';
 
 const days = 'ABCDEFG'.split('');
@@ -19,9 +19,9 @@ export function FitnessWorkoutEditor({ workout, busy, onCancel, onSave }: Props)
   const matches = useMemo(() => fitnessExerciseIllustrations.filter(item => (!group || item.group === group) && normalizeText(`${item.label} ${item.group}`).includes(normalizeText(query.trim()))), [group, query]);
   const visible = draft.exercises.filter(row => (row.day || 'A') === day);
   const update = (id: string, patch: Partial<FitnessExercise>) => setDraft(current => ({ ...current, exercises: current.exercises.map(row => row.id === id ? { ...row, ...patch } : row) }));
-  const add = (name: string) => {
+  const add = (item: FitnessExerciseIllustration) => {
     if (draft.exercises.length >= 30) return;
-    setDraft(current => ({ ...current, exercises: [...current.exercises, { id: crypto.randomUUID(), position: current.exercises.length + 1, name, day, sets: 1, repetitions: '', rest_seconds: 0, load_or_effort: '', instructions: '', alternative: '' }] }));
+    setDraft(current => ({ ...current, exercises: [...current.exercises, { id: crypto.randomUUID(), position: current.exercises.length + 1, name: item.label, media_key: `repdb:${item.id}`, day, sets: 1, repetitions: '', rest_seconds: 0, load_or_effort: '', instructions: '', alternative: '' }] }));
   };
   const move = (id: string, direction: -1 | 1) => setDraft(current => {
     const positions = current.exercises.map((row, index) => (row.day || 'A') === day ? index : -1).filter(index => index !== -1);
@@ -53,8 +53,8 @@ export function FitnessWorkoutEditor({ workout, busy, onCancel, onSave }: Props)
           <details open={invalidId === row.id ? true : undefined} onToggle={event => { if (!event.currentTarget.open && invalidId === row.id) setInvalidId(''); }}><summary>Orientações e detalhes</summary><div className="fitness-builder-detail"><label>Carga ou esforço<input maxLength={160} value={row.load_or_effort} onChange={e => update(row.id, { load_or_effort: e.target.value })} placeholder="Definido pelo profissional"/></label><label>Instruções<textarea maxLength={1000} value={row.instructions} onChange={e => update(row.id, { instructions: e.target.value })}/></label><label>Alternativa<input maxLength={160} value={row.alternative} onChange={e => update(row.id, { alternative: e.target.value })}/></label><details><summary>Músculos, mídia e outros detalhes</summary><FitnessExerciseFields exercise={row} onChange={patch => update(row.id, patch)}/></details></div></details>
         </li>)}</ol>}
       </section>
-      <aside id="fitness-builder-library" className={`fitness-builder-library${libraryOpen ? ' is-open' : ''}`} aria-label="Biblioteca de exercícios"><h4>Biblioteca de exercícios</h4><p>Busque pelo nome ou equipamento e adicione ao treino {day}.</p><label>Buscar exercício<input type="search" value={query} onChange={e => { setQuery(e.target.value); setPage(0); }} placeholder="Ex.: supino, halteres"/></label><label>Grupo muscular<select value={group} onChange={e => { setGroup(e.target.value); setPage(0); }}><option value="">Todos os grupos</option>{fitnessIllustrationGroups.map(item => <option key={item}>{item}</option>)}</select></label><p role="status">{matches.length} exercício{matches.length === 1 ? '' : 's'} encontrado{matches.length === 1 ? '' : 's'}</p>
-        <div className="fitness-builder-results">{matches.slice(page * 12, page * 12 + 12).map(item => <div className="fitness-builder-result" key={item.id}><span><strong>{item.label}</strong><small>{item.group}</small></span><button type="button" disabled={draft.exercises.length >= 30} aria-label={`Adicionar ${item.label}`} onClick={() => add(item.label)}>＋</button></div>)}</div>
+      <aside id="fitness-builder-library" className={`fitness-builder-library${libraryOpen ? ' is-open' : ''}`} aria-label="Biblioteca de exercícios"><h4>Biblioteca de exercícios</h4><p>Busque pelo nome ou grupo muscular e adicione ao treino {day}.</p><label>Buscar exercício<input type="search" value={query} onChange={e => { setQuery(e.target.value); setPage(0); }} placeholder="Ex.: supino, peito"/></label><label>Grupo muscular<select value={group} onChange={e => { setGroup(e.target.value); setPage(0); }}><option value="">Todos os grupos</option>{fitnessIllustrationGroups.map(item => <option key={item}>{item}</option>)}</select></label><p role="status">{matches.length} exercício{matches.length === 1 ? '' : 's'} encontrado{matches.length === 1 ? '' : 's'}</p>
+        <div className="fitness-builder-results">{matches.slice(page * 12, page * 12 + 12).map(item => <div className="fitness-builder-result" key={item.id}><span><strong>{item.label}</strong><small>{item.group}</small></span><button type="button" disabled={draft.exercises.length >= 30} aria-label={`Adicionar ${item.label}`} onClick={() => add(item)}>＋</button></div>)}</div>
         {matches.length > 12 && <div className="fitness-builder-pages"><button type="button" disabled={page === 0} onClick={() => setPage(page - 1)}>Anterior</button><span>Página {page + 1} de {Math.ceil(matches.length / 12)}</span><button type="button" disabled={(page + 1) * 12 >= matches.length} onClick={() => setPage(page + 1)}>Próxima</button></div>}
         <p className="business-muted">Confira a técnica e a demonstração antes de atribuir. Limite de 30 exercícios por ficha.</p>
       </aside>
