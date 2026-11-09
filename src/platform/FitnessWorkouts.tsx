@@ -1,9 +1,8 @@
 import { InfoHint } from '../components/ui/InfoHint';
-import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { fitnessApi, type FitnessStudent, type FitnessWorkout } from '../services/fitnessApi';
-import { FitnessExerciseFields } from './FitnessExerciseFields';
+import { FitnessWorkoutEditor } from './FitnessWorkoutEditor';
 import { FitnessWorkoutSession } from './FitnessWorkoutSession';
-import { moveWorkoutExercise } from './fitnessWorkoutOrder';
 
 const levels: Record<FitnessWorkout['level'],string> = { basic:'Básico',medium:'Médio',advanced:'Avançado' };
 
@@ -52,15 +51,13 @@ export function FitnessWorkouts({store,professional}:{store:string;professional:
     }catch(cause){if(activeStore.current===store)setError((cause as Error).message);return false;}
     finally{if(activeStore.current===store)setBusy(false);}
   };
-  const moveExercise=(index:number,direction:-1|1)=>setEditing(current=>{
-    if(!current)return current;
-    return {...current,exercises:moveWorkoutExercise(current.exercises,index,direction)};
-  });
-  const saveEdit=(event:FormEvent)=>{
-    event.preventDefault();
-    if(!editing)return;
-    void run(()=>fitnessApi.saveWorkout(store,editing),'Ficha em rascunho salva no servidor.').then(saved=>{if(saved)setEditing(null);});
+  const saveEdit=(draft:FitnessWorkout)=>{
+    void run(()=>fitnessApi.saveWorkout(store,draft),'Ficha em rascunho salva no servidor.').then(saved=>{if(saved)setEditing(null);});
   };
+  if(editing) return <section className="business-card fitness-workouts" aria-label="Editor de ficha">
+    {error && <div className="business-message business-message--error" role="alert">{error.includes('Campos não permitidos no exercício') ? 'O servidor desta loja ainda não aceita os detalhes da ficha. Nenhum dado foi salvo; mantenha a ficha aberta enquanto a compatibilidade é corrigida.' : error}</div>}
+    <FitnessWorkoutEditor key={editing.id || 'new'} workout={editing} busy={busy} onSave={saveEdit} onCancel={()=>setEditing(null)}/>
+  </section>;
 
   return <section className="business-card fitness-workouts" aria-label="Fichas de treino">
     <h2>Fichas de treino</h2>
@@ -68,7 +65,8 @@ export function FitnessWorkouts({store,professional}:{store:string;professional:
     {error&&<div className="business-message business-message--error" role="alert">{error} <button type="button" onClick={()=>void reload().catch(cause=>setError((cause as Error).message))}>Tentar novamente</button></div>}
     {notice&&<div className="business-message" role="status">{notice}</div>}
     {loading?<p role="status">Consultando fichas no servidor…</p>:<>
-      <button type="button" className="secondary-button" disabled={busy} onClick={()=>void run(()=>fitnessApi.seedWorkouts(store),'Modelos Básico, Médio e Avançado preparados como rascunho no servidor.')}>Preparar três fichas em rascunho</button>
+      <div className="fitness-appointment-actions"><button type="button" className="primary-button" disabled={busy||!professional} onClick={()=>setEditing({id:'',title:'',level:'basic',source:'custom',status:'draft',description:'',approved_at:null,exercises:[]})}>Criar ficha de treino</button>
+      <button type="button" className="secondary-button" disabled={busy} onClick={()=>void run(()=>fitnessApi.seedWorkouts(store),'Modelos Básico, Médio e Avançado preparados como rascunho no servidor.')}>Preparar três fichas em rascunho</button></div>
       <details aria-label="Acesso Fitness dos alunos"><summary>Acesso dos alunos</summary><section>
         <h3>Acesso dos alunos</h3>
         <p className="business-muted">Cada sessão é limitada ao aluno e a esta loja. A liberação exige uma sessão Admin com MFA.</p>
@@ -85,26 +83,7 @@ export function FitnessWorkouts({store,professional}:{store:string;professional:
         <div className="business-card-heading"><h3>{levels[workout.level]} · {workout.title}</h3><span className="business-badge">{workout.status==='approved'?'Aprovada':'Aguardando revisão'}</span></div>
         <p className="business-muted">{workout.exercises.length} {workout.exercises.length===1?'exercício':'exercícios'}</p><details><summary>Ver detalhes e exercícios</summary><p>{workout.description}</p>{workout.professional&&<p className="business-provider">Responsável: <strong>{workout.professional.name}</strong> · {workout.professional.council} {workout.professional.registration}</p>}
         <ol>{workout.exercises.map(exercise=><li key={exercise.id}><strong>{exercise.name}</strong><span>{exercise.sets} séries · {exercise.repetitions} repetições · {exercise.rest_seconds}s de descanso</span><span>Carga/esforço: {exercise.load_or_effort}</span><span>Instruções: {exercise.instructions}</span><span>Alternativa: {exercise.alternative}</span></li>)}</ol></details>
-        {workout.status==='draft'&&<div className="fitness-appointment-actions"><button type="button" className="secondary-button" disabled={busy||!professional} onClick={()=>setEditing({...workout,exercises:workout.exercises.map(exercise=>({...exercise}))})}>Revisar e editar</button><button type="button" className="primary-button" disabled={busy||!professional||editing?.id===workout.id} onClick={()=>void run(()=>fitnessApi.approveWorkout(store,workout.id),'Ficha aprovada pelo Personal Trainer no servidor.')}>Aprovar após revisão profissional</button></div>}
-        {editing?.id===workout.id&&<form className="fitness-workout-edit" onSubmit={saveEdit} onInvalidCapture={event=>{const panel=(event.target as HTMLElement).closest('details');if(panel)panel.open=true;}}>
-          <label>Título<input required maxLength={120} value={editing.title} onChange={event=>setEditing({...editing,title:event.target.value})}/></label>
-          <label>Descrição<textarea maxLength={1000} value={editing.description} onChange={event=>setEditing({...editing,description:event.target.value})}/></label>
-          <div className="fitness-editor-heading"><div><h4>Exercícios da ficha</h4><p className="business-muted">Abra um exercício para editar os detalhes. Use as setas para alterar a sequência.</p></div><span className="business-badge">Rascunho</span></div>
-          <nav className="fitness-editor-days" aria-label="Navegar por dia de treino">{'ABCDEFG'.split('').filter(day=>editing.exercises.some(exercise=>(exercise.day||'A')===day)).map(day=><a key={day} href={`#fitness-day-${workout.id}-${day}`}>Treino {day}</a>)}</nav>
-          {editing.exercises.map((exercise,index)=><div className="fitness-editor-row" key={exercise.id} id={editing.exercises.findIndex(row=>(row.day||'A')===(exercise.day||'A'))===index?`fitness-day-${workout.id}-${exercise.day||'A'}`:undefined}>
-            <details open={editing.exercises.length===1}><summary><span className="fitness-editor-summary"><strong>{index+1}. {exercise.name||'Novo exercício'}</strong><small>Treino {exercise.day||'A'} · {exercise.sets} séries · {exercise.repetitions||'repetições a definir'}</small></span></summary><fieldset><legend>Detalhes do exercício {index+1}</legend><FitnessExerciseFields exercise={exercise} onChange={patch=>setEditing(current=>current&&({...current,exercises:current.exercises.map((row,i)=>i===index?{...row,...patch}:row)}))}/>
-            <label>Nome<input required value={exercise.name} onChange={event=>setEditing(current=>current&&({...current,exercises:current.exercises.map((row,i)=>i===index?{...row,name:event.target.value}:row)}))}/></label>
-            <label>Séries<input required type="number" min="1" max="20" value={exercise.sets} onChange={event=>setEditing(current=>current&&({...current,exercises:current.exercises.map((row,i)=>i===index?{...row,sets:Number(event.target.value)}:row)}))}/></label>
-            <label>Repetições<input required value={exercise.repetitions} onChange={event=>setEditing(current=>current&&({...current,exercises:current.exercises.map((row,i)=>i===index?{...row,repetitions:event.target.value}:row)}))}/></label>
-            <label>Descanso em segundos<input required type="number" min="0" max="1800" value={exercise.rest_seconds} onChange={event=>setEditing(current=>current&&({...current,exercises:current.exercises.map((row,i)=>i===index?{...row,rest_seconds:Number(event.target.value)}:row)}))}/></label>
-            <label>Carga ou esforço<input required value={exercise.load_or_effort} onChange={event=>setEditing(current=>current&&({...current,exercises:current.exercises.map((row,i)=>i===index?{...row,load_or_effort:event.target.value}:row)}))}/></label>
-            <label>Instruções<textarea required value={exercise.instructions} onChange={event=>setEditing(current=>current&&({...current,exercises:current.exercises.map((row,i)=>i===index?{...row,instructions:event.target.value}:row)}))}/></label>
-            <label>Alternativa<input required value={exercise.alternative} onChange={event=>setEditing(current=>current&&({...current,exercises:current.exercises.map((row,i)=>i===index?{...row,alternative:event.target.value}:row)}))}/></label>
-            <button type="button" className="text-link" disabled={editing.exercises.length<=1} onClick={()=>setEditing({...editing,exercises:editing.exercises.filter((_,i)=>i!==index)})}>Remover exercício {index+1}</button>
-          </fieldset></details><div className="fitness-editor-order" role="group" aria-label={`Ordem de ${exercise.name||`exercício ${index+1}`}`}><button type="button" className="secondary-button" disabled={index===0||busy} onClick={()=>moveExercise(index,-1)} aria-label={`Subir ${exercise.name||`exercício ${index+1}`}`}>↑</button><button type="button" className="secondary-button" disabled={index===editing.exercises.length-1||busy} onClick={()=>moveExercise(index,1)} aria-label={`Descer ${exercise.name||`exercício ${index+1}`}`}>↓</button></div></div>)}
-          <button type="button" className="secondary-button" disabled={editing.exercises.length>=30} onClick={()=>setEditing({...editing,exercises:[...editing.exercises,{id:crypto.randomUUID(),position:editing.exercises.length+1,name:'',sets:1,repetitions:'',rest_seconds:0,load_or_effort:'',instructions:'',alternative:'',day:'A'}]})}>Adicionar exercício</button>
-          <div className="fitness-appointment-actions"><button type="submit" className="primary-button" disabled={busy}>Salvar revisão</button><button type="button" className="secondary-button" disabled={busy} onClick={()=>setEditing(null)}>Cancelar</button></div>
-        </form>}
+        {workout.status==='draft'&&<div className="fitness-appointment-actions"><button type="button" className="secondary-button" disabled={busy||!professional} onClick={()=>setEditing({...workout,exercises:workout.exercises.map(exercise=>({...exercise}))})}>Revisar e editar</button><button type="button" className="primary-button" disabled={busy||!professional} onClick={()=>void run(()=>fitnessApi.approveWorkout(store,workout.id),'Ficha aprovada pelo Personal Trainer no servidor.')}>Aprovar após revisão profissional</button></div>}
         {workout.status==='approved'&&<button type="button" className="secondary-button" disabled={busy||!professional} onClick={()=>void run(()=>fitnessApi.reviseWorkout(store,workout.id),'Nova versão criada como rascunho. A versão aprovada foi preservada.')}>Criar cópia para adaptar</button>}
         {workout.status==='approved'&&<div className="fitness-appointment-actions"><p className="business-muted">Atribua a ficha a cada aluno após revisão individual.</p><label>Aluno<select value={selectedStudent[workout.id]||''} onChange={event=>setSelectedStudent(current=>({...current,[workout.id]:event.target.value}))}><option value="">Selecione um aluno com conta vinculada</option>{students.map(student=><option value={student.client_id} key={student.client_id}>{student.name}</option>)}</select></label><button type="button" className="secondary-button" disabled={busy||!professional||!selectedStudent[workout.id]} onClick={()=>{
           const student=students.find(item=>item.client_id===selectedStudent[workout.id]);
