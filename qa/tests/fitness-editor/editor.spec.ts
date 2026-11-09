@@ -30,6 +30,9 @@ for (const width of [320,390,768,1366]) test(`criação, falha e recuperação p
   await expect(page.getByText('Ficha em rascunho salva no servidor.')).toBeVisible();
   await page.getByRole('button',{name:'Revisar e editar'}).click();
   await expect(page.getByLabel('Repetições de Supino reto com barra')).toHaveValue('8 a 10');
+  await page.getByText('Orientações e detalhes').click();
+  await page.getByText('Músculos, mídia e outros detalhes').click();
+  await expect(page.getByRole('button',{name:'Supino reto com barra Peito · 2D'})).toHaveAttribute('aria-pressed','true');
   await page.getByRole('button',{name:/Treino B/}).click();
   await expect(page.getByLabel('Repetições de Leg press')).toHaveValue('10');
   expect(await page.evaluate(()=>document.documentElement.scrollWidth <= innerWidth + 1)).toBeTruthy();
