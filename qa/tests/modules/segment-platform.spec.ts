@@ -2,6 +2,51 @@ import { test, expect } from '@playwright/test';
 import { mockBackend } from './fixtures';
 import { mockSegmentPlatform, testBusinesses, createPlatformMockState } from './segment-platform-fixtures';
 
+test('falha de uma lista não oculta alunos e permite recuperar a consulta', async ({ page }) => {
+  const { state, initialBusiness } = await mockSegmentPlatform(page, { initial: 'personal' });
+  state.stores.get(initialBusiness.id)!.lists.clients.push({ id: 'aluno-ficticio', name: 'Aluno fictício', active: true });
+  let failedAction = 'services.list';
+  await page.route('**/rest/v1/rpc/food_business_operate', async route => {
+    if (route.request().postDataJSON().p_action === failedAction) return route.fulfill({ status: 503, json: { message: 'Falha simulada' } });
+    return route.fallback();
+  });
+  await page.goto('/admin/operacao?tab=clients');
+  await expect(page.locator('.business-record-list')).toContainText('Aluno fictício');
+  await page.getByRole('button', { name: 'Serviços e pacotes' }).click();
+  await expect(page.getByRole('alert')).toContainText('Não foi possível consultar serviços');
+  await expect(page.getByText('Não foi possível confirmar os registros')).toBeVisible();
+  failedAction = '';
+  await page.getByRole('button', { name: 'Tentar novamente' }).click();
+  await expect(page.getByRole('alert')).toHaveCount(0);
+  await expect(page.getByText('Comece pelo primeiro registro')).toBeVisible();
+});
+
+for (const width of [390, 1366]) {
+  test(`jornada e filtro de alunos Fitness em ${width}px`, async ({ page }, testInfo) => {
+    const { state, initialBusiness, status } = await mockSegmentPlatform(page, { initial: 'personal' });
+    state.stores.get(initialBusiness.id)!.lists.clients.push(
+      { id: 'ativo', name: 'Aluno fictício ativo', phone: '11999990000', active: true },
+      { id: 'arquivado', name: 'Aluno fictício arquivado', active: false },
+    );
+    await page.route('**/rpc/food_business_status', route => {
+      const data = status(initialBusiness.id);
+      return route.fulfill({ json: { ...data, profile: { ...data.profile, primary_segment: 'fitness' } } });
+    });
+    await page.setViewportSize({ width, height: 844 });
+    await page.goto('/admin/operacao?tab=clients');
+    await expect(page.getByRole('heading', { name: 'Do cadastro à ficha' })).toBeVisible();
+    await expect(page.getByText('O cadastro, por si só, não cria acesso nem atribui uma ficha.')).toBeVisible();
+    await page.screenshot({ path: testInfo.outputPath(`previa-alunos-${width}.png`), fullPage: true });
+    await page.getByLabel('Situação do cadastro').selectOption('archived');
+    await expect(page.locator('.business-record-list')).toContainText('Aluno fictício arquivado');
+    await expect(page.locator('.business-record-list')).not.toContainText('Aluno fictício ativo');
+    await page.getByLabel('Situação do cadastro').selectOption('all');
+    await page.getByLabel('Buscar aluno').fill('11999990000');
+    await expect(page.locator('.business-record-list')).toContainText('Aluno fictício ativo');
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 3)).toBe(true);
+  });
+}
+
 for (const business of testBusinesses) {
   test(`${business.segment}: painel e permissões do tenant fictício em mobile`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width: 390, height: 844 });
