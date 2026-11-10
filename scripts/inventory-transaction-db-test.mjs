@@ -57,7 +57,7 @@ try {
   const original = readFileSync('supabase/migrations/20261025143142_food_inventory_recipe_dashboard_transactions.sql','utf8');
   await db.exec(original.slice(original.indexOf('-- The key identifies'), original.indexOf('-- The existing converter')));
   await db.exec(original.slice(original.indexOf('-- Full-table aggregate'), original.lastIndexOf('commit;')));
-  await db.exec(readFileSync('supabase/migrations/20261110193642_food_inventory_recipe_reconcile.sql', 'utf8'));
+  await db.exec(readFileSync('supabase/migrations/20261110194017_food_inventory_recipe_reconcile.sql', 'utf8'));
   await db.exec(`create trigger test_inventory_archive_guard before update of active on public.food_inventory_items
     for each row execute function public.food_inventory_guard_archive_in_use();
     create function public.test_false_reconcile() returns trigger language plpgsql as $$begin
