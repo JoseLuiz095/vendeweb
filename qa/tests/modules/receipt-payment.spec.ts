@@ -31,7 +31,7 @@ for(const width of [320,390,768,1366])for(const tokenPresent of [false,true])tes
   expect(b).toEqual({action:'resolve',token:'read.capability'});
   return r.fulfill({json:{status:'pending',storeName:'Loja fictícia',orderNumber:42,total:12.5,receiver:'Teste',pixPayload:pix,expiresAt:new Date(Date.now()+3600000).toISOString(),...(tokenPresent?{receiptToken:'receipt.capability'}:{}),receiptDestinations:{mode:'point',contacts}}});
  });
- await page.goto('/pagamento/pix#read.capability');await page.getByRole('button',{name:'Já fiz o PIX · enviar comprovante'}).click();
+ await page.goto('/pagamento/pix#read.capability');
  const section=page.getByRole('region',{name:'Enviar comprovante'});const popup=page.waitForEvent('popup');
  await section.getByRole('link',{name:'Abrir WhatsApp e enviar comprovante',exact:true}).click();await (await popup).close();
  await expect(section).toContainText('Aguardando confirmação da loja');await expect(section).not.toContainText('Pagamento marcado como pago');
