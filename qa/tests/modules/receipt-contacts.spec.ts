@@ -47,14 +47,14 @@ test('ponto sem número exclusivo usa o WhatsApp cadastrado da loja',async({page
  await setup(page);await page.route('**/rest/v1/rpc/food_get_receipt_destinations_v2',r=>r.fulfill({json:{mode:'unassigned',contacts:[]}}));
  await success(page,point);const section=page.getByRole('region',{name:'Enviar comprovante'});await expect(section).toContainText('WhatsApp da loja');await expect(section.getByRole('link',{name:'Abrir WhatsApp e enviar comprovante'})).toHaveAttribute('href',/^https:\/\/wa.me\/5511000000099\?/);
 });
-test('abrir WhatsApp não informa pagamento; confirmação explícita registra o envio',async({page,context})=>{
+test('abrir WhatsApp não confirma pagamento nem declara comprovante',async({page,context})=>{
  await setup(page);let reports=0;
  await page.route('**/rest/v1/rpc/food_get_receipt_destinations_v2',r=>r.fulfill({json:{mode:'point',contacts:[contacts[0]]}}));
- await page.route('**/functions/v1/food-order-payment',r=>{expect(r.request().postDataJSON()).toEqual({action:'report_receipt',token:'test.receipt'});reports++;return r.fulfill({json:{ok:true,status:'paid',autoPickedUp:false}})});
+ await page.route('**/functions/v1/food-order-payment',r=>{reports++;return r.fulfill({status:500,json:{error:'Esta chamada não deve ocorrer.'}})});
  await context.route('https://wa.me/**',r=>r.fulfill({contentType:'text/plain',body:'Canal sintético.'}));
- await success(page,point);const section=page.getByRole('region',{name:'Enviar comprovante'});expect(reports).toBe(0);
- const popup=page.waitForEvent('popup');await section.getByRole('link',{name:'Abrir WhatsApp e enviar comprovante'}).click();await (await popup).close();expect(reports).toBe(0);
- await section.getByRole('button',{name:'Já enviei o comprovante'}).click();await expect(section.getByRole('status')).toContainText('Comprovante informado');expect(reports).toBe(1);
+ await success(page,point);const section=page.getByRole('region',{name:'Enviar comprovante'});
+ const popup=page.waitForEvent('popup');await section.getByRole('link',{name:'Abrir WhatsApp e enviar comprovante'}).click();await (await popup).close();
+ await expect(section).toContainText('Aguardando confirmação da loja');await expect(section).not.toContainText('Pagamento marcado como pago');expect(reports).toBe(0);
 });
 test('WhatsApp exclusivo do ponto é cadastrado em Configurações',async({page})=>{
  await setup(page,true);let saved:any;
@@ -100,3 +100,4 @@ test('link geral continua oferecendo escolha mesmo quando o cliente escolhe reti
  await page.goto('/doce-lua/produto/brigadeiro-teste');await page.getByRole('button',{name:'Adicionar ao carrinho',exact:true}).click();await page.goto('/doce-lua/carrinho');await page.getByRole('link',{name:'Continuar',exact:true}).click();await page.getByRole('button',{name:/Retirada Buscar/}).click();await page.getByRole('combobox',{name:'Ponto de retirada',exact:true}).selectOption(point);await page.getByLabel('Nome',{exact:true}).fill('Pessoa sintética');await page.getByLabel(/WhatsApp/).first().fill('11000000001');await page.getByRole('button',{name:/^PIX/}).click();await page.getByRole('button',{name:/Registrar pedido|Finalizar/}).filter({visible:true}).first().click();
  await expect(page).toHaveURL(new RegExp(ORDER));expect(payload).toMatchObject({delivery_type:'pickup',pickup_location_id:point,receipt_pickup_location_id:null});await page.getByRole('button',{name:'Já fiz o PIX · enviar comprovante'}).click();await expect(page.getByRole('region',{name:'Enviar comprovante'}).getByRole('combobox')).toBeVisible();
 });
+
