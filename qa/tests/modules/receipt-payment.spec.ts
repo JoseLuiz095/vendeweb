@@ -51,51 +51,19 @@ for(const accept of [false,true])test(`admin ${accept?'confere declaração':'re
  await expect(inbox.getByText('Pago informado pelo cliente · conferir')).toHaveCount(0);expect(patches).toBe(0);
  if(!accept)await expect(inbox.getByRole('button',{name:'Confirmar recebimento',exact:true})).toBeVisible();
 });
-test('política é opt-in e salva com os contatos confirmados numa única RPC',async({page})=>{
+for(const configured of [false,true])test(`configuração de comprovantes não oferece autoconfirmação mesmo com estado anterior ${configured}`,async({page})=>{
  await isolated(page,true);let saved:unknown;
- await page.route('**/rest/v1/food_stores?**',r=>r.fulfill({json:[{...store,receipt_click_marks_paid:false}]}));
+ await page.route('**/rest/v1/food_stores?**',r=>r.fulfill({json:[{...store,receipt_click_marks_paid:configured}]}));
  await page.route('**/rest/v1/food_receipt_contacts?**',r=>r.fulfill({json:contacts}));
  await page.route('**/rest/v1/food_pickup_receipt_contacts?**',r=>r.fulfill({json:[]}));
  await page.route('**/rest/v1/food_pickup_locations?**',r=>r.fulfill({json:[]}));
- await page.route('**/functions/v1/food-order-payment',r=>r.fulfill({json:{autoPaidConfigured:true}}));
- await page.route('**/rest/v1/rpc/food_save_receipt_policy_v2',r=>{saved=r.request().postDataJSON();return r.fulfill({json:null})});
+ await page.route('**/rest/v1/rpc/food_save_receipt_contacts_v1',r=>{saved=r.request().postDataJSON();return r.fulfill({json:null})});
  await page.goto('/admin/configuracoes');const card=page.getByRole('region',{name:'Destinos dos comprovantes'});
- const policy=card.getByRole('checkbox',{name:/Permitir que o cliente informe o pagamento/});await expect(policy).not.toBeChecked();await policy.check();
- await card.getByRole('button',{name:'Salvar regras de comprovantes'}).click();await expect(card.getByRole('alert')).toContainText('Confira os números');expect(saved).toBeUndefined();
- await card.getByRole('checkbox',{name:'Conferi os destinos de comprovantes dos pontos.'}).check();
- await card.getByRole('button',{name:'Salvar regras de comprovantes'}).click();await expect(card.getByRole('status')).toContainText('salvas');
- expect(saved).toEqual({p_store_id:STORE,p_contacts:contacts,p_points:[],p_auto_paid:true,p_auto_pickup_points:[]});
-});
-
-test('retirada automática fica opt-in por ponto e exige aviso de pagamento habilitado',async({page})=>{
- await isolated(page,true);let saved:unknown;
- await page.route('**/rest/v1/food_stores?**',r=>r.fulfill({json:[{...store,receipt_click_marks_paid:true}]}));
- await page.route('**/rest/v1/food_receipt_contacts?**',r=>r.fulfill({json:contacts}));
- await page.route('**/rest/v1/food_pickup_receipt_contacts?**',r=>r.fulfill({json:[]}));
- await page.route('**/rest/v1/food_pickup_locations?**',r=>r.fulfill({json:[{id:'60000000-0000-4000-8000-000000000001',name:'Ponto da loja amiga',auto_pickup_on_receipt:false}]}));
- await page.route('**/functions/v1/food-order-payment',r=>r.fulfill({json:{autoPaidConfigured:true}}));
- await page.route('**/rest/v1/rpc/food_save_receipt_policy_v2',r=>{saved=r.request().postDataJSON();return r.fulfill({json:null})});
- await page.goto('/admin/configuracoes');const card=page.getByRole('region',{name:'Destinos dos comprovantes'});
- const pickup=card.getByRole('checkbox',{name:/Concluir e baixar a retirada imediata/});await expect(pickup).not.toBeChecked();await pickup.check();
- await card.getByRole('checkbox',{name:/Conferi os destinos/}).check();await card.getByRole('button',{name:'Salvar regras de comprovantes'}).click();
- await expect(card.getByRole('status')).toContainText('salvas');expect(saved).toMatchObject({p_auto_pickup_points:['60000000-0000-4000-8000-000000000001']});
-});
-
-test('loja que só vende por pontos ativa comprovante sem duplicar contato geral',async({page})=>{
- await isolated(page,true);let saved:unknown;
- await page.route('**/rest/v1/food_stores?**',r=>r.fulfill({json:[{...store,receipt_click_marks_paid:false}]}));
- await page.route('**/rest/v1/food_receipt_contacts?**',r=>r.fulfill({json:[]}));
- await page.route('**/rest/v1/food_pickup_receipt_contacts?**',r=>r.fulfill({json:[]}));
- await page.route('**/rest/v1/food_pickup_locations?**',r=>r.fulfill({json:[{id:'60000000-0000-4000-8000-000000000001',name:'Ponto com WhatsApp próprio',auto_pickup_on_receipt:false}]}));
- await page.route('**/functions/v1/food-order-payment',r=>r.fulfill({json:{autoPaidConfigured:true}}));
- await page.route('**/rest/v1/rpc/food_save_receipt_policy_v2',r=>{saved=r.request().postDataJSON();return r.fulfill({json:null})});
- await page.goto('/admin/configuracoes');const card=page.getByRole('region',{name:'Destinos dos comprovantes'});
- await card.getByRole('checkbox',{name:/Permitir que o cliente informe o pagamento/}).check();
- await card.getByRole('checkbox',{name:/Concluir e baixar a retirada imediata/}).check();
- await card.getByRole('button',{name:'Salvar regras de comprovantes'}).click();
- await expect(card.getByRole('alert')).toContainText('Confira os números');expect(saved).toBeUndefined();
- await card.getByRole('checkbox',{name:/Conferi os destinos/}).check();
- await card.getByRole('button',{name:'Salvar regras de comprovantes'}).click();
- await expect(card.getByRole('status')).toContainText('salvas');
- expect(saved).toEqual({p_store_id:STORE,p_contacts:[],p_points:[],p_auto_paid:true,p_auto_pickup_points:['60000000-0000-4000-8000-000000000001']});
+ await expect(card).toContainText('A loja deve conferir o recebimento e confirmar o pagamento');
+ await expect(card.getByRole('checkbox',{name:/Permitir que o cliente informe o pagamento/})).toHaveCount(0);
+ await expect(card.getByRole('checkbox',{name:/Concluir e baixar a retirada imediata/})).toHaveCount(0);
+ await card.getByRole('button',{name:'Salvar destinos dos comprovantes'}).click();await expect(card.getByRole('alert')).toContainText('Confira os números');expect(saved).toBeUndefined();
+ await card.getByRole('checkbox',{name:'Conferi os destinos de comprovantes cadastrados.'}).check();
+ await card.getByRole('button',{name:'Salvar destinos dos comprovantes'}).click();await expect(card.getByRole('status')).toContainText('salvos');
+ expect(saved).toEqual({p_store_id:STORE,p_contacts:contacts,p_points:[]});
 });
