@@ -27,7 +27,7 @@ test('QR de um ponto permite escolher outro e mantém estoque e pedido no ponto 
  await page.getByRole('button',{name:/Registrar pedido|^Finalizar$/}).filter({visible:true}).first().click();
  await expect(page).toHaveURL(new RegExp(ORDER));
  const order=writes.find(w=>w.url.endsWith('/food-public-checkout'));
- expect(order?.body.payload).toMatchObject({store_id:STORE,delivery_type:'pickup',pickup_location_id:b.id});
+ expect(order?.body.payload).toMatchObject({store_id:STORE,delivery_type:'pickup',pickup_location_id:b.id,receipt_pickup_location_id:a.id});
  expect(checked).toContain(b.id);
 });
 
