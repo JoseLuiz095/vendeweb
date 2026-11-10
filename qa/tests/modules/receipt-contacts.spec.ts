@@ -27,11 +27,11 @@ for(const width of [320,390,768,1366])test(`link geral sem WhatsApp escolhe pont
 });
 test('link Pix novo usa destinos do servidor sem consulta por ID ou confirmação',async({page})=>{
  const {writes,external}=await setup(page);await page.route('**/functions/v1/food-order-payment',(r:any)=>{expect(r.request().postDataJSON()).toEqual({action:'resolve',token:'encrypted.capability'});return r.fulfill({json:{status:'pending',storeName:'Loja Teste',orderNumber:42,total:12.5,receiver:'Loja Teste',pixPayload:pix,expiresAt:new Date(Date.now()+3600000).toISOString(),receiptDestinations:{mode:'point',contacts:[contacts[1]]}}})});
- await page.goto('/pagamento/pix#encrypted.capability');await page.getByRole('button',{name:'Já fiz o PIX · enviar comprovante'}).click();await expect(page.getByRole('link',{name:'Abrir WhatsApp e enviar comprovante'})).toHaveAttribute('href',/^https:\/\/wa.me\/5511000000002\?/);await expect(page.getByText('Aguardando confirmação da loja. Enviar o comprovante não verifica o recebimento bancário.')).toBeVisible();expect(writes).toEqual([]);expect(external).toEqual([]);
+ await page.goto('/pagamento/pix#encrypted.capability');await expect(page.getByRole('link',{name:'Abrir WhatsApp e enviar comprovante'})).toHaveAttribute('href',/^https:\/\/wa.me\/5511000000002\?/);await expect(page.getByText('Aguardando confirmação da loja. Enviar o comprovante não verifica o recebimento bancário.')).toBeVisible();expect(writes).toEqual([]);expect(external).toEqual([]);
 });
 test('link Pix sem contrato de destinos mostra etapa e impede encaminhamento indevido',async({page})=>{
  await setup(page);await page.route('**/functions/v1/food-order-payment',r=>r.fulfill({json:{status:'pending',storeName:'Loja Teste',orderNumber:42,total:12.5,receiver:'Loja Teste',pixPayload:pix,expiresAt:new Date(Date.now()+3600000).toISOString()}}));
- await page.goto('/pagamento/pix#encrypted.capability');await page.getByRole('button',{name:'Já fiz o PIX · enviar comprovante'}).click();
+ await page.goto('/pagamento/pix#encrypted.capability');
  const section=page.getByRole('region',{name:'Enviar comprovante'});await expect(section).toContainText('destino do comprovante não está disponível');await expect(section.getByRole('link')).toHaveCount(0);
 });
 test('erro não encaminha ao contato errado; retry e ponto indisponível são explícitos',async({page})=>{
