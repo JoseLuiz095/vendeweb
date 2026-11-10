@@ -1,0 +1,59 @@
+/* Vitrine alimentar: identidade da loja e hierarquia da referência aprovada. */
+.store-layout[data-business-segment="food"] .food-storefront-header{background:var(--food-store-primary)}
+.store-layout[data-business-segment="food"] .food-platform-bar{background:var(--food-store-primary)}
+.store-layout[data-business-segment="food"] .food-platform-bar .container{min-height:68px}
+.store-layout[data-business-segment="food"] .foodweb-wordmark strong{font-size:1.35rem}
+.store-layout[data-business-segment="food"] .food-store-hero-v43{display:none}
+.store-layout[data-business-segment="food"] .food-store-profile-v43{width:min(1180px,100%);margin:0 auto;padding:20px 24px 30px;border:0;border-radius:0;background:var(--food-store-primary);box-shadow:none;grid-template-columns:82px minmax(0,1fr) auto;gap:18px}
+.store-layout[data-business-segment="food"] .food-store-profile-logo{width:82px;height:82px;border-radius:18px;background:#fff}
+.store-layout[data-business-segment="food"] .food-store-profile-title h1,.store-layout[data-business-segment="food"] .food-store-profile-main>p,.store-layout[data-business-segment="food"] .food-store-profile-location{color:#fff}
+.store-layout[data-business-segment="food"] .food-store-profile-title h1{font-family:inherit;font-size:clamp(1.4rem,2.5vw,2rem)}
+.store-layout[data-business-segment="food"] .food-store-profile-more>summary{color:#fff}
+.store-layout[data-business-segment="food"] .food-store-profile-more{border-color:#ffffff50}
+.store-layout[data-business-segment="food"] .food-marketplace-body{position:relative;margin-top:-14px;padding-top:28px;border-radius:24px 24px 0 0;background:var(--food-store-background)}
+.store-layout[data-business-segment="food"] .storefront-welcome{font-family:inherit;font-size:clamp(1.6rem,3vw,2.1rem);font-weight:800;letter-spacing:-.035em}
+.store-layout[data-business-segment="food"] .food-discovery-bar{position:relative;background:transparent;border:0;padding-block:4px 10px}
+.store-layout[data-business-segment="food"] .store-search{min-height:52px;background:var(--food-store-surface);border:1px solid var(--food-store-border);border-radius:18px}
+.store-layout[data-business-segment="food"] .category-strip button{min-height:44px;padding:10px 18px;background:color-mix(in srgb,var(--food-store-primary) 8%,var(--food-store-surface));color:var(--food-store-text)}
+.store-layout[data-business-segment="food"] .category-strip button.active{background:var(--food-store-primary);color:#fff}
+.store-layout[data-business-segment="food"] .food-product-grid{gap:14px}
+.store-layout[data-business-segment="food"] .product-card-shell{border:1px solid var(--food-store-border);border-radius:18px;background:var(--food-store-surface);box-shadow:0 4px 16px #0000000d}
+.store-layout[data-business-segment="food"] .product-card--food h3{font-family:inherit;font-weight:800;color:var(--food-store-text)}
+.store-layout[data-business-segment="food"] .product-card--food p{color:var(--food-store-text);opacity:.8}
+.store-layout[data-business-segment="food"] .product-card__price strong{color:var(--food-store-primary)}
+.store-layout[data-business-segment="food"] .storefront-product-page .product-detail-info h1{font-family:inherit;font-weight:800}
+.store-layout[data-business-segment="food"] .storefront-product-page .product-detail-info{border-radius:24px;background:var(--food-store-surface)}
+.store-layout[data-business-segment="food"] .checkout-page-v44 .checkout-card{border:1px solid var(--food-store-border);border-radius:18px;background:var(--food-store-surface)}
+.store-layout[data-business-segment="food"] .checkout-card__title strong{font-family:inherit;font-size:1.08rem;color:var(--food-store-text)}
+@media(max-width:640px){
+ .store-layout[data-business-segment="food"] .food-platform-bar .container{position:relative;justify-content:center;min-height:64px}
+ .store-layout[data-business-segment="food"] .food-platform-cart{position:absolute;right:10px;top:10px;min-width:44px;min-height:44px;justify-content:center}
+ .store-layout[data-business-segment="food"] .food-store-profile-v43{width:100%;padding:12px 18px 25px;grid-template-columns:64px minmax(0,1fr);gap:12px}
+ .store-layout[data-business-segment="food"] .food-store-profile-logo{width:64px;height:64px;border-radius:15px}
+ .store-layout[data-business-segment="food"] .food-store-profile-main{display:block;grid-column:2}
+ .store-layout[data-business-segment="food"] .food-store-profile-title h1{font-size:1.45rem}
+ .store-layout[data-business-segment="food"] .food-store-profile-main>.storefront-tagline{display:block;font-size:.78rem}
+ .store-layout[data-business-segment="food"] .food-store-profile-meta{margin-top:8px;display:flex;width:auto}
+ .store-layout[data-business-segment="food"] .food-hours-button--compact{min-height:40px}
+ .store-layout[data-business-segment="food"] .food-store-profile-more{grid-column:1/-1;padding-top:0}
+ .store-layout[data-business-segment="food"] .food-store-profile-more>summary{min-height:40px}
+ .store-layout[data-business-segment="food"] .food-marketplace-body{width:100%;padding:25px 16px 110px}
+ .store-layout[data-business-segment="food"] .storefront-welcome{font-size:1.65rem;margin:0 0 14px}
+ .store-layout[data-business-segment="food"] .product-card-shell>.product-card{grid-template-columns:112px minmax(0,1fr);padding:10px;gap:12px}
+ .store-layout[data-business-segment="food"] .product-card--food .product-card__image-wrap{min-height:120px;border-radius:12px}
+ .store-layout[data-business-segment="food"] .product-card--food h3{font-size:1rem;line-height:1.22}
+ .store-layout[data-business-segment="food"] .product-card--food p{font-size:.78rem}
+ .store-layout[data-business-segment="food"] .product-card--food .product-card__price strong{font-size:1.08rem}
+ .store-layout[data-business-segment="food"] .storefront-product-page .product-detail-layout{width:100%;padding-top:0}
+ .store-layout[data-business-segment="food"] .storefront-product-page .product-main-image{border-radius:0}
+ .store-layout[data-business-segment="food"] .storefront-product-page .product-detail-info{position:relative;margin-top:-18px;padding:22px 18px 28px;border:0;border-radius:24px 24px 0 0}
+ .store-layout[data-business-segment="food"] .storefront-product-page .product-detail-info h1{font-size:clamp(1.75rem,8vw,2.35rem)}
+ .store-layout[data-business-segment="food"] .checkout-page-v44 .page-title h1{font-family:inherit;font-weight:800}
+}
+@media(max-width:640px){
+ .store-layout[data-business-segment="food"] .product-card-shell{position:relative}
+ .store-layout[data-business-segment="food"] .product-card-shell:has(button.product-card-add) .product-card-actions{display:flex;align-items:center;justify-content:space-between;padding:0 12px 12px}
+ .store-layout[data-business-segment="food"] button.product-card-add{order:2;width:46px;min-width:46px;height:46px;min-height:46px;padding:0;border-radius:50%}
+ .store-layout[data-business-segment="food"] button.product-card-add span{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+ .store-layout[data-business-segment="food"] .product-card-shell:has(button.product-card-add) .product-card-buy{order:1;min-height:44px}
+}
