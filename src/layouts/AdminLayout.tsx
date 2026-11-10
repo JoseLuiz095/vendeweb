@@ -5,6 +5,7 @@ import {
   Boxes,
   CircleCheckBig,
   Clock3,
+  Dumbbell,
   ExternalLink,
   Landmark,
   LayoutDashboard,
@@ -22,11 +23,12 @@ import {
   Tags,
   Truck,
   UtensilsCrossed,
+  Users,
   X,
   type LucideIcon,
 } from 'lucide-react';
 import { useEffect, useState, useSyncExternalStore, type CSSProperties } from 'react';
-import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { PlatformHelpButton } from '../components/PlatformHelpButton';
 import { AdminNotifications } from '../components/admin/AdminNotifications';
 import { AdminStoreShare } from '../components/admin/AdminStoreShare';
@@ -48,6 +50,7 @@ import { getInstallPrompt, installPwa, subscribeInstallPrompt } from '../service
 import { PwaAccessCard } from '../components/PwaAccessCard';
 import '../components/admin/admin-navigation.css';
 import './operational-navigation.css';
+import './fitness-mobile-navigation.css';
 
 const navSections: Array<{ label: string; items: Array<{ to: string; label: string; icon: LucideIcon; end?: boolean; requiresFeature?: string }> }> = [
   {
@@ -115,6 +118,7 @@ export default function AdminLayout() {
   const logoUrl = segmentPresentation && isDefaultStoreImage(settings.logoUrl) ? '/assets/placeholder-catalog.svg' : settings.logoUrl;
   const theme = resolveBusinessTheme(settings.visualTheme);
   const segmentStyle = segmentPresentation ? { '--segment-primary': theme.primaryColor, '--segment-accent': theme.accentColor } as CSSProperties : undefined;
+  const showFitnessDock = segment.id === 'fitness' && Boolean(business?.profile) && !membership?.limitedAccess;
 
   useEffect(() => {
     try { setSidebarCollapsed(window.localStorage.getItem('foodweb_admin_sidebar_collapsed') === '1'); } catch { /* storage indisponível */ }
@@ -257,6 +261,13 @@ export default function AdminLayout() {
         {membership?.approvalStatus === 'pending' && <div className={`self-service-approval-banner ${membership.limitedAccess?'is-limited':'is-trial'}`}><ShieldCheck size={18}/><div><strong>{membership.limitedAccess?'Cadastro em preparação':'Cadastro em análise'}</strong><span>{membership.limitedAccess?'Você pode configurar cardápio, identidade, entregas e configurações. Pedidos, Analytics, Financeiro, cobrança e a vitrine ficam bloqueados até a aprovação do Admin Master.':'Seu Demo está disponível enquanto o Admin Master revisa o cadastro.'}</span></div></div>}
         <main id="admin-main" tabIndex={-1} className="admin-page"><PwaAccessCard role="admin" scope={`${user?.id||''}:${membership?.storeId||''}`} name={settings.name||'VendeWeb Admin'} notifications={settings.notificationsDesktopEnabled}/><div key={`${location.pathname}:${membership?.storeId || 'none'}`}><Outlet /></div></main>
       </section>
+      {showFitnessDock && <nav className="fitness-mobile-dock" aria-label="Atalhos Fitness">
+        <Link to="/admin" aria-current={location.pathname === '/admin' ? 'page' : undefined}><LayoutDashboard size={20} aria-hidden="true"/><span>Início</span></Link>
+        {moduleIsActive(business,'clients')&&<Link to="/admin/operacao?tab=clients" aria-current={location.pathname === '/admin/operacao' && new URLSearchParams(location.search).get('tab') === 'clients' ? 'page' : undefined}><Users size={20} aria-hidden="true"/><span>Alunos</span></Link>}
+        {moduleIsActive(business,'training')&&<Link to="/admin/fitness#treinos" aria-current={location.pathname === '/admin/fitness' && location.hash === '#treinos' ? 'page' : undefined}><Dumbbell size={20} aria-hidden="true"/><span>Treinos</span></Link>}
+        {moduleIsActive(business,'appointments')&&<Link to="/admin/fitness#agenda-fitness" aria-current={location.pathname === '/admin/fitness' && (location.hash === '#agenda-fitness' || !location.hash) ? 'page' : undefined}><Clock3 size={20} aria-hidden="true"/><span>Agenda</span></Link>}
+        <button type="button" onClick={()=>setOpen(true)} aria-label="Menu completo" aria-expanded={open} aria-controls="admin-sidebar"><Menu size={20} aria-hidden="true"/><span>Menu</span></button>
+      </nav>}
       <PlatformHelpButton />
     </div>
   );

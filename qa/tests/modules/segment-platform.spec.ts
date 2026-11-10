@@ -34,6 +34,16 @@ for (const width of [320, 390, 768, 1366]) {
     });
     await page.setViewportSize({ width, height: 844 });
     await page.goto('/admin/operacao?tab=clients');
+    const dock = page.getByRole('navigation', { name: 'Atalhos Fitness' });
+    if (width <= 820) {
+      await expect(dock).toBeVisible();
+      await expect(dock.getByRole('link', { name: 'Alunos' })).toHaveAttribute('aria-current', 'page');
+      await dock.getByRole('button', { name: 'Menu completo' }).click();
+      await expect(page.getByRole('dialog', { name: 'Menu do negócio' })).toBeVisible();
+      await page.keyboard.press('Escape');
+      await expect(page.getByRole('dialog', { name: 'Menu do negócio' })).toHaveCount(0);
+      await expect(dock.getByRole('button', { name: 'Menu completo' })).toBeFocused();
+    } else await expect(dock).toBeHidden();
     await expect(page.getByRole('heading', { name: 'Como começar' })).toBeVisible();
     await expect(page.getByText('Informe nome e contato. O cadastro não cria acesso nem atribui uma ficha.')).toBeVisible();
     await page.screenshot({ path: testInfo.outputPath(`previa-alunos-${width}.png`), fullPage: true });
@@ -52,6 +62,27 @@ for (const width of [320, 390, 768, 1366]) {
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 3)).toBe(true);
   });
 }
+
+test('atalhos Fitness respeitam os módulos habilitados', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const { state, initialBusiness, status } = await mockSegmentPlatform(page, { initial: 'personal' });
+  state.stores.get(initialBusiness.id)!.grants.delete('training');
+  await page.route('**/rpc/food_business_status', route => {
+    const data = status(initialBusiness.id);
+    return route.fulfill({ json: { ...data, profile: { ...data.profile, primary_segment: 'fitness' } } });
+  });
+  await page.goto('/admin/operacao?tab=clients');
+  const dock = page.getByRole('navigation', { name: 'Atalhos Fitness' });
+  await expect(dock.getByRole('link', { name: 'Alunos' })).toBeVisible();
+  await expect(dock.getByRole('link', { name: 'Treinos' })).toHaveCount(0);
+});
+
+test('atalhos Fitness não aparecem na administração de alimentação', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await mockSegmentPlatform(page, { initial: 'food' });
+  await page.goto('/admin');
+  await expect(page.getByRole('navigation', { name: 'Atalhos Fitness' })).toHaveCount(0);
+});
 
 for (const business of testBusinesses) {
   test(`${business.segment}: painel e permissões do tenant fictício em mobile`, async ({ page }, testInfo) => {
