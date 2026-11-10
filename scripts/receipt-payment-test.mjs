@@ -27,28 +27,12 @@ function fixture(){
  const call=async body=>{const r=await handler(new Request('https://api.example.invalid',{method:'POST',headers:{Origin:origin,Authorization:'Bearer synthetic'},body:JSON.stringify(body)}));return {status:r.status,body:await r.json()}};
  return{call,env,order,store,writes,fail:()=>{fail=true}};
 }
-test('leitura Pix não autoriza escrita; comprovante usa autorização separada',async()=>{
- const f=fixture();const issued=await f.call({action:'issue',storeId,orderId});
- assert.equal((await f.call({action:'report_receipt',token:issued.body.token})).status,410);assert.equal(f.writes.length,0);
- const read=await f.call({action:'resolve',token:issued.body.token});assert.ok(read.body.receiptToken);
- const report=await f.call({action:'report_receipt',token:read.body.receiptToken,storeId:orderId,orderId:storeId,amount:0.01});
- assert.equal(report.status,200);assert.deepEqual(f.writes,[{...input,v:1,expiresAt:now+86400000}]);
- assert.equal((await f.call({action:'resolve',token:read.body.receiptToken})).status,404);
-});
-test('segredo e versão bloqueiam emissão; falha do servidor não retorna pago',async()=>{
- const f=fixture();const token=await mintReceiptClaim(input,secret,now);
- f.env.ORDER_PAYMENT_LINK_SECRET='short';assert.equal((await f.call({action:'receipt_capabilities'})).body.receiptReportingConfigured,false);
- assert.equal((await f.call({action:'report_receipt',token})).status,503);assert.equal(f.writes.length,0);
- f.env.ORDER_PAYMENT_LINK_SECRET=secret;const issued=await f.call({action:'issue',storeId,orderId});
- f.order.payment_receipt_version=1;assert.equal((await f.call({action:'resolve',token:issued.body.token})).body.receiptToken,undefined);
- f.fail();const r=await f.call({action:'report_receipt',token});assert.equal(r.status,409);assert.equal(r.body.status,undefined);
-});
-test('resposta incompleta ou rejeitada pelo banco nunca anuncia pedido pago',async()=>{
- const token=await mintReceiptClaim(input,secret,now);
- for(const invalid of [null,undefined,{}, {ok:false,autoPickedUp:true},{ok:true},{ok:true,autoPickedUp:'true'}]){
-  const handler=createOrderPaymentHandler({env:k=>({ORDER_RECEIPT_AUTOPAID_ENABLED:'true',ORDER_RECEIPT_CONTACTS_ENABLED:'true',ORDER_PAYMENT_LINK_SECRET:secret,ORDER_PAYMENT_ALLOWED_ORIGINS:origin})[k],now:()=>now,
-   reportReceipt:async()=>invalid,authorizedOrder:async()=>null,order:async()=>null,store:async()=>null});
-  const response=await handler(new Request('https://api.example.invalid',{method:'POST',headers:{Origin:origin},body:JSON.stringify({action:'report_receipt',token})}));
-  assert.equal(response.status,409);assert.equal((await response.json()).status,undefined);
- }
+test('capacidade anterior nunca confirma pagamento por ação do cliente',async()=>{
+ const f=fixture(); const token=await mintReceiptClaim(input,secret,now);
+ assert.equal((await f.call({action:'receipt_capabilities'})).body.receiptReportingConfigured,false);
+ const report=await f.call({action:'report_receipt',token});
+ assert.equal(report.status,503); assert.equal(report.body.status,undefined); assert.equal(f.writes.length,0);
+ const issued=await f.call({action:'issue',storeId,orderId});
+ const read=await f.call({action:'resolve',token:issued.body.token});
+ assert.equal(read.status,200); assert.equal(read.body.status,'pending'); assert.equal(read.body.receiptToken,undefined);
 });

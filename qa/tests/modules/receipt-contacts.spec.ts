@@ -27,11 +27,11 @@ for(const width of [320,390,768,1366])test(`link geral sem WhatsApp escolhe pont
 });
 test('link Pix novo usa destinos do servidor sem consulta por ID ou confirmação',async({page})=>{
  const {writes,external}=await setup(page);await page.route('**/functions/v1/food-order-payment',(r:any)=>{expect(r.request().postDataJSON()).toEqual({action:'resolve',token:'encrypted.capability'});return r.fulfill({json:{status:'pending',storeName:'Loja Teste',orderNumber:42,total:12.5,receiver:'Loja Teste',pixPayload:pix,expiresAt:new Date(Date.now()+3600000).toISOString(),receiptDestinations:{mode:'point',contacts:[contacts[1]]}}})});
- await page.goto('/pagamento/pix#encrypted.capability');await page.getByRole('button',{name:'Já fiz o PIX · enviar comprovante'}).click();await expect(page.getByRole('link',{name:'Abrir WhatsApp e enviar comprovante'})).toHaveAttribute('href',/^https:\/\/wa.me\/5511000000002\?/);await expect(page.getByText('Aguardando confirmação da loja. Enviar o comprovante não verifica o recebimento bancário.')).toBeVisible();expect(writes).toEqual([]);expect(external).toEqual([]);
+ await page.goto('/pagamento/pix#encrypted.capability');await expect(page.getByRole('link',{name:'Abrir WhatsApp e enviar comprovante'})).toHaveAttribute('href',/^https:\/\/wa.me\/5511000000002\?/);await expect(page.getByText('Aguardando confirmação da loja. Enviar o comprovante não verifica o recebimento bancário.')).toBeVisible();expect(writes).toEqual([]);expect(external).toEqual([]);
 });
 test('link Pix sem contrato de destinos mostra etapa e impede encaminhamento indevido',async({page})=>{
  await setup(page);await page.route('**/functions/v1/food-order-payment',r=>r.fulfill({json:{status:'pending',storeName:'Loja Teste',orderNumber:42,total:12.5,receiver:'Loja Teste',pixPayload:pix,expiresAt:new Date(Date.now()+3600000).toISOString()}}));
- await page.goto('/pagamento/pix#encrypted.capability');await page.getByRole('button',{name:'Já fiz o PIX · enviar comprovante'}).click();
+ await page.goto('/pagamento/pix#encrypted.capability');
  const section=page.getByRole('region',{name:'Enviar comprovante'});await expect(section).toContainText('destino do comprovante não está disponível');await expect(section.getByRole('link')).toHaveCount(0);
 });
 test('erro não encaminha ao contato errado; retry e ponto indisponível são explícitos',async({page})=>{
@@ -41,20 +41,20 @@ test('erro não encaminha ao contato errado; retry e ponto indisponível são ex
 test('configuração salva dois contatos e vínculo sem regravar configurações gerais',async({page})=>{
  const {external}=await setup(page,true);let saved:any;
  await page.route('**/rest/v1/food_receipt_contacts?**',(r:any)=>r.fulfill({json:contacts}));await page.route('**/rest/v1/food_pickup_receipt_contacts?**',(r:any)=>r.fulfill({json:[{pickup_location_id:point,contact_slot:2}]}));await page.route('**/rest/v1/food_pickup_locations?**',(r:any)=>r.fulfill({json:[{id:point,name:'Ponto sintético'}]}));await page.route('**/rest/v1/rpc/food_save_receipt_contacts_v1',(r:any)=>{saved=r.request().postDataJSON();return r.fulfill({json:null})});
- await page.goto('/admin/configuracoes');const section=page.getByRole('region',{name:'Destinos dos comprovantes'});await expect(section.getByRole('combobox')).toHaveCount(0);await expect(section.getByText('Contato 1')).toHaveCount(0);await section.getByRole('checkbox',{name:'Conferi os destinos de comprovantes dos pontos.'}).check();await section.getByRole('button',{name:'Salvar regras de comprovantes'}).click();await expect(section.getByRole('status')).toHaveText('Regras dos comprovantes salvas.');expect(saved).toEqual({p_store_id:STORE,p_contacts:contacts,p_points:[{pickup_location_id:point,contact_slot:2}]});expect(external).toEqual([]);
+ await page.goto('/admin/configuracoes');const section=page.getByRole('region',{name:'Destinos dos comprovantes'});await expect(section.getByRole('combobox')).toHaveCount(0);await expect(section.getByText('Contato 1')).toHaveCount(0);await section.getByRole('checkbox',{name:'Conferi os destinos de comprovantes cadastrados.'}).check();await section.getByRole('button',{name:'Salvar destinos dos comprovantes'}).click();await expect(section.getByRole('status')).toHaveText('Destinos dos comprovantes salvos.');expect(saved).toEqual({p_store_id:STORE,p_contacts:contacts,p_points:[{pickup_location_id:point,contact_slot:2}]});expect(external).toEqual([]);
 });
 test('ponto sem número exclusivo usa o WhatsApp cadastrado da loja',async({page})=>{
  await setup(page);await page.route('**/rest/v1/rpc/food_get_receipt_destinations_v2',r=>r.fulfill({json:{mode:'unassigned',contacts:[]}}));
  await success(page,point);const section=page.getByRole('region',{name:'Enviar comprovante'});await expect(section).toContainText('WhatsApp da loja');await expect(section.getByRole('link',{name:'Abrir WhatsApp e enviar comprovante'})).toHaveAttribute('href',/^https:\/\/wa.me\/5511000000099\?/);
 });
-test('abrir WhatsApp não informa pagamento; confirmação explícita registra o envio',async({page,context})=>{
+test('abrir WhatsApp não confirma pagamento nem declara comprovante',async({page,context})=>{
  await setup(page);let reports=0;
  await page.route('**/rest/v1/rpc/food_get_receipt_destinations_v2',r=>r.fulfill({json:{mode:'point',contacts:[contacts[0]]}}));
- await page.route('**/functions/v1/food-order-payment',r=>{expect(r.request().postDataJSON()).toEqual({action:'report_receipt',token:'test.receipt'});reports++;return r.fulfill({json:{ok:true,status:'paid',autoPickedUp:false}})});
+ await page.route('**/functions/v1/food-order-payment',r=>{reports++;return r.fulfill({status:500,json:{error:'Esta chamada não deve ocorrer.'}})});
  await context.route('https://wa.me/**',r=>r.fulfill({contentType:'text/plain',body:'Canal sintético.'}));
- await success(page,point);const section=page.getByRole('region',{name:'Enviar comprovante'});expect(reports).toBe(0);
- const popup=page.waitForEvent('popup');await section.getByRole('link',{name:'Abrir WhatsApp e enviar comprovante'}).click();await (await popup).close();expect(reports).toBe(0);
- await section.getByRole('button',{name:'Já enviei o comprovante'}).click();await expect(section.getByRole('status')).toContainText('Comprovante informado');expect(reports).toBe(1);
+ await success(page,point);const section=page.getByRole('region',{name:'Enviar comprovante'});
+ const popup=page.waitForEvent('popup');await section.getByRole('link',{name:'Abrir WhatsApp e enviar comprovante'}).click();await (await popup).close();
+ await expect(section).toContainText('Aguardando confirmação da loja');await expect(section).not.toContainText('Pagamento marcado como pago');expect(reports).toBe(0);
 });
 test('WhatsApp exclusivo do ponto é cadastrado em Configurações',async({page})=>{
  await setup(page,true);let saved:any;
@@ -79,7 +79,7 @@ test('falha ao carregar cadastro impede salvar configuração vazia',async({page
  await setup(page,true);let saves=0;
  await page.route('**/rest/v1/food_receipt_contacts?**',r=>r.fulfill({status:503,json:{message:'Erro sintético'}}));
  await page.route('**/rest/v1/rpc/food_save_receipt_contacts_v1',r=>{saves++;return r.fulfill({json:null})});
- await page.goto('/admin/configuracoes');const section=page.getByRole('region',{name:'Destinos dos comprovantes'});await expect(section.getByRole('alert')).toBeVisible();await expect(section.getByRole('button',{name:'Salvar regras de comprovantes'})).toBeDisabled();expect(saves).toBe(0);
+ await page.goto('/admin/configuracoes');const section=page.getByRole('region',{name:'Destinos dos comprovantes'});await expect(section.getByRole('alert')).toBeVisible();await expect(section.getByRole('button',{name:'Salvar destinos dos comprovantes'})).toBeDisabled();expect(saves).toBe(0);
 });
 test('compra de entrega pelo link do ponto preserva origem sem mudar retirada/estoque',async({page})=>{
  await setup(page);let payload:any;
@@ -100,3 +100,4 @@ test('link geral continua oferecendo escolha mesmo quando o cliente escolhe reti
  await page.goto('/doce-lua/produto/brigadeiro-teste');await page.getByRole('button',{name:'Adicionar ao carrinho',exact:true}).click();await page.goto('/doce-lua/carrinho');await page.getByRole('link',{name:'Continuar',exact:true}).click();await page.getByRole('button',{name:/Retirada Buscar/}).click();await page.getByRole('combobox',{name:'Ponto de retirada',exact:true}).selectOption(point);await page.getByLabel('Nome',{exact:true}).fill('Pessoa sintética');await page.getByLabel(/WhatsApp/).first().fill('11000000001');await page.getByRole('button',{name:/^PIX/}).click();await page.getByRole('button',{name:/Registrar pedido|Finalizar/}).filter({visible:true}).first().click();
  await expect(page).toHaveURL(new RegExp(ORDER));expect(payload).toMatchObject({delivery_type:'pickup',pickup_location_id:point,receipt_pickup_location_id:null});await page.getByRole('button',{name:'Já fiz o PIX · enviar comprovante'}).click();await expect(page.getByRole('region',{name:'Enviar comprovante'}).getByRole('combobox')).toBeVisible();
 });
+

@@ -23,8 +23,8 @@ test('authorized issue returns opaque encrypted capability; resolve uses authori
  const f=fixture(), a=await f.issue(), b=await f.issue(); assert.equal(a.status,200);assert.notEqual(a.body.token,b.body.token);
  assert.equal(a.body.token.includes(oid),false);assert.equal(a.body.token.includes(sid),false);
  const r=await f.resolve(a.body.token);assert.equal(r.status,200);assert.equal(r.body.total,12.5);assert.equal(r.body.status,'pending');assert.match(r.body.pixPayload,/540512.50/);
- assert.deepEqual(Object.keys(r.body).sort(),['status','storeName','orderNumber','total','receiver','pixPayload','expiresAt','fulfillmentStatus','receiptToken','items'].sort());
- assert.ok(r.body.receiptToken);
+ assert.deepEqual(Object.keys(r.body).sort(),['status','storeName','orderNumber','total','receiver','pixPayload','expiresAt','fulfillmentStatus','items'].sort());
+ assert.equal(r.body.receiptToken,undefined);
  assert.equal(r.body.fulfillmentStatus,'received');
  assert.match(r.headers.get('cache-control'),/no-store/); assert.equal(r.headers.get('referrer-policy'),'no-referrer');
 });
@@ -73,3 +73,4 @@ test('comprovante usa loja/ponto do pedido no servidor; ignora destino forjado e
  const result=await call({action:'resolve',token:grant.token,storeId:oid,pickupLocationId:oid,phone:'5511000000099'});
  assert.deepEqual(result.receiptDestinations,destinations);assert.equal(lookups,1);assert.equal(order.payment_status,'pending');assert.equal(order.status,'received');
 });
+
