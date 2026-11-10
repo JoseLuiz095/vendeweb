@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { remainingRestSeconds } from './fitnessRestTimer';
 import { FitnessMuscles } from './FitnessMuscles';
 import { FitnessMovement } from './FitnessMovement';
 import { fitnessIllustrationByKey } from './fitnessExerciseIllustrationLibrary';
@@ -9,14 +10,18 @@ export function FitnessWorkoutSession({ workout }: { workout: FitnessWorkout }) 
   const [current, setCurrent] = useState(0);
   const [completed, setCompleted] = useState<Record<string, number>>({});
   const [remaining, setRemaining] = useState(0);
+  const restDeadline = useRef(0);
   const [day,setDay]=useState('');
   const days=[...new Set(workout.exercises.map(item=>item.day||'A'))];
   const visible=workout.exercises.filter(item=>(item.day||'A')===(day||days[0]));
   const exercise = visible[current];
   useEffect(() => {
     if (remaining <= 0) return;
-    const timer = window.setTimeout(() => setRemaining(value => Math.max(0, value - 1)), 1000);
-    return () => window.clearTimeout(timer);
+    const update = () => setRemaining(remainingRestSeconds(restDeadline.current, Date.now()));
+    const timer = window.setInterval(update, 1000);
+    document.addEventListener('visibilitychange', update);
+    update();
+    return () => { window.clearInterval(timer); document.removeEventListener('visibilitychange', update); };
   }, [remaining]);
   useEffect(() => { setCurrent(0); setCompleted({}); setRemaining(0); setDay(''); }, [workout.id]);
   if (!exercise) return <p>Esta ficha ainda não possui exercícios. Peça orientação ao profissional.</p>;
@@ -39,6 +44,7 @@ export function FitnessWorkoutSession({ workout }: { workout: FitnessWorkout }) 
       <div className="fitness-session-actions">
         <button type="button" className="primary-button" disabled={done >= exercise.sets} onClick={() => {
           setCompleted(previous => ({ ...previous, [exercise.id]: Math.min(exercise.sets, (previous[exercise.id] || 0) + 1) }));
+          restDeadline.current = Date.now() + exercise.rest_seconds * 1000;
           setRemaining(exercise.rest_seconds);
         }}>Marcar série {Math.min(done + 1, exercise.sets)} concluída</button>
         {done > 0 && <button type="button" className="secondary-button" onClick={() => { setCompleted(previous => ({ ...previous, [exercise.id]: Math.max(0, (previous[exercise.id] || 0) - 1) })); setRemaining(0); }}>Desfazer última série</button>}
