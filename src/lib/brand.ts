@@ -27,7 +27,7 @@ export const platformOrigin = (currentOrigin = typeof window === 'undefined' ? '
 };
 
 /** Confirmações e carrinhos dependem de armazenamento privado da origem anterior. */
-export const isOriginBoundShoppingPath = (pathname: string): boolean => /(?:^|\/)(?:pedido|carrinho|finalizar)(?:\/|$)/i.test(pathname);
+export const isOriginBoundShoppingPath = (pathname: string): boolean => /(?:^|\/)(?:pedido|carrinho|finalizar|conversa)(?:\/|$)/i.test(pathname);
 
 type ShoppingStorage = Pick<Storage, 'length' | 'key' | 'getItem'>;
 /** O código PKCE só pode ser trocado onde seu verificador privado foi criado. */

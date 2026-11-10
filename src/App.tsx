@@ -43,6 +43,7 @@ const SelfSignup=lazy(()=>import('./pages/store/SelfSignup'));
 const SignupComplete=lazy(()=>import('./pages/store/SignupComplete'));
 const ProductDetail=lazy(()=>import('./pages/store/ProductDetail'));
 const OrderSuccess=lazy(()=>import('./pages/store/OrderSuccess'));
+const CustomerConversation=lazy(()=>import('./pages/conversation/CustomerConversation'));
 const NotFound=lazy(()=>import('./pages/NotFound'));
 const ModulesPage=lazy(()=>import('./modules/ModulesPage'));
 const EventsPage=lazy(()=>import('./modules/EventsPage'));
@@ -114,6 +115,7 @@ export default function App() {
       <Route path="/:storeSlug/carrinho" element={<Cart />} />
       <Route path="/:storeSlug/finalizar" element={<Checkout />} />
     </Route>
+    <Route path="/conversa/pedido" element={<CustomerConversation />} />
     <Route path="/pedido/:orderId" element={<OrderSuccess />} />
     <Route path="/:storeSlug/pedido/:orderId" element={<OrderSuccess />} />
 
