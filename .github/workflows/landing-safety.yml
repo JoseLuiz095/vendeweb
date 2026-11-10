@@ -1,0 +1,22 @@
+name: Landing comercial
+on:
+  pull_request:
+    paths:
+      - 'src/pages/store/Landing.tsx'
+      - 'src/services/landingApi.ts'
+      - 'qa/tests/modules/commercial-showcase.spec.ts'
+      - '.github/workflows/landing-safety.yml'
+jobs:
+  landing:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm ci --prefix qa
+      - run: npm exec --prefix qa -- playwright install --with-deps chromium
+      - run: npm exec --prefix qa -- playwright test --config qa/landing-safety.config.ts --grep "falha na landing"
