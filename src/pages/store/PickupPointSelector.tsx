@@ -13,9 +13,10 @@ type Props = {
   invalidQr?: boolean;
   identifiedByQr?: boolean;
   compact?: boolean;
+  showChange?: boolean;
 };
 
-export function PickupPointSelector({ points, value, onChange, loading, error, invalidQr, identifiedByQr, compact }: Props) {
+export function PickupPointSelector({ points, value, onChange, loading, error, invalidQr, identifiedByQr, compact, showChange }: Props) {
   if (!loading && !error && !invalidQr && !points.length) return null;
   const selected = loading ? undefined : points.find((point) => point.id === value);
   const selection = <label><MapPin size={18} aria-hidden="true"/><span>Ponto de retirada</span>
@@ -27,7 +28,7 @@ export function PickupPointSelector({ points, value, onChange, loading, error, i
   return <div className={`store-point-selector${compact ? ' store-point-selector--compact' : ''}`}>
     {selected ? <>
       <div className="store-point-context" role="status"><MapPin size={18} aria-hidden="true"/><span><strong>{identifiedByQr ? 'Local identificado' : 'Ponto escolhido'}: {selected.name}</strong>{selected.address && <small>{selected.address}</small>}</span></div>
-      <details className="store-point-change" key={selected.id}><summary>Trocar ponto</summary>{selection}</details>
+      {showChange ? <div className="store-point-change">{selection}<small>Ao trocar o ponto, a disponibilidade será consultada no novo local.</small></div> : <details className="store-point-change" key={selected.id}><summary>Trocar ponto</summary>{selection}</details>}
     </> : !loading && !error && points.length ? selection : null}
     {loading && <small role="status">Consultando pontos de retirada…</small>}
     {error && <small role="alert">{error}</small>}
