@@ -44,3 +44,6 @@ verify_jwt = false
 # Disabled until explicitly configured and deployed; no schema or RLS changes.
 [functions.food-order-payment]
 verify_jwt = false
+[functions.food-order-conversation]
+# The handler verifies a staff session or a scoped conversation capability.
+verify_jwt = false

@@ -1,3 +1,5 @@
+import { StaffConversation } from '../conversation/StaffConversation';
+import { orderConversationEnabled } from '../../services/orderConversationApi';
 import { restFetch } from '../../lib/supabaseRest';
 import { CreditCard, MapPin, Pencil, Save, Store, Truck, X, Minus, Plus, Trash2, Ban, History } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
@@ -224,6 +226,8 @@ export function OrderDetailsModal({ order, products, settings, onClose, onSave, 
           <label className="full">Observação<textarea rows={3} maxLength={500} value={draft.notes || ''} onChange={(event) => setDraft((current) => ({ ...current, notes: event.target.value }))} /></label>
         </div>
       </section> : detailsExpanded && order.notes ? <section className="order-details-modal__section"><div className="order-details-modal__section-title"><Pencil size={17} /><h3>Observações</h3></div><p className="order-details-modal__notes">{order.notes}</p></section> : null}
+
+      {orderConversationEnabled && !editing && <StaffConversation storeId={order.storeId} orderId={order.id}/>}
 
       <div className="master-modal-actions order-details-modal__actions">
         {editing ? <><button type="button" className="secondary-button" onClick={() => setEditing(false)} disabled={saving}>Cancelar</button><button type="button" className="primary-button" onClick={() => void submit()} disabled={saving || !draft.customerName.trim() || (canEditItems && draftItems.length === 0)}><Save size={16} />{saving ? 'Salvando...' : 'Salvar alterações'}</button></> : <><button type="button" className="secondary-button" onClick={onClose}>Fechar</button>{order.paymentStatus !== 'paid' && order.status !== 'cancelled' && onCancelOrder && <button type="button" className="order-details-modal__cancel-button" onClick={() => void cancelOrder()} disabled={cancelling}><Ban size={16}/>{cancelling ? 'Cancelando...' : 'Cancelar pedido'}</button>}{canEdit && <button type="button" className="primary-button" onClick={() => setEditing(true)}><Pencil size={16} />Editar pedido</button>}</>}
