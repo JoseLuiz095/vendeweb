@@ -155,6 +155,7 @@ test('desmarcar salvamento remove dados anteriores e mantém a escolha após rec
  await checkbox.uncheck();
  await expect.poll(()=>page.evaluate(storeId=>document.cookie.includes(`foodweb_customer_profile_v1_${storeId}=`),STORE)).toBe(false);
  expect(await page.evaluate(storeId=>localStorage.getItem(`foodweb_recent_order_v1:${storeId}`),STORE)).toBeNull();
+ await expect.poll(()=>page.evaluate(storeId=>JSON.parse(sessionStorage.getItem(`foodweb_checkout_draft_v1:${storeId}`)||'{}').customerName,STORE)).toBe('Pessoa anterior');
  await page.reload();
  await expect(checkbox).not.toBeChecked();
  await expect(page.getByLabel('Nome',{exact:true})).toHaveValue('Pessoa anterior');
