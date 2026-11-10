@@ -1,0 +1,94 @@
+/* Public purchase pages: use each store's configured visual theme. */
+.store-layout:not([data-business-segment="fitness"]) .food-platform-bar{background:var(--food-store-primary);border:0}
+.store-layout:not([data-business-segment="fitness"]) .food-platform-bar :is(.foodweb-wordmark,.food-platform-cart,.food-platform-trust){color:#fff}
+.store-layout:not([data-business-segment="fitness"]) .food-platform-cart:hover{background:rgba(255,255,255,.14);color:#fff}
+.store-layout:not([data-business-segment="fitness"]) .food-platform-cart b{background:#fff;color:var(--food-store-primary)}
+.store-layout:not([data-business-segment="fitness"]) .food-store-hero-v43{height:140px}
+.store-layout:not([data-business-segment="fitness"]) .food-store-hero-v43>.container{padding-bottom:65px}
+.store-layout:not([data-business-segment="fitness"]) .food-store-profile-v43{border-radius:20px;box-shadow:0 8px 24px #0000000d}
+.storefront-tagline{margin:4px 0;color:var(--food-store-muted);font-size:.9rem}
+.storefront-welcome{margin:12px 0 16px;color:var(--food-store-text);font-size:clamp(1.55rem,3vw,2.15rem);letter-spacing:-.035em}
+.store-layout:not([data-business-segment="fitness"]) .food-discovery-bar{gap:14px}
+.store-layout:not([data-business-segment="fitness"]) .store-search{border-radius:18px}
+.store-layout:not([data-business-segment="fitness"]) .category-strip button{border-radius:999px}
+.store-layout:not([data-business-segment="fitness"]) .product-card-shell{border-radius:18px;box-shadow:0 3px 12px #0000000e}
+.store-layout:not([data-business-segment="fitness"]) .product-card--food .product-card__price strong,.storefront-product-price{color:var(--food-store-primary);font-weight:800}
+.store-layout:not([data-business-segment="fitness"]) .product-card-add,.store-layout:not([data-business-segment="fitness"]) .product-card-stepper{border-radius:12px}
+.store-layout:not([data-business-segment="fitness"]) .storefront-product-page .product-main-image{border-radius:20px;overflow:hidden}
+.store-layout:not([data-business-segment="fitness"]) .storefront-product-page .product-detail-info h1{letter-spacing:-.035em}
+.storefront-product-price{font-size:1.7rem;margin:14px 0 22px}
+.store-layout:not([data-business-segment="fitness"]) :is(.checkout-card,.order-summary){border-radius:18px;box-shadow:0 3px 14px #0000000b}
+.storefront-checkout-progress{display:flex;justify-content:space-between;gap:8px;list-style:none;padding:0;margin:22px 0;color:var(--food-store-muted);font-size:.78rem}
+.storefront-checkout-progress li{display:grid;justify-items:center;gap:6px;text-align:center;flex:1}
+.storefront-checkout-progress li span{display:grid;place-items:center;width:32px;height:32px;border-radius:50%;background:var(--food-store-border);color:var(--food-store-text);font-weight:800}
+.storefront-checkout-progress li:first-child span,.storefront-checkout-progress li[aria-current] span{background:var(--food-store-primary);color:#fff}
+.storefront-checkout-progress li[aria-current]{color:var(--food-store-primary);font-weight:800}
+@media(max-width:640px){
+ .store-layout:not([data-business-segment="fitness"]) .food-platform-bar .container{min-height:62px}
+ .store-layout:not([data-business-segment="fitness"]) .food-store-hero-v43{height:72px;min-height:72px}
+ .store-layout:not([data-business-segment="fitness"]) .food-store-hero-v43>.container{padding-bottom:30px}
+ .store-layout:not([data-business-segment="fitness"]) .food-store-profile-v43{margin-top:-18px;padding:14px;grid-template-columns:64px minmax(0,1fr);gap:10px}
+ .store-layout:not([data-business-segment="fitness"]) .food-store-profile-logo{width:64px;height:64px}
+ .store-layout:not([data-business-segment="fitness"]) .food-store-profile-main>.storefront-tagline{display:block}
+ .store-layout:not([data-business-segment="fitness"]) .food-product-grid{grid-template-columns:1fr}
+ .store-layout:not([data-business-segment="fitness"]) .product-card-shell>.product-card{grid-template-columns:112px minmax(0,1fr);min-height:145px;padding:10px;gap:12px}
+ .store-layout:not([data-business-segment="fitness"]) .product-card--food .product-card__image-wrap{grid-column:1;grid-row:1;min-height:125px;border-radius:12px;overflow:hidden}
+ .store-layout:not([data-business-segment="fitness"]) .product-card--food .product-card__content{grid-column:2;grid-row:1;padding:3px 0}
+ .store-layout:not([data-business-segment="fitness"]) .product-card--food h3{font-size:1rem}
+ .store-layout:not([data-business-segment="fitness"]) .product-card--food p{font-size:.78rem}
+ .store-layout:not([data-business-segment="fitness"]) .product-card--food .product-card__price strong{font-size:1rem}
+ .store-layout:not([data-business-segment="fitness"]) .product-card-actions{grid-template-columns:1fr 1fr;padding:0 10px 10px}
+ .store-layout:not([data-business-segment="fitness"]) .product-card-stepper{grid-column:1/-1}
+ .store-layout:not([data-business-segment="fitness"]) .product-card__open{display:none}
+ .store-layout:not([data-business-segment="fitness"]) .product-detail-layout{gap:0;padding-top:0}
+ .store-layout:not([data-business-segment="fitness"]) .storefront-product-page .product-detail-info{padding:20px 4px}
+ .store-layout:not([data-business-segment="fitness"]) .checkout-page-v44 .checkout-card{padding:18px 16px}
+}
+.store-layout:not([data-business-segment="fitness"]) .food-store-profile-more>summary{cursor:pointer;color:var(--food-store-primary);font-weight:700;font-size:.86rem;min-height:44px;display:flex;align-items:center}
+.store-layout:not([data-business-segment="fitness"]) .food-store-profile-more>summary::after{content:'+';margin-left:auto;font-size:1.2rem}
+.store-layout:not([data-business-segment="fitness"]) .food-store-profile-more[open]>summary::after{content:'−'}
+.store-layout:not([data-business-segment="fitness"]) .food-store-profile-more>summary:focus-visible{outline:3px solid var(--food-store-primary);outline-offset:2px}
+@media(max-width:640px){
+ .store-layout:not([data-business-segment="fitness"]) .food-store-hero-v43{display:none}
+ .store-layout:not([data-business-segment="fitness"]) .food-store-profile-v43{margin-top:0;border-radius:0 0 18px 18px}
+ .store-layout:not([data-business-segment="fitness"]) .storefront-welcome{margin:4px 0 10px;font-size:1.45rem}
+ .store-layout:not([data-business-segment="fitness"]) .food-order-guide{margin:0}
+ .store-layout:not([data-business-segment="fitness"]) .food-marketplace-body .food-featured-section{padding:8px}
+}
+.store-layout:not([data-business-segment="fitness"]) :is(.storefront-product-page .simple-topbar,.checkout-topbar-v44){background:var(--food-store-primary);border:0;border-radius:0 0 16px 16px;padding-inline:18px;color:#fff}
+.store-layout:not([data-business-segment="fitness"]) :is(.storefront-product-page .simple-topbar,.checkout-topbar-v44) :is(a,button,strong,span){color:#fff}
+.storefront-page-brand{font-size:1.2rem;letter-spacing:-.03em}
+@media(max-width:640px){
+ .store-layout:not([data-business-segment="fitness"]) .food-marketplace-body .food-featured-section{margin-top:0}
+ .store-layout:not([data-business-segment="fitness"]) .food-featured-section .food-section-title span{display:none}
+ .store-layout:not([data-business-segment="fitness"]) .food-discovery-bar .store-search{margin-bottom:6px}
+}
+@media(min-width:641px){
+ .store-layout:not([data-business-segment="fitness"]) .food-featured-rail{grid-auto-columns:minmax(320px,380px)}
+ .store-layout:not([data-business-segment="fitness"]) .food-featured-rail .product-card--food{grid-template-columns:125px minmax(0,1fr);gap:12px;padding:12px}
+ .store-layout:not([data-business-segment="fitness"]) .food-featured-rail .product-card__image-wrap{grid-column:1;grid-row:1;min-height:145px;border-radius:12px;overflow:hidden}
+ .store-layout:not([data-business-segment="fitness"]) .food-featured-rail .product-card__content{grid-column:2;grid-row:1;padding:4px 0}
+ .store-layout:not([data-business-segment="fitness"]) .food-featured-rail .product-card__open{display:none}
+}
+
+/* Animações limitadas às páginas públicas de compra; sem movimento contínuo. */
+@media (prefers-reduced-motion: no-preference) {
+ .store-layout:not([data-business-segment="fitness"]) :is(.food-store-profile-v43,.storefront-welcome,.food-discovery-bar,.food-featured-section .food-section-title,.food-category-section,.storefront-product-page .product-gallery,.storefront-product-page .product-detail-info,.checkout-page-v44 .page-title,.checkout-page-v44 .checkout-card,.checkout-page-v44 .checkout-summary) {
+  animation: purchase-appear 480ms cubic-bezier(.16,1,.3,1) backwards;
+ }
+ .store-layout:not([data-business-segment="fitness"]) :is(.food-discovery-bar,.storefront-product-page .product-detail-info,.checkout-page-v44 .checkout-card:nth-of-type(2)){animation-delay:70ms}
+ .store-layout:not([data-business-segment="fitness"]) :is(.food-featured-section .food-section-title,.checkout-page-v44 .checkout-card:nth-of-type(3),.checkout-page-v44 .checkout-summary){animation-delay:130ms}
+ .store-layout:not([data-business-segment="fitness"]) :is(.product-card-shell,.checkout-card,.food-store-profile-logo){transition:transform 220ms cubic-bezier(.16,1,.3,1),box-shadow 220ms ease}
+ .store-layout:not([data-business-segment="fitness"]) :is(.product-card-add,.product-card-buy,.buy-box button,.checkout-page-v44 button,.category-strip button,.food-platform-cart){transition:transform 160ms ease,background-color 180ms ease,box-shadow 180ms ease}
+ .store-layout:not([data-business-segment="fitness"]) :is(.product-card-add,.product-card-buy,.buy-box button,.checkout-page-v44 button,.category-strip button,.food-platform-cart):active{transform:scale(.96)}
+ .store-layout:not([data-business-segment="fitness"]) .product-card__image{transition:transform 350ms cubic-bezier(.16,1,.3,1)}
+ @media (hover:hover) and (pointer:fine) {
+  .store-layout:not([data-business-segment="fitness"]) .product-card-shell:hover{transform:translateY(-5px);box-shadow:0 14px 28px #00000018}
+  .store-layout:not([data-business-segment="fitness"]) .product-card-shell:hover .product-card__image{transform:scale(1.06)}
+  .store-layout:not([data-business-segment="fitness"]) :is(.product-card-add,.buy-box .primary-button,.checkout-submit):hover{transform:translateY(-2px);box-shadow:0 8px 20px color-mix(in srgb,var(--food-store-primary) 25%,transparent)}
+ }
+}
+@keyframes purchase-appear {
+ from {opacity:0;transform:translateY(14px)}
+ to {opacity:1;transform:translateY(0)}
+}

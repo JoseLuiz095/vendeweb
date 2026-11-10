@@ -75,6 +75,7 @@ function StorefrontHome(){
   return <>
     <StoreHeader/>
     <section id="cardapio" className="container storefront-body food-marketplace-body">
+      {traditionalPresentation&&<h2 className="storefront-welcome">Escolha seu favorito</h2>}
       {!traditionalPresentation&&<div className="fitness-discovery" role="search"><label className="fitness-catalog-search"><Search size={19}/><span className="sr-only">Buscar no catálogo</span><input type="search" value={query} onChange={event=>setQuery(event.target.value)} placeholder="Buscar produtos, serviços e conteúdos"/></label><label className="fitness-type-select">Tipo<select value={catalogType} onChange={event=>setCatalogType(event.target.value as typeof catalogType)}><option value="all">Tudo</option><option value="products">Produtos</option><option value="services">Serviços</option><option value="consultations">Consultas</option><option value="content">Conteúdos</option></select></label></div>}
       <PublicBusinessOffers query={traditionalPresentation?'':query} type={traditionalPresentation?'all':catalogType}/>
       {settings.pickupEnabled && <PickupPointSelector points={pickup.points} value={pickup.pickupLocationId} onChange={pickup.setPickupLocationId} loading={pickup.pointsLoading} error={pickup.pointsError} invalidQr={pickup.invalidQr}/>}

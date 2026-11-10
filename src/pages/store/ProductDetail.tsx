@@ -237,8 +237,8 @@ function CommerceProductDetail() {
     }
   };
 
-  return <div className="simple-page">
-    <header className="simple-topbar container"><Link to={storefrontPath(storeBasePath)}><ArrowLeft size={19}/>Voltar ao cardápio</Link><button onClick={() => void share()}><Share2 size={18}/>Compartilhar</button></header>
+  return <div className="simple-page storefront-product-page">
+    <header className="simple-topbar container"><Link to={storefrontPath(storeBasePath)}><ArrowLeft size={19}/>Voltar ao cardápio</Link><strong className="storefront-page-brand">VendeWeb</strong><button onClick={() => void share()}><Share2 size={18}/>Compartilhar</button></header>
     <div className="container product-detail-layout">
       <section className="product-gallery">
         <div className="product-main-image">
@@ -259,6 +259,7 @@ function CommerceProductDetail() {
         <span className="eyebrow">{category?.name ?? 'PRODUTO'}</span>
         <h1>{product.name}</h1>
         <p className="product-long-description">{product.description}</p>
+        {!partyConfig && <p className="storefront-product-price">{currency.format(product.promotionalPrice ?? product.price)}</p>}
         {settings.pickupEnabled && <PickupPointSelector points={pickup.points} value={pickup.pickupLocationId} onChange={pickup.setPickupLocationId} loading={pickup.pointsLoading} error={pickup.pointsError} invalidQr={pickup.invalidQr} compact/>}
         {pickup.selectedPoint && <PointStockNotice product={product} pointName={pickup.selectedPoint.name} row={localStock} quantity={quantity}/>}
         {pickup.selectedPoint && pickup.availabilityError && <p className="store-point-stock store-point-stock--warning" role="status">{pickup.availabilityError}</p>}
