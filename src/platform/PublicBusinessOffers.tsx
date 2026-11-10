@@ -21,9 +21,9 @@ export function PublicBusinessOffers({query='',type='all'}:{query?:string;type?:
   const [attempt,setAttempt]=useState(0);
   const load=useCallback(()=>restFetch<PublicBusiness>('rpc/food_business_public',{method:'POST',body:{p_store:settings.id}}),[settings.id]);
   useEffect(()=>{let active=true;setData(null);setError(false);if(!settings.id)return;void load().then(next=>{if(active&&Array.isArray(next.services)&&Array.isArray(next.links))setData(next);}).catch(()=>{if(active)setError(true);});return()=>{active=false;};},[load,settings.id,attempt]);
-  const specialized=['personal','nutrition','creator','florist'].includes(settings.visualTheme.businessSegment||'');
   const selected=type==='services'||type==='consultations'||type==='content';
-  if(error&&specialized)return <section className="business-public business-card" role="alert"><h2>Serviços e links indisponíveis</h2><p>Não foi possível consultar estas ofertas agora. Os produtos continuam disponíveis.</p><button type="button" className="secondary-button" onClick={()=>setAttempt(value=>value+1)}>Tentar novamente</button></section>;
+  const specialized=['personal','nutrition','creator','florist'].includes(settings.visualTheme.businessSegment||'');
+  if(error&&(specialized||selected))return <section className="business-public business-card" role="alert"><h2>Serviços e links indisponíveis</h2><p>Não foi possível consultar estas ofertas agora. Os produtos continuam disponíveis.</p><button type="button" className="secondary-button" onClick={()=>setAttempt(value=>value+1)}>Tentar novamente</button></section>;
   if(!data)return selected?<p role="status" className="business-muted">Carregando ofertas…</p>:null;
   const matches=(value:string)=>normalizeText(value).includes(normalizeText(query));
   const services=data.services.filter(service=>identified(service)&&(type==='all'||type==='services'&&service.kind!=='nutrition'||type==='consultations'&&service.kind==='nutrition')&&matches(`${service.name} ${service.description} ${service.professional?.name}`));
