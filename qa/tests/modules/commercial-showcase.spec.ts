@@ -109,3 +109,19 @@ test('trocar segmento zera dados locais e a prévia funciona em 320px com movime
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 2)).toBe(true);
   await page.screenshot({ path: testInfo.outputPath('comercial-320-reduced-motion.png'), fullPage: true });
 });
+
+test('falha na landing não apresenta preços fictícios e permite tentar novamente', async ({ page }) => {
+  await mockBackend(page);
+  let attempts = 0;
+  await page.route('**/rest/v1/rpc/food_get_public_landing_v1', route => {
+    attempts++;
+    return attempts === 1
+      ? route.fulfill({ status: 503, json: { message: 'Falha simulada' } })
+      : route.fulfill({ json: { stores: [], plans: [{ id: 'test', code: 'ESSENTIAL', name: 'Teste', monthly_price: 23, feature_codes: [] }], demo_enabled: true, demo_duration_days: 10, demo_store_slug: 'teste' } });
+  });
+  await page.goto('/');
+  await expect(page.getByRole('alert')).toContainText('Não foi possível consultar os planos e as lojas');
+  await expect(page.locator('.sales-plan-price')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Tentar novamente' }).click();
+  await expect(page.locator('.sales-plan-price')).toContainText('23,00');
+});
