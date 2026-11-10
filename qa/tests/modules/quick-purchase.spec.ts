@@ -138,3 +138,28 @@ test('rascunho fica na sessão quando o cliente desmarca o salvamento duradouro'
  await page.reload();
  await expect(page.getByLabel('Nome',{exact:true})).toHaveValue('Cliente privado');
 });
+
+
+test('desmarcar salvamento remove dados anteriores e mantém a escolha após recarregar',async({page})=>{
+ await mockBackend(page); await pickup(page);
+ await page.goto('/doce-lua?ponto=trabalho');
+ await page.getByRole('button',{name:'Adicionar Brigadeiro teste',exact:true}).click();
+ await page.evaluate(({storeId})=>{
+   const profile={customerName:'Pessoa anterior',customerPhone:'11999999999',customerEmail:'',fulfillment:'pickup'};
+   document.cookie=`foodweb_customer_profile_v1_${storeId}=${encodeURIComponent(JSON.stringify(profile))}; Path=/; SameSite=Lax`;
+   localStorage.setItem(`foodweb_recent_order_v1:${storeId}`,JSON.stringify({items:[{id:'item'}],customerName:'Pessoa anterior',customerPhone:'11999999999',createdAt:new Date().toISOString()}));
+ },{storeId:STORE});
+ await page.goto('/doce-lua/finalizar');
+ await expect(page.getByLabel('Nome',{exact:true})).toHaveValue('Pessoa anterior');
+ const checkbox=page.getByRole('checkbox',{name:/Salvar meus dados neste navegador/});
+ await checkbox.uncheck();
+ await expect.poll(()=>page.evaluate(storeId=>document.cookie.includes(`foodweb_customer_profile_v1_${storeId}=`),STORE)).toBe(false);
+ expect(await page.evaluate(storeId=>localStorage.getItem(`foodweb_recent_order_v1:${storeId}`),STORE)).toBeNull();
+ await page.reload();
+ await expect(checkbox).not.toBeChecked();
+ await expect(page.getByLabel('Nome',{exact:true})).toHaveValue('Pessoa anterior');
+ await page.getByRole('button',{name:/Registrar pedido|^Finalizar$/}).filter({visible:true}).first().click();
+ await expect(page).toHaveURL(new RegExp(ORDER));
+ expect(await page.evaluate(storeId=>document.cookie.includes(`foodweb_customer_profile_v1_${storeId}=`),STORE)).toBe(false);
+ expect(await page.evaluate(storeId=>localStorage.getItem(`foodweb_recent_order_v1:${storeId}`),STORE)).toBeNull();
+});
