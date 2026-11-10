@@ -96,6 +96,9 @@ test('vitrine oficial sinaliza sob encomenda sem exibir o saldo total e mantém 
     route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ...storefrontSnapshot, products: [outOfStockProduct] }) }));
 
   await page.goto('/doce-lua');
+  const badge = page.locator('.product-card__made-to-order');
+  await expect(badge).toBeVisible();
+  await expect(badge.locator('svg[aria-hidden="true"]')).toHaveCount(1);
   await expect(page.locator('.store-point-stock')).toHaveText('Sob encomenda. Agende para amanhã no checkout.');
   await page.locator('.product-card-shell > .product-card').first().click();
   await expect(page.locator('.stock-schedule-note')).toContainText('Sob encomenda');
@@ -133,3 +136,24 @@ test('único ponto permite voltar ao estoque principal sem perder o carrinho', a
   await expect(page.getByRole('combobox', { name: 'Ponto de retirada' })).toHaveValue('');
   await expect(page.getByText('Brigadeiro teste').first()).toBeVisible();
 });
+
+for (const width of [390, 1366]) {
+  test(`ícone de encomenda depende de estoque geral conhecido em ${width}px`, async ({ page }, testInfo) => {
+    await page.setViewportSize({ width, height: 844 });
+    await mockBackend(page);
+    let item = { ...storefrontSnapshot.products[0], stock_quantity: 5, stock_reserved_quantity: 5 };
+    await page.route('**/rest/v1/rpc/food_get_public_storefront_v1', route => route.fulfill({ json: { ...storefrontSnapshot, products: [item] } }));
+    await page.goto('/doce-lua');
+    const card = page.locator('.product-card-shell').first();
+    const badge = card.locator('.product-card__made-to-order');
+    await expect(badge.locator('svg[aria-hidden="true"]')).toBeVisible();
+    await expect(card.getByRole('link', { name: 'Encomendar' })).toBeVisible();
+    await card.screenshot({ path: testInfo.outputPath(`encomenda-${width}.png`), animations: 'disabled' });
+    item = { ...item, stock_reserved_quantity: 0 };
+    await page.reload();
+    await expect(badge).toHaveCount(0);
+    item = { ...item, stock_quantity: 0, track_stock: false };
+    await page.reload();
+    await expect(badge).toHaveCount(0);
+  });
+}
