@@ -69,7 +69,7 @@ export function ProductCard({product,category,pointAvailable}:ProductCardProps){
       <button type="button" aria-label={`Diminuir ${product.name}`} onClick={()=>quantity===1?removeItem(lineId):updateQuantity(lineId,quantity-1)}><Minus size={18}/></button>
       <span aria-live="polite">{quantity} no carrinho</span>
       <button type="button" aria-label={`Adicionar ${product.name}`} disabled={quantity>=limit} onClick={add}><Plus size={18}/></button>
-    </div> : <button type="button" className="product-card-add" onClick={add} disabled={limit<1} aria-label={`Adicionar ${product.name}`}><Plus size={18}/>Adicionar</button>
+    </div> : <button type="button" className="product-card-add" onClick={add} disabled={limit<1} aria-label={`Adicionar ${product.name}`}><Plus size={18}/><span>Adicionar</span></button>
     : checkingPointStock ? <span role="status" className="product-card-checking">Consultando disponibilidade…</span>
     : <Link className="product-card-add" to={productUrl}>{outOfStock ? hasPointContext ? 'Ver disponibilidade' : 'Encomendar' : 'Escolher opções'}</Link>}
     {!outOfStock && !checkingPointStock && (simple ? <button type="button" className="product-card-buy" onClick={buyNow} disabled={!quantity&&limit<1} aria-label={`Compra relâmpago: ${product.name}`}><Zap size={14} aria-hidden="true"/>Comprar agora</button> : <Link className="product-card-buy" to={`${productPath}?${quickParams.toString()}`} aria-label={`Compra relâmpago: ${product.name}`}><Zap size={14} aria-hidden="true"/>Comprar agora</Link>)}

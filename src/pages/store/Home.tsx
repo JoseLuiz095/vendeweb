@@ -72,23 +72,31 @@ function StorefrontHome(){
     </section>
   </>;
 
+  const pointSelection = <>
+      {settings.pickupEnabled && <PickupPointSelector points={pickup.points} value={pickup.pickupLocationId} onChange={pickup.setPickupLocationId} loading={pickup.pointsLoading} error={pickup.pointsError} invalidQr={pickup.invalidQr}/>}
+      {pickup.selectedPoint && pickup.availabilityError && <p className="store-point-stock store-point-stock--warning" role="status">{pickup.availabilityError}</p>}
+  </>;
+  const orderGuide = <>
+      <details className="food-order-guide"><summary>Informações para comprar</summary><section className="food-order-summary"><div><Truck size={17}/><strong>{settings.deliveryEnabled&&settings.pickupEnabled?'Delivery ou retirada':settings.deliveryEnabled?'Delivery':'Retirada'}</strong><span>{settings.minimumOrder>0?`Pedido mínimo ${currency.format(settings.minimumOrder)}`:'Sem pedido mínimo'}</span></div><div><Sparkles size={17}/><strong>{traditionalPresentation?'Peça em poucos minutos':'Escolha com tranquilidade'}</strong><span>{traditionalPresentation?'Personalize e finalize online':'Confira os detalhes de cada item'}</span></div></section></details>
+  </>;
+
   return <>
     <StoreHeader/>
     <section id="cardapio" className="container storefront-body food-marketplace-body">
       {traditionalPresentation&&<h2 className="storefront-welcome">Escolha seu favorito</h2>}
       {!traditionalPresentation&&<div className="fitness-discovery" role="search"><label className="fitness-catalog-search"><Search size={19}/><span className="sr-only">Buscar no catálogo</span><input type="search" value={query} onChange={event=>setQuery(event.target.value)} placeholder="Buscar produtos, serviços e conteúdos"/></label><label className="fitness-type-select">Tipo<select value={catalogType} onChange={event=>setCatalogType(event.target.value as typeof catalogType)}><option value="all">Tudo</option><option value="products">Produtos</option><option value="services">Serviços</option><option value="consultations">Consultas</option><option value="content">Conteúdos</option></select></label></div>}
       <PublicBusinessOffers query={traditionalPresentation?'':query} type={traditionalPresentation?'all':catalogType}/>
-      {settings.pickupEnabled && <PickupPointSelector points={pickup.points} value={pickup.pickupLocationId} onChange={pickup.setPickupLocationId} loading={pickup.pointsLoading} error={pickup.pointsError} invalidQr={pickup.invalidQr}/>}
-      {pickup.selectedPoint && pickup.availabilityError && <p className="store-point-stock store-point-stock--warning" role="status">{pickup.availabilityError}</p>}
+      {!traditionalPresentation&&<>{pointSelection}</>}
       {!traditionalPresentation&&(catalogType==='all'||catalogType==='products')&&<section className="segment-catalog-intro" aria-label={`Catálogo de ${segment.label}`}><div><span className="eyebrow">{segment.heroEyebrow}</span><h2>{segment.heroTitle}</h2><p>{segment.heroDescription}</p></div><a href="#catalogo-produtos" className="segment-catalog-intro__link">Explorar {segment.catalogLabel.toLocaleLowerCase('pt-BR')} <ChevronRight size={17}/></a></section>}
       {segment.id==='printing3d' && settings.showWhatsApp !== false && settings.whatsapp.replace(/\D/g,'').length >= 10 && <section className="segment-custom-quote" aria-label="Projeto personalizado"><div><h2>Tem uma ideia para imprimir?</h2><p>Converse com a loja e envie os detalhes ou o arquivo pelo WhatsApp. A loja combinará preço e prazo com você.</p><small>A conversa não cria um pedido automaticamente.</small></div><a href={getWhatsAppUrl(settings.whatsapp, `Olá, ${settings.name}! Gostaria de um orçamento para uma impressão 3D personalizada.`)} target="_blank" rel="noopener noreferrer">Pedir orçamento no WhatsApp <ChevronRight size={17}/></a></section>}
-      <details className="food-order-guide"><summary>Informações para comprar</summary><section className="food-order-summary"><div><Truck size={17}/><strong>{settings.deliveryEnabled&&settings.pickupEnabled?'Delivery ou retirada':settings.deliveryEnabled?'Delivery':'Retirada'}</strong><span>{settings.minimumOrder>0?`Pedido mínimo ${currency.format(settings.minimumOrder)}`:'Sem pedido mínimo'}</span></div><div><Sparkles size={17}/><strong>{traditionalPresentation?'Peça em poucos minutos':'Escolha com tranquilidade'}</strong><span>{traditionalPresentation?'Personalize e finalize online':'Confira os detalhes de cada item'}</span></div></section></details>
+      {!traditionalPresentation&&<>{orderGuide}</>}
 
       {(traditionalPresentation||catalogType==='all'||catalogType==='products')&&<div className="food-discovery-bar">
         {traditionalPresentation&&<label className="store-search"><Search size={20}/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Buscar item no cardápio" aria-label="Buscar no cardápio"/></label>}
         <nav className="category-strip" aria-label="Categorias"><button type="button" aria-pressed={selectedCategory==='all'} className={selectedCategory==='all'?'active':''} onClick={()=>setSelectedCategory('all')}>Início</button>{categories.filter(c=>c.active).map(category=><button key={category.id} type="button" aria-pressed={selectedCategory===category.id} className={selectedCategory===category.id?'active':''} onClick={()=>setSelectedCategory(category.id)}>{category.name}</button>)}</nav>
       </div>}
 
+      {traditionalPresentation&&<>{pointSelection}{orderGuide}</>}
       {!traditionalPresentation&&<div id="catalogo-produtos" className="segment-catalog-anchor"/>}
       {(traditionalPresentation||catalogType==='all'||catalogType==='products')&&activeProducts.length===0&&<div className="empty-state" role="status"><Search size={28}/><h3>Nenhum produto publicado</h3><p>Confira os serviços e conteúdos disponíveis ou volte mais tarde.</p></div>}
       {(catalogType==='all'||catalogType==='products'||traditionalPresentation)&&!normalizedQuery&&selectedCategory==='all'&&featured.length>0&&<section className="food-featured-section"><div className="food-section-title"><div><span>{traditionalPresentation?'Para pedir sem pensar muito':'Uma seleção para começar'}</span><h2>{traditionalPresentation?'Os queridinhos da casa':'Destaques do catálogo'}</h2></div><Sparkles size={22}/></div><div className="food-featured-rail" aria-label="Produtos em destaque">{featured.map(product=>productCard(product,categories.find(category=>category.id===product.categoryId)))}</div></section>}
