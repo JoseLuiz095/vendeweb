@@ -161,6 +161,8 @@ test('desmarcar salvamento remove dados anteriores e mantém a escolha após rec
  await expect(page.getByLabel('Nome',{exact:true})).toHaveValue('Pessoa anterior');
  await page.getByRole('button',{name:/Registrar pedido|^Finalizar$/}).filter({visible:true}).first().click();
  await expect(page).toHaveURL(new RegExp(ORDER));
+ const confirmation=await page.evaluate(orderId=>JSON.parse(sessionStorage.getItem(`foodservice_order_confirmation_v1_${orderId}`)||'null'),ORDER);
+ expect(confirmation).toMatchObject({orderId:ORDER,storeId:STORE});
  expect(await page.evaluate(storeId=>document.cookie.includes(`foodweb_customer_profile_v1_${storeId}=`),STORE)).toBe(false);
  expect(await page.evaluate(storeId=>localStorage.getItem(`foodweb_recent_order_v1:${storeId}`),STORE)).toBeNull();
 });
