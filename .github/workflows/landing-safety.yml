@@ -19,4 +19,4 @@ jobs:
       - run: npm run typecheck
       - run: npm ci --prefix qa
       - run: npm exec --prefix qa -- playwright install --with-deps chromium
-      - run: npm exec --prefix qa -- playwright test --config qa/marketing-seo.config.ts --grep "falha na landing"
+      - run: npm exec --prefix qa -- playwright test --config qa/landing-safety.config.ts --grep "falha na landing"
