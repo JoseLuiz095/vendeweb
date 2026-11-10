@@ -1,4 +1,4 @@
-import { Minus, Plus, Zap } from 'lucide-react';
+import { Clock3, Minus, Plus, Zap } from 'lucide-react';
 import './product-card-quick.css';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import type { Category, Product } from '../types';
@@ -56,6 +56,7 @@ export function ProductCard({product,category,pointAvailable}:ProductCardProps){
       <span className="product-card__category">{category?.name??profile.catalogLabel}</span>
       <h3>{product.name}</h3>
       <p>{product.description}</p>
+      {profile.id==='food'&&!unavailable&&outOfStock&&!hasPointContext&&<span className="product-card__made-to-order"><Clock3 size={14} aria-hidden="true"/>Sob encomenda</span>}
       <div className="product-card__price">{product.promotionalPrice!=null?<><strong>{currency.format(product.promotionalPrice)}</strong><del>{currency.format(product.price)}</del></>:<strong>{currency.format(product.price)}</strong>}</div>
     </div>
     <div className="product-card__image-wrap">
