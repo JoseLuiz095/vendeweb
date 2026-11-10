@@ -28,7 +28,7 @@ export default function MasterDashboard(){
     setError('');
     try { const [storesResult,platformSettings,paymentRows,eventRows]=await Promise.all([
     platformApi.listStores(),platformApi.getPlatformSettings(),
-    platformApi.listSubscriptionPayments().catch(()=>null),platformApi.listPlatformEvents({limit:120}).catch(()=>null),
+    platformApi.listSubscriptionPayments().catch(()=>null),platformApi.listPlatformEvents({limit:120,result:'error'}).catch(()=>null),
     ]);setStats(await platformApi.dashboard({stores:storesResult,settings:platformSettings}));setStores(storesResult);setSettings(platformSettings);setPayments(paymentRows||[]);setEvents(eventRows||[]);setPaymentsUnavailable(paymentRows===null);setEventsUnavailable(eventRows===null);
       if(paymentRows){
         const proofs=new Set(paymentRows.filter(payment=>payment.status==='proof_sent').map(payment=>payment.id));
@@ -77,7 +77,7 @@ export default function MasterDashboard(){
         <Link to="/admin-master/pagamentos"><span className="is-payment"><CreditCard size={18}/></span><div><strong className={paymentsUnavailable?'is-unavailable':undefined}>{paymentsUnavailable?'Indisponível':pendingPayments.length}</strong><small>pagamento(s) aguardando decisão</small></div></Link>
         <Link to="/admin-master/lojas"><span className="is-overdue"><CalendarClock size={18}/></span><div><strong>{overdueStores.length}</strong><small>mensalidade(s) vencida(s)</small></div></Link>
         <Link to="/admin-master/pagamentos"><span className="is-plan"><TrendingUp size={18}/></span><div><strong className={paymentsUnavailable?'is-unavailable':undefined}>{paymentsUnavailable?'Indisponível':pendingPlanChanges.length}</strong><small>alteração(ões) de plano pendente(s)</small></div></Link>
-        <Link to="/admin-master/diagnostico"><span className="is-error"><AlertTriangle size={18}/></span><div><strong className={eventsUnavailable?'is-unavailable':undefined}>{eventsUnavailable?'Indisponível':recentErrors.length}</strong><small>falha(s) registrada(s) nas últimas 24h</small></div></Link>
+        <Link to="/admin-master/diagnostico"><span className="is-error"><AlertTriangle size={18}/></span><div><strong className={eventsUnavailable?'is-unavailable':undefined}>{eventsUnavailable?'Indisponível':`${recentErrors.length===120?'≥ ':''}${recentErrors.length}`}</strong><small>falha(s) registrada(s) nas últimas 24h</small></div></Link>
       </div>
     </section>
 
