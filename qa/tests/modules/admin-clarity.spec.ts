@@ -16,6 +16,7 @@ for (const width of [320, 390, 768, 1366]) test(`admin enxuto e ajuda acessível
   await page.goto('/admin/analytics');
   await page.getByText('Valores dos pedidos e conversão', { exact: true }).click();
   await expect(page.getByText('317 de 1000 sessões geraram pedido')).toBeVisible();
+  await page.locator('details > summary').filter({ hasText: /^Jornada de compra$/ }).click();
   const journey = page.getByRole('region', { name: 'Resumo visual da jornada' });
   await expect(journey).toContainText('1000');
   await expect(journey).toContainText('317');
