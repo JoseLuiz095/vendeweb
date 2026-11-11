@@ -1,5 +1,6 @@
 import { InfoHint } from '../components/ui/InfoHint';
 import { useCallback, useEffect, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { restFetch } from '../lib/supabaseRest';
 import { modulesApi } from './api';
@@ -21,6 +22,7 @@ const empty = (store: string): PanelData => ({ settings: disabledModules(store),
   orders: [], parts: [], items: [], receivables: [], refunds: [], customs: [], files: [], assets: [], reservations: [] });
 
 export default function ModulesPage({ master = false }: { master?: boolean }) {
+  const location = useLocation();
   const { membership } = useAuth();
   const [stores, setStores] = useState<{ id: string; name: string }[]>([]);
   const [selected, setSelected] = useState('');
@@ -36,6 +38,7 @@ export default function ModulesPage({ master = false }: { master?: boolean }) {
   const [tab, setTab] = useState('settings');
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
+  useEffect(() => { if (!master && new URLSearchParams(location.search).get('tab') === 'custom' && data.settings.custom_enabled) setTab('custom'); }, [master, location.search, data.settings.custom_enabled]);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const canManage = master || ['owner','admin','manager'].includes(membership?.role || '');
