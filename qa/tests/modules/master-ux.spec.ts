@@ -231,3 +231,30 @@ for(const width of [390,1366]) {
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
   });
 }
+
+for(const width of [390,1366]) {
+  test(`Master separa lojas desativadas e preserva pesquisa em ${width}px`,async({page})=>{
+    await page.setViewportSize({width,height:844});
+    await mockBackend(page,{auth:true,master:true});
+    await page.route('**/rest/v1/food_stores?**',route=>route.fulfill({json:[store,{...store,id:'inactive-store-id',name:'Loja Desativada',slug:'loja-desativada',access_status:'suspended'}]}));
+    await page.goto('/admin-master/lojas');
+    const region=page.getByRole('region',{name:'Lojas e uso'});
+    const online=page.getByRole('button',{name:/Lojas online/});
+    const inactive=page.getByRole('button',{name:/Desativadas/});
+    await expect(online).toHaveAttribute('aria-pressed','true');
+    await expect(region.getByText(store.name,{exact:true})).toBeVisible();
+    await expect(region.getByText('Loja Desativada',{exact:true})).toHaveCount(0);
+    await inactive.click();
+    await expect(inactive).toHaveAttribute('aria-pressed','true');
+    await expect(region.getByText('Loja Desativada',{exact:true})).toBeVisible();
+    await expect(region.getByText(store.name,{exact:true})).toHaveCount(0);
+    await expect(region.getByLabel('Status de Loja Desativada')).toHaveValue('suspended');
+    await page.getByLabel('Buscar lojas').fill('não existe');
+    await expect(page.getByRole('heading',{name:'Nenhuma loja corresponde aos filtros'})).toBeVisible();
+    await page.getByRole('button',{name:'Limpar filtros'}).click();
+    await expect(region.getByText('Loja Desativada',{exact:true})).toBeVisible();
+    await page.reload();
+    await expect(inactive).toHaveAttribute('aria-pressed','true');
+    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
+  });
+}

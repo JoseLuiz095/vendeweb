@@ -201,7 +201,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch (e) {
       const message = e instanceof Error ? e.message : 'Não foi possível entrar.';
       setError(message);
-      if (!isDemoMode) await getSupabaseClient().auth.signOut().catch(() => undefined);
+      if (!isDemoMode) await getSupabaseClient().auth.signOut({ scope: 'local' }).catch(() => undefined);
       clearAccess();
       return false;
     } finally { setLoading(false); }
@@ -209,7 +209,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = useCallback(async () => {
     if (isDemoMode) localStorage.removeItem(DEMO_AUTH_KEY);
-    else await getSupabaseClient().auth.signOut();
+    else await getSupabaseClient().auth.signOut({ scope: 'local' });
     clearAccess();
     setError('');
   }, [clearAccess]);

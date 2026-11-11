@@ -18,6 +18,7 @@ import { customStorefrontUrl, publicStorefrontUrl } from '../../utils/storefront
 import { ErrorState, LoadingState } from '../../components/ui/AsyncState';
 import { firstChargeAfterFreeMonths } from '../../utils/introBilling';
 import { MasterStoreTools } from './MasterStoreTools';
+import { knownStoreSlugTaken, storeSlugValidation, STORE_SLUG_TAKEN } from '../../utils/storeSlug';
 
 const publicUrlFor = (store: PlatformStoreSummary) => customStorefrontUrl(store.customDomain) || publicStorefrontUrl(store.slug, platformOrigin());
 const dateOnly = (value?: string) => value ? value.slice(0,10) : '';
@@ -58,7 +59,8 @@ export default function MasterStores(){
   const[loading,setLoading]=useState(true);
   const[loadError,setLoadError]=useState('');
   const[query,setQuery]=useState(()=>searchParams.get('q')||'');
-  const[filter,setFilter]=useState<StoreFilter>(()=>{const value=searchParams.get('stage');return ['paying','trial','onboarding','attention','suspended'].includes(value||'')?value as StoreFilter:'all'});
+  const[filter,setFilter]=useState<StoreFilter>(()=>{const value=searchParams.get('stage');return ['paying','courtesy','trial','onboarding','attention'].includes(value||'')?value as StoreFilter:'all'});
+  const[storeTab,setStoreTab]=useState<'online'|'suspended'>(()=>searchParams.get('status')==='suspended'||searchParams.get('stage')==='suspended'?'suspended':'online');
   const[segmentFilter,setSegmentFilter]=useState<BusinessSegment|'all'>('all');
   const[page,setPage]=useState(1);
   const[expandedStoreId,setExpandedStoreId]=useState('');
@@ -75,6 +77,8 @@ export default function MasterStores(){
   const modalBusy=useRef(false);
   modalBusy.current=saving||credentialSaving;
   const[showPassword,setShowPassword]=useState(false);
+  const[slugEdited,setSlugEdited]=useState(false);
+  const[serverSlugConflict,setServerSlugConflict]=useState('');
   const[showEditPassword,setShowEditPassword]=useState(false);
   const[confirmTemporaryPassword,setConfirmTemporaryPassword]=useState('');
   const[editAccessForm,setEditAccessForm]=useState({email:'',password:'',confirmPassword:'',forcePasswordChange:true,linkOwner:false});
@@ -104,9 +108,10 @@ export default function MasterStores(){
   useEffect(()=>{
     const next=new URLSearchParams(searchParams);
     if(query.trim())next.set('q',query);else next.delete('q');
-    if(filter!=='all')next.set('stage',filter);else next.delete('stage');
+    if(filter!=='all'&&storeTab==='online')next.set('stage',filter);else next.delete('stage');
+    if(storeTab==='suspended')next.set('status','suspended');else next.delete('status');
     if(next.toString()!==searchParams.toString())setSearchParams(next,{replace:true});
-  },[query,filter,searchParams,setSearchParams]);
+  },[query,filter,storeTab,searchParams,setSearchParams]);
 
   const checkCreateFunction=async()=>{
     try{
@@ -144,8 +149,8 @@ export default function MasterStores(){
   },[creating,Boolean(editing)]);
 
   const commercialCounts=useMemo(()=>{
-    const counts:Record<StoreFilter,number>={all:stores.length,paying:0,courtesy:0,trial:0,onboarding:0,attention:0,suspended:0};
-    for(const store of stores)counts[storeCommercialStage(store,platformSettings.demoWarningDays).key]++;
+    const counts:Record<StoreFilter,number>={all:0,paying:0,courtesy:0,trial:0,onboarding:0,attention:0,suspended:0};
+    for(const store of stores){if(store.accessStatus==='suspended'){counts.suspended++;continue;}counts.all++;counts[storeCommercialStage(store,platformSettings.demoWarningDays).key]++;}
     return counts;
   },[stores,platformSettings.demoWarningDays]);
 
@@ -156,20 +161,22 @@ export default function MasterStores(){
       const haystack=searchableText([store.name,store.slug,store.city,store.state,store.ownerName,store.ownerEmail,store.planName,segment.label].filter(Boolean).join(' '));
       const matchesQuery=terms.every(term=>haystack.includes(term));
       const stage=storeCommercialStage(store,platformSettings.demoWarningDays);
-      return matchesQuery&&(filter==='all'||stage.key===filter)&&(segmentFilter==='all'||segment.id===segmentFilter);
+      return (storeTab==='suspended'?store.accessStatus==='suspended':store.accessStatus!=='suspended')&&matchesQuery&&(storeTab==='suspended'||filter==='all'||stage.key===filter)&&(segmentFilter==='all'||segment.id===segmentFilter);
     });
-  },[stores,query,filter,segmentFilter,platformSettings.demoWarningDays]);
+  },[stores,query,filter,storeTab,segmentFilter,platformSettings.demoWarningDays]);
   const pageCount=Math.max(1,Math.ceil(filtered.length/STORE_PAGE_SIZE));
   const currentPage=Math.min(page,pageCount);
   const firstResult=(currentPage-1)*STORE_PAGE_SIZE;
   const pageStores=filtered.slice(firstResult,firstResult+STORE_PAGE_SIZE);
-  const hasFilters=Boolean(query.trim()||filter!=='all'||segmentFilter!=='all');
+  const hasFilters=Boolean(query.trim()||(storeTab==='online'&&filter!=='all')||segmentFilter!=='all');
+  const changeStoreTab=(tab:'online'|'suspended')=>{setStoreTab(tab);setFilter('all');setPage(1);setExpandedStoreId('');};
   const clearFilters=()=>{setQuery('');setFilter('all');setSegmentFilter('all');setPage(1)};
 
   const selectableCreatePlans=plans.filter((plan)=>plan.active&&(platformSettings.demoEnabled||plan.code!=='DEMO'));
   const selectedCreatePlan=plans.find((plan)=>plan.id===createForm.planId);
   const selectedEditPlan=editing?plans.find((plan)=>plan.id===editing.planId):undefined;
   const emailError=createForm.ownerEmail?emailValidationMessage(createForm.ownerEmail):'';
+  const slugError=storeSlugValidation(createForm.slug)||(knownStoreSlugTaken(createForm.slug,stores)||Boolean(createForm.slug&&serverSlugConflict===createForm.slug) ? STORE_SLUG_TAKEN : '');
   const passwordError=createForm.credentialMode==='temporary_password'&&createForm.temporaryPassword?temporaryPasswordValidationMessage(createForm.temporaryPassword):'';
   const editEmailError=editAccessForm.email?emailValidationMessage(editAccessForm.email):'';
   const editPasswordError=editAccessForm.password?temporaryPasswordValidationMessage(editAccessForm.password):'';
@@ -257,6 +264,7 @@ export default function MasterStores(){
 
   const createStore=async(e:FormEvent)=>{
     e.preventDefault();if(saving)return;
+    if(slugError){showToast(slugError,'error');return;}
     const validation=emailValidationMessage(createForm.ownerEmail);
     if(validation){showToast(validation,'error');return;}
     if(createForm.credentialMode==='temporary_password'){
@@ -272,10 +280,10 @@ export default function MasterStores(){
       else if(result.createdWithPassword)showToast('Loja e usuário criados com senha temporária. O cliente deverá trocá-la no primeiro acesso.','success');
       else if(result.invited)showToast('Loja criada e convite enviado ao responsável.','success');
       else showToast('Loja criada.','success');
-      setCreating(false);setConfirmTemporaryPassword('');
+      setCreating(false);setConfirmTemporaryPassword('');setSlugEdited(false);setServerSlugConflict('');
       setCreateForm((f)=>({...f,name:'',slug:'',ownerName:'',ownerEmail:'',customDomain:'',temporaryPassword:'',credentialMode:'invite',forcePasswordChange:true,billingExempt:false}));
       await reload();
-    }catch(err){showToast(err instanceof Error?err.message:'Falha ao criar loja.','error')}
+    }catch(err){if(err instanceof Error&&err.message===STORE_SLUG_TAKEN)setServerSlugConflict(createForm.slug);showToast(err instanceof Error?err.message:'Falha ao criar loja.','error')}
     finally{setSaving(false)}
   };
 
@@ -286,8 +294,8 @@ export default function MasterStores(){
     {createFunctionReady===true&&<div className="master-service-ok"><CloudCog size={16}/> Serviço de criação de lojas disponível</div>}
 
     <section className="admin-card no-padding master-store-table">
-      <div className="master-client-toolbar"><div className="table-toolbar"><div className="admin-search"><Search size={18}/><input aria-label="Buscar lojas" type="search" value={query} onChange={(e)=>{setQuery(e.target.value);setPage(1)}} placeholder="Buscar loja, responsável, plano ou cidade..."/></div><span aria-live="polite">{loading?'Atualizando lojas…':loadError?'Lista indisponível':`${filtered.length} de ${stores.length} lojas`}</span></div><div className="master-store-refinements"><label>Segmento principal<select value={segmentFilter} onChange={(event)=>{setSegmentFilter(event.target.value as BusinessSegment|'all');setPage(1)}}><option value="all">Todos os segmentos</option>{BUSINESS_SEGMENTS.map(segment=><option key={segment.id} value={segment.id}>{segment.label}</option>)}</select></label>{hasFilters&&filtered.length>0&&<button type="button" className="secondary-button compact-button" onClick={clearFilters}>Limpar filtros</button>}</div><div className="master-client-filters" role="group" aria-label="Filtrar clientes por etapa comercial">{([['all','Todas'],['paying','Clientes ativos'],['courtesy','Cortesias'],['trial','Demos'],['onboarding','Implantação'],['attention','Atenção'],['suspended','Suspensas']] as [StoreFilter,string][]).map(([key,label])=><button type="button" key={key} aria-pressed={filter===key} className={filter===key?'active':''} onClick={()=>{setFilter(key);setPage(1)}}><span>{label}</span><b>{commercialCounts[key]}</b></button>)}</div></div>
-      {loading?<div role="status"><LoadingState label="Carregando lojas e assinaturas…"/></div>:loadError?<div role="alert"><ErrorState message={loadError} onRetry={()=>void reload()}/></div>:filtered.length===0?<div className="master-store-empty"><h2>{stores.length?'Nenhuma loja corresponde aos filtros':'Sua primeira loja começa aqui'}</h2><p>{stores.length?'Tente outro nome ou remova os filtros para ver todas as lojas.':'Cadastre o estabelecimento e o acesso de quem vai administrá-lo.'}</p><button className="secondary-button" onClick={()=>{if(stores.length){clearFilters()}else setCreating(true)}}>{stores.length?'Limpar filtros':'Criar primeira loja'}</button></div>:<><p className="master-table-scroll-note master-store-card-note">Em telas menores, abra os detalhes de uma loja para ver plano, cobrança e endereço.</p><p className="master-table-scroll-note master-store-wide-note">Deslize a tabela para consultar todas as colunas e ações.</p><div className="responsive-table" role="region" aria-label="Lojas e uso" tabIndex={0}><table><thead><tr><th scope="col">Loja</th><th scope="col">Plano</th><th scope="col">Acesso</th><th scope="col">Uso</th><th scope="col">Mensalidade</th><th scope="col">Vencimento</th><th scope="col">URL</th><th scope="col">Ações</th></tr></thead><tbody>{pageStores.map((store)=>{
+      <div className="master-client-toolbar"><div className="master-store-status-tabs" role="group" aria-label="Situação das lojas"><button type="button" aria-pressed={storeTab==='online'} onClick={()=>changeStoreTab('online')}><span>Lojas online</span><b>{commercialCounts.all}</b></button><button type="button" aria-pressed={storeTab==='suspended'} onClick={()=>changeStoreTab('suspended')}><span>Desativadas</span><b>{commercialCounts.suspended}</b></button></div><p className="master-store-status-caption">{storeTab==='online'?'Lojas com acesso à plataforma.':'Lojas sem acesso; os dados continuam salvos e podem ser reativadas.'}</p><div className="table-toolbar"><div className="admin-search"><Search size={18}/><input aria-label="Buscar lojas" type="search" value={query} onChange={(e)=>{setQuery(e.target.value);setPage(1)}} placeholder="Buscar loja, responsável, plano ou cidade..."/></div><span aria-live="polite">{loading?'Atualizando lojas…':loadError?'Lista indisponível':`${filtered.length} de ${storeTab==='online'?commercialCounts.all:commercialCounts.suspended} lojas`}</span></div><div className="master-store-refinements"><label>Segmento principal<select value={segmentFilter} onChange={(event)=>{setSegmentFilter(event.target.value as BusinessSegment|'all');setPage(1)}}><option value="all">Todos os segmentos</option>{BUSINESS_SEGMENTS.map(segment=><option key={segment.id} value={segment.id}>{segment.label}</option>)}</select></label>{hasFilters&&filtered.length>0&&<button type="button" className="secondary-button compact-button" onClick={clearFilters}>Limpar filtros</button>}</div>{storeTab==='online'&&<div className="master-client-filters" role="group" aria-label="Filtrar clientes por etapa comercial">{([['all','Todas'],['paying','Clientes ativos'],['courtesy','Cortesias'],['trial','Demos'],['onboarding','Implantação'],['attention','Atenção']] as [StoreFilter,string][]).map(([key,label])=><button type="button" key={key} aria-pressed={filter===key} className={filter===key?'active':''} onClick={()=>{setFilter(key);setPage(1)}}><span>{label}</span><b>{commercialCounts[key]}</b></button>)}</div>}</div>
+      {loading?<div role="status"><LoadingState label="Carregando lojas e assinaturas…"/></div>:loadError?<div role="alert"><ErrorState message={loadError} onRetry={()=>void reload()}/></div>:filtered.length===0?<div className="master-store-empty"><h2>{hasFilters?'Nenhuma loja corresponde aos filtros':storeTab==='suspended'?'Nenhuma loja desativada':stores.length?'Nenhuma loja online':'Sua primeira loja começa aqui'}</h2><p>{hasFilters?'Tente outro nome ou limpe os filtros.':storeTab==='suspended'?'As lojas desativadas aparecerão aqui para consulta e reativação.':stores.length?'Consulte as lojas desativadas para reativar o acesso.':'Cadastre o estabelecimento e o acesso de quem vai administrá-lo.'}</p>{hasFilters?<button className="secondary-button" onClick={clearFilters}>Limpar filtros</button>:storeTab==='online'&&stores.length?<button className="secondary-button" onClick={()=>changeStoreTab('suspended')}>Ver desativadas</button>:storeTab==='online'&&!stores.length?<button className="secondary-button" onClick={()=>setCreating(true)}>Criar primeira loja</button>:null}</div>:<><p className="master-table-scroll-note master-store-card-note">Em telas menores, abra os detalhes de uma loja para ver plano, cobrança e endereço.</p><p className="master-table-scroll-note master-store-wide-note">Deslize a tabela para consultar todas as colunas e ações.</p><div className="responsive-table" role="region" aria-label="Lojas e uso" tabIndex={0}><table><thead><tr><th scope="col">Loja</th><th scope="col">Plano</th><th scope="col">Acesso</th><th scope="col">Uso</th><th scope="col">Mensalidade</th><th scope="col">Vencimento</th><th scope="col">URL</th><th scope="col">Ações</th></tr></thead><tbody>{pageStores.map((store)=>{
         const warning=trialLabel(store);const isWarning=store.planCode==='DEMO'&&store.subscriptionStatus==='trial'&&!trialExpired(store.expiresAt)&&daysUntil(store.expiresAt)<=platformSettings.demoWarningDays;
         const stage=storeCommercialStage(store,platformSettings.demoWarningDays);
         const paymentOverdue=store.planCode!=='DEMO'&&store.billingMode!=='complimentary'&&isPastDate(store.nextDueDate);
@@ -307,9 +315,9 @@ export default function MasterStores(){
     {creating&&<div className="modal-overlay"><form className="master-modal master-modal--wide" role="dialog" aria-modal="true" aria-labelledby="master-create-title" onSubmit={createStore}><button type="button" className="modal-close" aria-label="Fechar criação de loja" disabled={saving} onClick={()=>setCreating(false)}><X/></button><h2 id="master-create-title">Criar loja e acesso do responsável</h2><InfoHint>Escolha como o responsável receberá o acesso. O catálogo, os pedidos e a equipe ficam separados por loja.</InfoHint>
       {createFunctionReady===false&&<div className="master-warning"><TriangleAlert size={18}/><span>Não será possível concluir enquanto <code>food-platform-create-store</code> não estiver publicada no Supabase.</span></div>}
       <div className="form-grid">
-        <label className="full">Nome da loja<input required minLength={2} maxLength={120} value={createForm.name} onChange={(e)=>setCreateForm((f)=>({...f,name:e.target.value,slug:f.slug||slugify(e.target.value)}))}/></label>
+        <label className="full">Nome da loja<input required minLength={2} maxLength={120} value={createForm.name} onChange={(e)=>{const name=e.target.value;setCreateForm((f)=>({...f,name,slug:slugEdited?f.slug:slugify(name).slice(0,80).replace(/-+$/,'')}))}}/></label>
         <div className="full"><BusinessSegmentPicker compact value={createForm.businessSegment} onChange={(businessSegment)=>setCreateForm((current)=>({...current,businessSegment,credentialMode:businessSegment==='fitness'?'invite':current.credentialMode,planId:businessSegment==='fitness'?(selectableCreatePlans.find(plan=>plan.code==='PROFESSIONAL')?.id||current.planId):current.planId,billingExempt:businessSegment==='fitness'?true:false}))}/></div>
-        <label>Slug / endereço<input required value={createForm.slug} onChange={(e)=>setCreateForm((f)=>({...f,slug:slugify(e.target.value)}))}/></label>
+        <label>Endereço da loja<input required maxLength={80} value={createForm.slug} aria-invalid={Boolean(slugError)} aria-describedby="create-slug-help" onChange={(e)=>{setSlugEdited(true);setCreateForm((f)=>({...f,slug:slugify(e.target.value)}))}}/><small id="create-slug-help">{slugError||`Endereço da vitrine: /${createForm.slug||'nome-da-loja'}. Você pode personalizá-lo.`}</small>{slugEdited&&<button type="button" className="secondary-button" onClick={()=>{setSlugEdited(false);setServerSlugConflict('');setCreateForm(f=>({...f,slug:slugify(f.name).slice(0,80).replace(/-+$/,'')}))}}>Usar nome da loja</button>}</label>
         <label>Plano<select value={createForm.planId} onChange={(e)=>{const plan=plans.find((p)=>p.id===e.target.value);setCreateForm((f)=>({...f,planId:e.target.value,customDomain:plan?.customDomain?f.customDomain:''}))}}>{selectableCreatePlans.map((p)=><option value={p.id} key={p.id}>{p.name} · {p.code==='DEMO'?'grátis':`${currency.format(p.monthlyPrice||0)}/mês`}</option>)}</select></label>
         {!platformSettings.demoEnabled&&<div className="full demo-plan-create-note demo-disabled-note"><strong>Novas Demos estão desabilitadas</strong><span>Você pode habilitar novamente em Admin Master → Planos. Clientes que já estão em Demo continuam normalmente.</span></div>}
         {selectedCreatePlan?.code==='DEMO'&&<div className="full demo-plan-create-note"><strong>Demonstração por {platformSettings.demoDurationDays} dias</strong><span>O Admin Master será avisado {platformSettings.demoWarningDays} dias antes do vencimento. Ao vencer, vitrine e painel serão pausados automaticamente, preservando todos os dados.</span></div>}
@@ -327,7 +335,7 @@ export default function MasterStores(){
         {createForm.credentialMode==='temporary_password'&&<div className="temporary-password-grid"><label>Senha temporária<div className="input-with-icon"><KeyRound size={17}/><input required minLength={10} value={createForm.temporaryPassword} onChange={(e)=>setCreateForm((f)=>({...f,temporaryPassword:e.target.value}))} type={showPassword?'text':'password'} autoComplete="new-password"/><button type="button" onClick={()=>setShowPassword((v)=>!v)} aria-label="Mostrar senha">{showPassword?<EyeOff size={17}/>:<Eye size={17}/>}</button></div><small className={passwordError?'field-help-error':''}>{passwordError||'Mínimo 10 caracteres, com maiúscula, minúscula e número.'}</small></label><label>Confirmar senha<input required minLength={10} value={confirmTemporaryPassword} onChange={(e)=>setConfirmTemporaryPassword(e.target.value)} type={showPassword?'text':'password'} autoComplete="new-password"/></label><label className="full checkbox-row"><input type="checkbox" checked={createForm.forcePasswordChange} onChange={(e)=>setCreateForm((f)=>({...f,forcePasswordChange:e.target.checked}))}/>Exigir troca da senha no primeiro acesso</label></div>}
       </div>
 
-      <div className="master-modal-actions"><button type="button" className="secondary-button" onClick={()=>setCreating(false)}>Cancelar</button><button className="primary-button" disabled={saving||createFunctionReady===false||Boolean(emailError)||Boolean(passwordError)}>{saving?'Criando...':createForm.credentialMode==='invite'?'Criar loja e enviar convite':'Criar loja e usuário'}</button></div>
+      <div className="master-modal-actions"><button type="button" className="secondary-button" onClick={()=>setCreating(false)}>Cancelar</button><button className="primary-button" disabled={saving||createFunctionReady===false||Boolean(emailError)||Boolean(passwordError)||Boolean(slugError)}>{saving?'Criando...':createForm.credentialMode==='invite'?'Criar loja e enviar convite':'Criar loja e usuário'}</button></div>
     </form></div>}
 
     {editing&&<div className="modal-overlay"><div className="master-modal master-modal--wide" role="dialog" aria-modal="true" aria-labelledby="master-edit-title"><button type="button" className="modal-close" aria-label="Fechar gestão da loja" disabled={saving||credentialSaving} onClick={()=>setEditing(null)}><X/></button><h2 id="master-edit-title">{editing.name}</h2><div className="master-store-identity"><strong>Administrando esta loja</strong><a href={publicUrlFor(editing)} target="_blank" rel="noreferrer">/{editing.slug}</a><span>{[editing.city,editing.state].filter(Boolean).join(' / ')||'Localização não informada'}</span></div><p>Suspender acesso não apaga a loja, produtos, pedidos nem vínculos de usuários. Ao reativar, os acessos anteriores voltam a funcionar.</p>
