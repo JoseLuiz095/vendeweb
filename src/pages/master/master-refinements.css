@@ -172,3 +172,12 @@
 .master-shell .master-event-action-table th,.master-shell .master-event-action-table td{white-space:normal}
 @media(max-width:760px){.master-shell .master-event-filters{grid-template-columns:1fr 1fr}.master-shell .master-event-filters .master-event-search{grid-column:1/-1}.master-shell .master-event-filters>span{grid-column:1/-1;padding:0}.master-shell .master-event-summary{grid-template-columns:1fr 1fr 1fr}}
 @media(max-width:420px){.master-shell .master-event-summary article{padding:10px}.master-shell .master-event-summary strong{font-size:1.05rem}}
+
+/* Organiza o acesso sem apagar lojas e mantém a navegação compacta no celular. */
+.master-shell .master-store-status-tabs{display:flex;gap:8px;padding:16px 16px 0;flex-wrap:wrap}
+.master-shell .master-store-status-tabs button{display:inline-flex;align-items:center;gap:10px;min-height:44px;padding:8px 14px;border:1px solid var(--food-admin-line,#dedbd5);border-radius:10px;background:#fff;color:inherit;font:inherit;font-weight:600;cursor:pointer}
+.master-shell .master-store-status-tabs button[aria-pressed="true"]{border-color:#34704e;background:#eaf5ed;color:#225b3a}
+.master-shell .master-store-status-tabs button:focus-visible{outline:2px solid #34704e;outline-offset:2px}
+.master-shell .master-store-status-tabs b{min-width:26px;text-align:center;padding:2px 6px;border-radius:999px;background:rgba(34,91,58,.1);font-size:.8rem}
+.master-shell .master-store-status-caption{margin:8px 16px 0;color:var(--food-admin-muted,#706f69);font-size:.85rem}
+@media(max-width:600px){.master-shell .master-store-status-tabs{padding:4px 0 0}.master-shell .master-store-status-tabs button{flex:1;justify-content:center}.master-shell .master-store-status-caption{margin:8px 0 0}}
