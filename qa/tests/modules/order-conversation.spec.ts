@@ -37,3 +37,27 @@ test('pedido da loja permite emitir link sem criar pedido',async({page})=>{
   await expect(page.getByLabel('Link privado')).toHaveValue(/\/conversa\/pedido#/);
   expect(writes.some(item=>item.url.endsWith('food-public-checkout'))).toBe(false);
 });
+
+test('atualização antiga não oculta mensagem recém enviada',async({page})=>{
+  await mockBackend(page);
+  let listCount=0;
+  let releaseOld!:()=>void;
+  const oldResponse=new Promise<void>(resolve=>{releaseOld=resolve;});
+  await page.route('**/functions/v1/food-order-conversation',async route=>{
+    const body=route.request().postDataJSON();
+    if(body.action==='customer_send')return route.fulfill({json:{messages:[{id:'new',sender:'customer',body:'Mensagem recente',createdAt:'2026-11-10T10:00:00Z'}]}});
+    listCount++;
+    if(listCount===2)await oldResponse;
+    return route.fulfill({json:{messages:[]}});
+  });
+  await page.goto(`/conversa/pedido#${'a'.repeat(43)}`);
+  await expect(page.getByText('Nenhuma mensagem ainda.')).toBeVisible();
+  await page.getByRole('button',{name:'Atualizar'}).click();
+  await expect.poll(()=>listCount).toBe(2);
+  await page.getByLabel('Escreva uma mensagem').fill('Mensagem recente');
+  await page.getByRole('button',{name:'Enviar mensagem'}).click();
+  await expect(page.getByText('Mensagem recente',{exact:true})).toBeVisible();
+  const oldFinished=page.waitForResponse(response=>response.url().includes('/food-order-conversation')&&response.request().postDataJSON().action==='customer_list');
+  releaseOld();await oldFinished;
+  await expect(page.getByText('Mensagem recente',{exact:true})).toBeVisible();
+});
