@@ -5,12 +5,7 @@ import type { BusinessSegment } from '../segments/businessSegments';
 export async function saveNewStorePresentation(storeId: string, segment?: BusinessSegment, masterUpdate = false): Promise<string | undefined> {
   if (!segment) return;
   try {
-    let existing=false;
-    if(masterUpdate){
-      const status=await restFetch<{profile?:{primary_segment:string}}>('rpc/food_business_status',{method:'POST',body:{p_store:storeId}});
-      existing=Boolean(status?.profile);
-    }
-    if(existing)await restFetch('rpc/food_business_master',{method:'POST',body:{p_action:'set_segment',p_store:storeId,p_data:{segment}}});
+    if(masterUpdate)await restFetch('rpc/food_business_master',{method:'POST',body:{p_action:'set_segment',p_store:storeId,p_data:{segment}}});
     else await restFetch('rpc/food_business_initialize',{method:'POST',body:{p_store:storeId,p_segment:segment}});
     const verified=await restFetch<{profile?:{primary_segment:string}}>('rpc/food_business_status',{method:'POST',body:{p_store:storeId}});
     if(verified?.profile?.primary_segment!==segment)throw new Error('Perfil não confirmado pelo servidor.');
