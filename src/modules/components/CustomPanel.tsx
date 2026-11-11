@@ -1,4 +1,5 @@
 import { InfoHint } from '../../components/ui/InfoHint';
+import { Box, CalendarDays, Paperclip, Search, Sparkles } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import PrintCalculator from './PrintCalculator';
 import { moduleMoney } from '../calculator';
@@ -12,6 +13,7 @@ export default function CustomPanel({ requests, files, command, busy, urgencyBps
   const [editing, setEditing] = useState<CustomRequest>();
   const [quote, setQuote] = useState<PrintCosts>();
   const [urgent, setUrgent] = useState(false);
+  const [formOpen, setFormOpen] = useState(requests.length === 0);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const visibleRequests = useMemo(() => {
@@ -27,10 +29,13 @@ export default function CustomPanel({ requests, files, command, busy, urgencyBps
     setUploading(true);
     try { await modulesApi.upload(request, file); await reload(); } catch (e) { onError((e as Error).message); } finally { setUploading(false); }
   };
-  return <><PrintCalculator urgencyBps={urgencyBps} onApply={(costs, finalCents, isUrgent) => { setQuote(costs); setUrgent(isUrgent); setForm({ ...form, final: (finalCents / 100).toFixed(2) }); }} />
-    <section className="module-card"><h2>Pedidos personalizados e avulsos</h2><InfoHint label="Sobre Pedidos personalizados e avulsos">Organize peças, brindes e encomendas. A conversa e a aprovação da arte acontecem pelo WhatsApp.</InfoHint>
-      <p>Registre os detalhes do projeto e combine a arte e o prazo com o cliente. O preço é definido pela loja.</p>
-      <form onSubmit={async e => { e.preventDefault(); if (await command('custom_save', { ...form, id: editing?.id, quote, urgent, final_cents: form.final === '' ? null : Math.round(Number(form.final) * 100), due_at: new Date(form.due_at).toISOString() })) { setEditing(undefined); setForm(empty); setQuote(undefined); } }}>
+  return <section className="module-card custom-workspace"><header className="custom-heading"><span className="custom-icon"><Box size={23}/></span><div><span className="custom-eyebrow">PROJETOS PERSONALIZADOS</span><h2>Orçamentos e personalizados</h2></div><InfoHint label="Sobre orçamentos personalizados">Organize peças, brindes e encomendas. A conversa e a aprovação da arte acontecem pelo WhatsApp.</InfoHint></header>
+      <p>Cadastre o projeto, acompanhe o prazo e combine a arte com o cliente.</p>
+      <div className="custom-guide"><Sparkles size={19}/><div><strong>Como começar</strong><span>1. Cadastre o orçamento · 2. Anexe os arquivos no cartão salvo · 3. Acompanhe a situação</span></div></div>
+      <details className="module-card" open={formOpen} onToggle={e=>setFormOpen(e.currentTarget.open)}><summary>{editing ? 'Editar orçamento' : 'Cadastrar orçamento'}</summary>
+      <p>Preencha os dados do cliente e da peça. O preço é definido pela loja.</p>
+      <details className="module-card"><summary>Calcular preço sugerido (opcional)</summary><PrintCalculator urgencyBps={urgencyBps} onApply={(costs, finalCents, isUrgent) => { setQuote(costs); setUrgent(isUrgent); setForm(current=>({ ...current, final: (finalCents / 100).toFixed(2) })); }} /></details>
+      <form onSubmit={async e => { e.preventDefault(); if (await command('custom_save', { ...form, id: editing?.id, quote, urgent, final_cents: form.final === '' ? null : Math.round(Number(form.final) * 100), due_at: new Date(form.due_at).toISOString() })) { setEditing(undefined); setForm(empty); setQuote(undefined); setUrgent(false); setFormOpen(false); } }}>
         <div className="module-grid">
           <label>Cliente ou empresa<input required readOnly={!!editing} minLength={2} maxLength={120} value={form.customer_name} onChange={e => setForm({ ...form, customer_name: e.target.value })} /></label>
           <label>WhatsApp<input required readOnly={!!editing} type="tel" value={form.customer_phone} onChange={e => setForm({ ...form, customer_phone: e.target.value })} /></label>
@@ -42,20 +47,22 @@ export default function CustomPanel({ requests, files, command, busy, urgencyBps
           <label>Situação<select value={form.status} onChange={e => setForm({ ...form, status: e.target.value })}><option value="quote">Orçamento</option><option value="artwork_whatsapp">Arte pelo WhatsApp</option><option value="approved">Aprovado</option><option value="rejected">Recusado</option><option value="completed">Concluído</option></select></label>
           <label>Preço final por unidade (R$)<input type="number" min="0" step="0.01" value={form.final} onChange={e => setForm({ ...form, final: e.target.value })} /></label>
         </div>{editing && <p>Os dados de contato não podem ser alterados nesta edição.</p>}<label>Observações<textarea maxLength={2000} value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} /></label>
-        <div className="module-actions"><button className="button button-primary" disabled={busy}>{editing ? 'Atualizar pedido' : 'Salvar orçamento'}</button>{editing && <button type="button" className="button" onClick={() => { setEditing(undefined); setForm(empty); setQuote(undefined); }}>Novo pedido</button>}</div>
-      </form>
+        <p className="custom-help"><Paperclip size={16}/> Após salvar, use a área “Arquivos do projeto” no cartão do orçamento para anexar fotos ou modelos.</p><div className="module-actions"><button className="button button-primary" disabled={busy}>{editing ? 'Atualizar pedido' : 'Salvar orçamento'}</button>{editing && <button type="button" className="button" onClick={() => { setEditing(undefined); setForm(empty); setQuote(undefined); }}>Novo pedido</button>}</div>
+      </form></details>
+      <div className="custom-list-title"><div><span className="custom-eyebrow">ACOMPANHAMENTO</span><h3>Seus orçamentos</h3></div><span>{requests.length} {requests.length===1?'registrado':'registrados'}</span></div>
       {!!requests.length && <div className="module-grid">
         <label>Buscar pedidos<input type="search" value={search} onChange={e => setSearch(e.target.value)} placeholder="Cliente, telefone, material ou cor" /></label>
         <label>Filtrar situação<select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}><option value="all">Todas</option><option value="quote">Orçamento</option><option value="artwork_whatsapp">Arte pelo WhatsApp</option><option value="approved">Aprovado</option><option value="rejected">Recusado</option><option value="completed">Concluído</option></select></label>
       </div>}
-      {!requests.length && <p>Nenhum orçamento cadastrado ainda. Preencha os dados acima para iniciar.</p>}
+      {!requests.length && <div className="custom-empty"><Search size={24}/><strong>Nenhum orçamento cadastrado</strong><p>Salve o primeiro orçamento acima. Depois dele, você poderá anexar os arquivos do projeto.</p></div>}
       {!!requests.length && !visibleRequests.length && <p>Nenhum pedido encontrado com esses filtros.</p>}
       {requests.length >= 200 && <p>A lista mostra até 200 pedidos. Pedidos adicionais podem não aparecer.</p>}
-      {visibleRequests.map(r => <article key={r.id} className="module-card"><div className="module-row"><div><strong>{r.customer_name} · {r.quantity} un.</strong><p>{r.size} · {r.material} · {r.color}</p><p>Situação: {({ quote: 'Orçamento', artwork_whatsapp: 'Arte pelo WhatsApp', approved: 'Aprovado', rejected: 'Recusado', completed: 'Concluído' } as Record<string, string>)[r.status] || r.status} · Prazo: {new Date(r.due_at).toLocaleString('pt-BR')}</p><p>{r.final_cents === null ? 'Sem preço fechado' : `${moduleMoney(r.final_cents)} por unidade · total ${moduleMoney(r.final_cents * r.quantity)}`}</p></div>
-        <button className="button" onClick={() => { setEditing(r); setQuote(r.quote || undefined); const date = new Date(r.due_at); date.setMinutes(date.getMinutes() - date.getTimezoneOffset()); setForm({ customer_name: r.customer_name, customer_phone: r.customer_phone, quantity: r.quantity, size: r.size, material: r.material, color: r.color, due_at: date.toISOString().slice(0,16), notes: r.notes, status: r.status, final: r.final_cents === null ? '' : String(r.final_cents / 100) }); }}>Editar ficha</button></div>
+      {visibleRequests.map(r => <article key={r.id} className="module-card custom-project"><div className="module-row"><div><span className="custom-status">{({ quote: 'Orçamento', artwork_whatsapp: 'Arte pelo WhatsApp', approved: 'Aprovado', rejected: 'Recusado', completed: 'Concluído' } as Record<string, string>)[r.status] || r.status}</span><h3>{r.customer_name} · {r.quantity} un.</h3><p className="custom-deadline"><CalendarDays size={16}/> Prazo: {new Date(r.due_at).toLocaleString('pt-BR')}</p><strong>{r.final_cents === null ? 'Sem preço fechado' : `Total ${moduleMoney(r.final_cents * r.quantity)}`}</strong><details className="custom-details"><summary>Ver detalhes da peça e valores</summary><p>Dimensões: {r.size} · Material: {r.material} · Cor: {r.color}</p><p>{r.final_cents === null ? 'Preço ainda não informado' : `${moduleMoney(r.final_cents)} por unidade`}</p>{r.notes&&<p>Observações: {r.notes}</p>}</details></div>
+        <button className="button" onClick={() => { setEditing(r); setFormOpen(true); setQuote(r.quote || undefined); const date = new Date(r.due_at); date.setMinutes(date.getMinutes() - date.getTimezoneOffset()); setForm({ customer_name: r.customer_name, customer_phone: r.customer_phone, quantity: r.quantity, size: r.size, material: r.material, color: r.color, due_at: date.toISOString().slice(0,16), notes: r.notes, status: r.status, final: r.final_cents === null ? '' : String(r.final_cents / 100) }); }}>Editar ficha</button></div>
         <a className="button" target="_blank" rel="noreferrer" href={`https://wa.me/${r.customer_phone.replace(/\D/g,'')}?text=${encodeURIComponent(`Olá! Vamos revisar a arte do pedido ${r.id.slice(0,8)}.`)}`}>Conversar sobre a arte</a>
-        <label>Anexar foto, PDF, STL, OBJ ou 3MF (até 25 MiB)<input type="file" accept=".png,.jpg,.jpeg,.webp,.pdf,.stl,.obj,.3mf" disabled={uploading} onChange={e => { void upload(r, e.target.files?.[0]); e.target.value = ''; }} /></label>
+        <div className="custom-files"><h4><Paperclip size={17}/> Arquivos do projeto</h4><p>Envie fotos, PDF ou modelos STL, OBJ e 3MF de até 25 MiB.</p><label>Anexar arquivo<input type="file" accept=".png,.jpg,.jpeg,.webp,.pdf,.stl,.obj,.3mf" disabled={uploading} onChange={e => { void upload(r, e.target.files?.[0]); e.target.value = ''; }} /></label>
         {files.filter(f => f.request_id === r.id).map(f => <div className="module-row" key={f.id}><span>{f.name}</span>{download?.id === f.id && <a href={download.url} target="_blank" rel="noreferrer">Abrir arquivo (link válido por 60 segundos)</a>} <button type="button" className="button" onClick={() => void modulesApi.fileUrl(f.storage_path).then(url => setDownload({ id: f.id, url })).catch(e => onError((e as Error).message))}>{download?.id === f.id ? 'Renovar link' : 'Preparar download'}</button></div>)}
+        {!files.some(f=>f.request_id===r.id)&&<p className="custom-file-empty">Nenhum arquivo anexado a este orçamento.</p>}</div>
       </article>)}
-    </section></>;
+    </section>;
 }
