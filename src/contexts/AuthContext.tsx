@@ -30,7 +30,7 @@ type AuthContextValue = {
   refreshAccess: () => Promise<void>;
   refreshMfaLevel: () => Promise<MfaLevel>;
   selectStore: (storeId: string) => void;
-  completeTemporaryPasswordChange: (currentPassword: string, newPassword: string) => Promise<void>;
+  completeTemporaryPasswordChange: (currentPassword: string, newPassword: string, captchaToken: string) => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -214,10 +214,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setError('');
   }, [clearAccess]);
 
-  const completeTemporaryPasswordChange = useCallback(async (currentPassword: string, newPassword: string) => {
+  const completeTemporaryPasswordChange = useCallback(async (currentPassword: string, newPassword: string, captchaToken: string) => {
     if (isDemoMode) throw new Error('Troca de senha temporária disponível apenas com Supabase ativo.');
     if (!membership) throw new Error('Vínculo da loja não encontrado.');
-    await updateAuthenticatedPassword(currentPassword, newPassword);
+    await updateAuthenticatedPassword(currentPassword, newPassword, captchaToken);
     await restFetch<unknown>(`food_store_users?id=eq.${encodeURIComponent(membership.id)}`, { method:'PATCH', body:{ must_change_password:false } });
     await refreshAccess();
   }, [membership, refreshAccess]);
