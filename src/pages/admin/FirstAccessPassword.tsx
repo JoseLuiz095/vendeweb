@@ -4,6 +4,8 @@ import { Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import { temporaryPasswordValidationMessage } from '../../utils/email';
+import { TurnstileWidget } from '../../components/ui/TurnstileWidget';
+import { appConfig } from '../../lib/config';
 
 export default function FirstAccessPassword(){
   const {user,membership,loading,completeTemporaryPasswordChange}=useAuth();
@@ -14,6 +16,8 @@ export default function FirstAccessPassword(){
   const[confirmPassword,setConfirmPassword]=useState('');
   const[show,setShow]=useState(false);
   const[saving,setSaving]=useState(false);
+  const[captchaToken,setCaptchaToken]=useState('');
+  const[captchaReset,setCaptchaReset]=useState(0);
 
   if(loading)return <div className="page-center">Validando acesso...</div>;
   if(!user||!membership)return <Navigate to="/admin/login" replace/>;
@@ -21,17 +25,18 @@ export default function FirstAccessPassword(){
 
   const submit=async(e:FormEvent)=>{
     e.preventDefault();
+    if(!appConfig.turnstileSiteKey||!captchaToken){showToast('Conclua a verificação de segurança antes de continuar.','error');return;}
     const passwordError=temporaryPasswordValidationMessage(newPassword);
     if(passwordError){showToast(passwordError,'error');return;}
     if(newPassword!==confirmPassword){showToast('A confirmação da nova senha não confere.','error');return;}
     if(newPassword===currentPassword){showToast('Escolha uma senha diferente da senha temporária.','error');return;}
     setSaving(true);
     try{
-      await completeTemporaryPasswordChange(currentPassword,newPassword);
+      await completeTemporaryPasswordChange(currentPassword,newPassword,captchaToken);
       showToast('Senha definitiva cadastrada com sucesso.','success');
       navigate('/admin/primeiros-passos',{replace:true});
     }catch(error){showToast(error instanceof Error?error.message:'Não foi possível alterar a senha.','error')}
-    finally{setSaving(false)}
+    finally{setCaptchaToken('');setCaptchaReset(value=>value+1);setSaving(false)}
   };
 
   return <div className="first-access-page"><form className="first-access-card" onSubmit={submit}>
@@ -43,6 +48,7 @@ export default function FirstAccessPassword(){
     <label>Nova senha<div className="input-with-icon"><KeyRound size={18}/><input required minLength={10} value={newPassword} onChange={(e)=>setNewPassword(e.target.value)} type={show?'text':'password'} autoComplete="new-password"/></div><small>Mínimo de 10 caracteres, com letra maiúscula, minúscula e número.</small></label>
     <label>Confirmar nova senha<div className="input-with-icon"><KeyRound size={18}/><input required minLength={10} value={confirmPassword} onChange={(e)=>setConfirmPassword(e.target.value)} type={show?'text':'password'} autoComplete="new-password"/></div></label>
     <button type="button" className="password-visibility-button" onClick={()=>setShow((value)=>!value)}>{show?<EyeOff size={17}/>:<Eye size={17}/>} {show?'Ocultar senhas':'Mostrar senhas'}</button>
-    <button className="primary-button full-button" disabled={saving}>{saving?'Salvando...':'Salvar nova senha'}</button>
+    {appConfig.turnstileSiteKey ? <TurnstileWidget siteKey={appConfig.turnstileSiteKey} action="login" onToken={setCaptchaToken} resetSignal={captchaReset}/> : <p role="alert">A verificação de segurança está indisponível. Contate a administração da plataforma.</p>}
+    <button className="primary-button full-button" disabled={saving||!captchaToken}>{saving?'Salvando...':'Salvar nova senha'}</button>
   </form></div>;
 }

@@ -109,15 +109,20 @@ export const updatePasswordWithRecoveryToken = async (_recoveryMarker: string, p
   if (error) throw error;
 };
 
-export const updateAuthenticatedPassword = async (currentPassword: string, newPassword: string): Promise<void> => {
+export const updateAuthenticatedPassword = async (currentPassword: string, newPassword: string, captchaToken: string): Promise<void> => {
   const supabase = getSupabaseClient();
   const { data: userData, error: userError } = await supabase.auth.getUser();
   if (userError) throw userError;
   const email = userData.user?.email;
   if (!email) throw new Error('E-mail da sessão não disponível.');
 
-  const { error: verifyError } = await supabase.auth.signInWithPassword({ email, password: currentPassword });
-  if (verifyError) throw new Error('Senha atual incorreta.');
+  const { error: verifyError } = await supabase.auth.signInWithPassword({ email, password: currentPassword, options: { captchaToken } });
+  if (verifyError) {
+    if (verifyError.code === 'invalid_credentials') throw new Error('Senha atual incorreta.');
+    if (verifyError.code === 'captcha_failed') throw new Error('A verificação de segurança não foi aceita. Tente novamente.');
+    if (verifyError.status === 429) throw new Error('Muitas tentativas. Aguarde antes de tentar novamente.');
+    throw new Error('Não foi possível verificar sua senha. Tente novamente.');
+  }
   const { error: updateError } = await supabase.auth.updateUser({ password: newPassword });
   if (updateError) throw updateError;
 };
