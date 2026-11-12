@@ -1,5 +1,7 @@
 import { ChevronRight, Search, Sparkles, Truck } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
+import { useCart } from '../../contexts/CartContext';
+import Checkout from './Checkout';
 import { useSearchParams } from 'react-router-dom';
 import { normalizeText } from '../../utils/text';
 import { ProductCard } from '../../components/ProductCard';
@@ -26,6 +28,7 @@ export default function Home(){
 
 function StorefrontHome(){
   const {products,categories,settings,loading,error,reloadPublic}=useStore();
+  const {items: cartItems}=useCart();
   const segment=getBusinessSegment(settings.visualTheme);
   const traditionalPresentation=segment.id==='food'||settings.visualTheme.preset==='doce_lua';
   const [selectedCategory,setSelectedCategory]=useState('all');
@@ -96,12 +99,13 @@ function StorefrontHome(){
         <nav className="category-strip" aria-label="Categorias"><button type="button" aria-pressed={selectedCategory==='all'} className={selectedCategory==='all'?'active':''} onClick={()=>setSelectedCategory('all')}>Início</button>{categories.filter(c=>c.active).map(category=><button key={category.id} type="button" aria-pressed={selectedCategory===category.id} className={selectedCategory===category.id?'active':''} onClick={()=>setSelectedCategory(category.id)}>{category.name}</button>)}</nav>
       </div>}
 
-      {traditionalPresentation&&<>{pointSelection}{orderGuide}</>}
+      {traditionalPresentation&&<>{(searchParams.has('ponto') || pickup.pickupLocationId) && pointSelection}{orderGuide}</>}
       {!traditionalPresentation&&<div id="catalogo-produtos" className="segment-catalog-anchor"/>}
       {(traditionalPresentation||catalogType==='all'||catalogType==='products')&&activeProducts.length===0&&<div className="empty-state" role="status"><Search size={28}/><h3>Nenhum produto publicado</h3><p>Confira os serviços e conteúdos disponíveis ou volte mais tarde.</p></div>}
       {(catalogType==='all'||catalogType==='products'||traditionalPresentation)&&!normalizedQuery&&selectedCategory==='all'&&featured.length>0&&<section className="food-featured-section"><div className="food-section-title"><div><span>{traditionalPresentation?'Para pedir sem pensar muito':'Uma seleção para começar'}</span><h2>{traditionalPresentation?'Os queridinhos da casa':'Destaques do catálogo'}</h2></div><Sparkles size={22}/></div><div className="food-featured-rail" aria-label="Produtos em destaque">{featured.map(product=>productCard(product,categories.find(category=>category.id===product.categoryId)))}</div></section>}
 
       {(catalogType==='all'||catalogType==='products'||traditionalPresentation)&&(selectedCategory==='all'&&!normalizedQuery?grouped.map(({category,items})=><section className="food-category-section" key={category.id}><div className="food-section-title"><div><h2>{category.name}</h2>{category.description&&<p>{category.description}</p>}</div><button type="button" onClick={()=>setSelectedCategory(category.id)}>Ver categoria <ChevronRight size={16}/></button></div><div className="product-grid food-product-grid">{items.map(product=>productCard(product,category))}</div></section>):<section className="food-category-section"><div className="food-section-title"><div><h2 key={selectedCategory} className="storefront-filter-heading">{selectedCategory==='all'?'Resultados':categories.find(c=>c.id===selectedCategory)?.name||(traditionalPresentation?'Cardápio':segment.catalogLabel)}</h2><p>{visible.length} {visible.length===1?'item encontrado':'itens encontrados'}</p></div></div>{visible.length?<div className="product-grid food-product-grid">{visible.map(product=>productCard(product,categories.find(category=>category.id===product.categoryId)))}</div>:<div className="empty-state"><Search size={28}/><h3>Nenhum item encontrado</h3><p>Tente outra categoria ou termo de pesquisa.</p></div>}</section>)}
     </section>
+    {traditionalPresentation && cartItems.length>0 && <section id="continuar-pedido" aria-label="Finalização do pedido"><Checkout embedded /></section>}
   </>;
 }
