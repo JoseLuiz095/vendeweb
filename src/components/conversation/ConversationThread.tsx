@@ -7,15 +7,16 @@ export function ConversationThread({load,send,refreshKey}:Props){
   const [thread,setThread]=useState<Conversation|null>(null);
   const [text,setText]=useState(''); const [error,setError]=useState(''); const [busy,setBusy]=useState(false);
   const pending=useRef<{text:string;id:string}|null>(null);
-  const refresh=useCallback(async()=>{try{const next=await load();setThread(next);setError('');}catch{setError('Não foi possível atualizar a conversa. Tente novamente.');}},[load]);
-  useEffect(()=>{setThread(null);void refresh();},[refresh,refreshKey]);
+  const revision=useRef(0);
+  const refresh=useCallback(async()=>{const request=++revision.current;try{const next=await load();if(request===revision.current){setThread(next);setError('');}}catch{if(request===revision.current)setError('Não foi possível atualizar a conversa. Tente novamente.');}},[load]);
+  useEffect(()=>{setThread(null);setText('');setBusy(false);pending.current=null;void refresh();return()=>{revision.current++;};},[refresh,refreshKey]);
   const submit=async(event:FormEvent)=>{
     event.preventDefault();const message=text.trim();if(!message||busy)return;
     if(!pending.current||pending.current.text!==message)pending.current={text:message,id:crypto.randomUUID()};
-    setBusy(true);setError('');
-    try{const next=await send(message,pending.current.id);setThread(next);pending.current=null;setText(current=>current.trim()===message?'':current);}
-    catch{setError('A mensagem não foi confirmada. Tente novamente; ela não será duplicada.');}
-    finally{setBusy(false);}
+    const request=++revision.current;setBusy(true);setError('');
+    try{const next=await send(message,pending.current.id);if(request===revision.current){setThread(next);pending.current=null;setText(current=>current.trim()===message?'':current);}}
+    catch{if(request===revision.current)setError('A mensagem não foi confirmada. Tente novamente sem alterar o texto para evitar duplicação.');}
+    finally{if(request===revision.current)setBusy(false);}
   };
   return <div className="order-conversation-thread">
     <div className="order-conversation-heading"><strong>Mensagens</strong><button type="button" onClick={()=>void refresh()} disabled={busy}>Atualizar</button></div>

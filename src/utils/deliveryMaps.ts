@@ -4,9 +4,16 @@ export const MAX_ROUTE_DELIVERIES = 4;
 type DeliveryAddress = Pick<Order, 'deliveryStreet' | 'deliveryNumber' | 'deliveryNeighborhood' | 'deliveryCity' | 'deliveryState' | 'deliveryZipCode' | 'deliveryAddress'>;
 
 export function deliveryMapAddress(order: DeliveryAddress): string {
+  if (!order.deliveryStreet?.trim()) return order.deliveryAddress?.trim() || '';
   const street = [order.deliveryStreet?.trim(), order.deliveryNumber?.trim()].filter(Boolean).join(', ');
-  if (!street) return order.deliveryAddress?.trim() || '';
   return [street, order.deliveryNeighborhood?.trim(), [order.deliveryCity?.trim(), order.deliveryState?.trim()].filter(Boolean).join(' - '), order.deliveryZipCode?.trim()].filter(Boolean).join(', ');
+}
+
+/** Preserve a ordem manual das paradas existentes e acrescente novas seleções ao final. */
+export function reconcileRouteOrder(previous: string[], selected: string[]): string[] {
+  const active = new Set(selected);
+  const retained = previous.filter(id => active.has(id));
+  return [...retained, ...selected.filter(id => !retained.includes(id))];
 }
 
 export function deliverySearchUrl(address: string): string {
