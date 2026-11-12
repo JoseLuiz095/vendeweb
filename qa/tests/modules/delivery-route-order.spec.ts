@@ -19,6 +19,12 @@ for (const width of [390, 1366]) {
     url = new URL((await link.getAttribute('href'))!);
     expect(url.searchParams.get('waypoints')).toContain('Rua Teste 2');
     expect(url.searchParams.get('destination')).toContain('Rua Teste 1');
+    // Ao retirar e selecionar novamente uma entrega, ela volta ao fim da rota.
+    await page.getByRole('checkbox', { name: 'Selecionar pedido 2', exact: true }).uncheck();
+    await page.getByRole('checkbox', { name: 'Selecionar pedido 2', exact: true }).check();
+    url = new URL((await link.getAttribute('href'))!);
+    expect(url.searchParams.get('waypoints')).toContain('Rua Teste 1');
+    expect(url.searchParams.get('destination')).toContain('Rua Teste 2');
     await expect(link).toBeInViewport({ ratio: 1 });
     await page.screenshot({ path: info.outputPath(`rota-${width}.png`), animations: 'disabled' });
     await page.getByRole('checkbox', { name: 'Selecionar pedido 3', exact: true }).check();

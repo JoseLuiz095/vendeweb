@@ -1,5 +1,7 @@
 /* Ajustes de apresentação; cores herdadas da identidade de cada loja. */
 .checkout-page .checkout-card__title{align-items:flex-start;gap:12px}
+.checkout-embedded .checkout-mobile-submit{display:none}
+@media(max-width:820px){.checkout-embedded .checkout-summary .checkout-submit{display:flex}}
 .checkout-page .checkout-card__title>svg{flex:0 0 auto;margin-top:2px}
 .checkout-page .checkout-card__title>div{display:grid;gap:5px;min-width:0}
 .checkout-page .checkout-card__title>div>strong{display:block;line-height:1.4}

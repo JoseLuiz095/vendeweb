@@ -193,7 +193,7 @@ export function AdminNotifications() {
     // deixa a primeira abertura do painel com uma mensagem confusa. Depois
     // de o lojista optar por ativar no botão abaixo, a assinatura continua
     // sendo sincronizada normalmente nas próximas aberturas.
-    if (!storeReady || !membership?.storeId || !user?.id || !settings.notificationsDesktopEnabled) return;
+    if (!storeReady || !membership?.storeId || !user?.id || !settings.notificationsDesktopEnabled || permission !== 'granted') return;
     const syncKey = `${settings.id}:${membership.storeId}:${user.id}`;
     if (subscriptionSyncedFor.current === syncKey) return;
     if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
@@ -221,8 +221,14 @@ export function AdminNotifications() {
     };
 
     void syncGrantedSubscription();
-    return () => { cancelled = true; };
-  }, [storeReady, membership?.storeId, settings.id, settings.notificationsDesktopEnabled, user?.id]);
+    return () => {
+      cancelled = true;
+      // Uma troca de loja, usuário ou permissão invalida a tentativa local;
+      // o próximo efeito pode confirmar novamente a assinatura do dispositivo.
+      pushSynced.current = false;
+      subscriptionSyncedFor.current = '';
+    };
+  }, [storeReady, membership?.storeId, settings.id, settings.notificationsDesktopEnabled, user?.id, permission]);
 
   useEffect(() => {
     // A tela de pedidos já atualiza a lista a cada 15 segundos. Mantemos
@@ -274,7 +280,13 @@ export function AdminNotifications() {
     refreshNotificationStatus();
     const onVisibilityChange = () => { if (document.visibilityState === 'visible') refreshNotificationStatus(); };
     document.addEventListener('visibilitychange', onVisibilityChange);
-    return () => document.removeEventListener('visibilitychange', onVisibilityChange);
+    window.addEventListener('focus', refreshNotificationStatus);
+    window.addEventListener('vendeweb:notification-permission-change', refreshNotificationStatus);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+      window.removeEventListener('focus', refreshNotificationStatus);
+      window.removeEventListener('vendeweb:notification-permission-change', refreshNotificationStatus);
+    };
   }, []);
 
   const permissionLabel = permission === 'granted' ? 'Permitida' : permission === 'denied' ? 'Bloqueada' : permission === 'default' ? 'Aguardando escolha' : 'Indisponível';
@@ -288,6 +300,7 @@ export function AdminNotifications() {
       <button type="button" className="secondary-button admin-notification-diagnostic__test" onClick={() => void sendTestNotification()} disabled={testing || !storeReady}>{testing ? <Loader2 className="spin" size={15}/> : <Bell size={15}/>} {testing ? 'Enviando teste...' : permission === 'default' ? 'Ativar e testar notificações' : 'Enviar notificação de teste'}</button>
       {testError && <p role="alert">{testError}</p>}
       {testFeedback && <p role="status">{testFeedback}</p>}
+      <p>O teste acima verifica apenas o aviso local neste navegador. Para receber pedidos com o painel fechado, o push também precisa estar configurado no servidor e ter uma assinatura ativa neste dispositivo; a assinatura registrada, por si só, não comprova a entrega.</p>
       <div className="admin-notification-diagnostic__links"><Link to="/admin/pedidos" onClick={() => setDiagnosticOpen(false)}>Ver pedidos →</Link><Link to="/admin/estoque" onClick={() => setDiagnosticOpen(false)}>Ver estoque →</Link></div>
       <p>Pedidos novos, pagamentos confirmados e agendamentos próximos são verificados ao abrir o painel e enquanto esta aba estiver ativa.</p>
     </section></div>,
