@@ -2,6 +2,8 @@ import { getSupabaseClient } from '../lib/supabase';
 
 export type MercadoPagoTestStatus = { connected: boolean; environment: 'test' };
 export type MercadoPagoCallback = { code: string; state: string } | { error: true };
+export const showMercadoPagoPilot = (enabled: boolean, pilotStoreId: string, selectedStoreId: string): boolean =>
+  enabled && Boolean(pilotStoreId) && pilotStoreId.toLowerCase() === selectedStoreId.toLowerCase();
 
 export function readMercadoPagoCallback(): MercadoPagoCallback | null {
   const url = new URL(window.location.href);
@@ -9,7 +11,7 @@ export function readMercadoPagoCallback(): MercadoPagoCallback | null {
   const code = url.searchParams.get('code') || '';
   const state = url.searchParams.get('state') || '';
   const denied = url.searchParams.has('error');
-  return !denied && code && state && code.length <= 4096 && state.length <= 1024 ? { code, state } : { error: true };
+  return !denied && code && state && code.length <= 2048 && state.length <= 1024 ? { code, state } : { error: true };
 }
 /** Limpa dados transitórios antes de iniciar a troca no servidor. */
 export function clearMercadoPagoCallback(): void {

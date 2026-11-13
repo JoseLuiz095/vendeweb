@@ -6,7 +6,7 @@ import { cleanStoreName, storeNameValidation } from '../../utils/storeName';
 import StoreAppearanceEditor from '../../components/admin/StoreAppearanceEditor';
 import ReceiptContactsSettings from '../../components/admin/ReceiptContactsSettings';
 import { MercadoPagoTestConnection } from '../../components/admin/MercadoPagoTestConnection';
-import { clearMercadoPagoCallback, readMercadoPagoCallback } from '../../services/mercadoPagoTestApi';
+import { clearMercadoPagoCallback, readMercadoPagoCallback, showMercadoPagoPilot } from '../../services/mercadoPagoTestApi';
 import { ArrowDown, ArrowUp, Banknote, ChevronDown, Clock3, CreditCard, ImagePlus, Info, QrCode, RotateCcw, Store, Truck, Bell, MessageCircle, Sparkles } from 'lucide-react';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { ImageWithFallback } from '../../components/ui/ImageWithFallback';
@@ -38,7 +38,9 @@ const cloneSettingsForForm = (settings: StoreSettings) => {
 };
 
 export default function SettingsAdmin() {
-  const [mercadoPagoCallback] = useState(() => import.meta.env.VITE_MERCADO_PAGO_TEST_UI === 'true' ? readMercadoPagoCallback() : null);
+  const mercadoPagoUiEnabled = import.meta.env.VITE_MERCADO_PAGO_TEST_UI === 'true';
+  const pilotStoreId = String(import.meta.env.VITE_MERCADO_PAGO_TEST_STORE_ID || '').toLowerCase();
+  const [mercadoPagoCallback] = useState(() => mercadoPagoUiEnabled ? readMercadoPagoCallback() : null);
   useLayoutEffect(() => { if (mercadoPagoCallback) clearMercadoPagoCallback(); }, [mercadoPagoCallback]);
   const { settings, saveSettings, resetDemo, uploadStoreAsset, dataMode, loading, error, reloadAdmin, planUsage } = useStore();
   const { user, membership } = useAuth();
@@ -384,7 +386,8 @@ export default function SettingsAdmin() {
           <section id="settings-pix" className={`admin-card form-section payment-admin-section settings-collapsible ${collapsedSections.pix ? 'is-collapsed' : ''}`}>
             {sectionToggle('pix', 'PIX')}
             <div className="admin-card__header"><div><span className="eyebrow">PAGAMENTOS</span><h2>PIX</h2></div><QrCode size={21} /></div>
-            {import.meta.env.VITE_MERCADO_PAGO_TEST_UI === 'true' && <MercadoPagoTestConnection key={membership?.storeId || ''} storeId={membership?.storeId || ''} canManage={Boolean(membership?.active && ['owner', 'admin'].includes(membership.role))} callback={mercadoPagoCallback}/>}
+            {membership && showMercadoPagoPilot(mercadoPagoUiEnabled, pilotStoreId, membership.storeId) && <MercadoPagoTestConnection key={membership.storeId} storeId={membership.storeId} canManage={Boolean(membership.active && ['owner', 'admin'].includes(membership.role))} callback={mercadoPagoCallback}/>}
+            {mercadoPagoUiEnabled && mercadoPagoCallback && !showMercadoPagoPilot(true, pilotStoreId, membership?.storeId || '') && <div className="admin-info-box" role="alert">Não foi possível concluir a conexão nesta loja. Selecione a loja do teste e inicie a conexão novamente.</div>}
             <label className="switch-row"><span><strong>PIX habilitado</strong><small>Mostrar PIX como opção no checkout</small></span><input type="checkbox" checked={form.pixEnabled} onChange={(e) => update('pixEnabled', e.target.checked)} /></label>
 
             {form.pixEnabled && (

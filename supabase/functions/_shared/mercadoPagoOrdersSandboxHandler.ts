@@ -21,8 +21,8 @@ export function makeSandboxOrdersHandler(deps:SandboxHandlerDependencies) {
     if(request.method!=='POST') return json({error:'method_not_allowed'},405);
     let input:Record<string,unknown>;
     try {
-      const raw=await request.text();
-      if(raw.length>2048) return json({error:'invalid_request'},400);
+      const reader=request.body?.getReader(),decoder=new TextDecoder();let raw='',size=0;
+      if(reader)for(;;){const {done,value}=await reader.read();if(done)break;size+=value.byteLength;if(size>2048){await reader.cancel();return json({error:'invalid_request'},400);}raw+=decoder.decode(value,{stream:true});}raw+=decoder.decode();
       const parsed=JSON.parse(raw);
       if(!parsed || typeof parsed!=='object' || Array.isArray(parsed)) return json({error:'invalid_request'},400);
       input=parsed;
