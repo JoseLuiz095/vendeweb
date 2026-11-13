@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useParams } from 'react-router-dom';
 import QRCode from 'qrcode';
 import PixCopyButton from '../../components/PixCopyButton';
+import { MpSandboxCheckout } from '../../components/MpSandboxCheckout';
 import './order-payment.css';
 import { useStore } from '../../contexts/StoreContext';
 import { useToast } from '../../contexts/ToastContext';
@@ -67,6 +68,8 @@ export default function OrderSuccess() {
       </main>
     );
   }
+
+  if (confirmation.mpTestMode) return <main data-visual-preset={settings.visualTheme.preset} className="order-success-page food-storefront-theme" style={storefrontThemeStyle}><MpSandboxCheckout storeId={confirmation.storeId || ''} orderId={confirmation.orderId} capability={confirmation.mpTestCapability}/></main>;
 
   const isPix = confirmation.paymentMethod === 'pix' && confirmation.pixEnabled;
   const isPixCopyPaste = isPix && (Boolean(confirmation.pixPayload?.trim()) || (confirmation.pixReceiptMode === 'copy_paste' && Boolean(confirmation.pixCopyPaste.trim())));

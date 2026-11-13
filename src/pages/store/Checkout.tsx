@@ -439,7 +439,7 @@ export default function Checkout({ embedded = false }: { embedded?: boolean } = 
         }
       }
       const confirmation: OrderConfirmation = {
-        storeId: settings.id, receiptToken:result.receiptToken, receiptPickupLocationId: receiptContactsEnabled ? result.receiptPickupLocationId || undefined : undefined,
+        storeId: settings.id, receiptToken:result.receiptToken, mpTestCapability:result.mpTestCapability, mpTestMode:result.mpTestMode, receiptPickupLocationId: receiptContactsEnabled ? result.receiptPickupLocationId || undefined : undefined,
         orderId: result.orderId, orderNumber: result.orderNumber, total: result.total, paymentMethod: form.paymentMethod, customerName: form.customerName,
         fulfillment: form.fulfillment, storeName: settings.name, storeWhatsapp: settings.whatsapp, pixEnabled: settings.pixEnabled,
         pickupPointName: form.fulfillment === 'pickup' ? pickup.selectedPoint?.name : undefined,

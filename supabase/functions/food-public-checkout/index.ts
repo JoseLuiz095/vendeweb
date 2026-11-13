@@ -1,5 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.112.4';
 import { checkoutReceiptToken } from './receipt.ts';
+import { checkoutMpTestToken } from './mpTestToken.ts';
 
 type TurnstileResult = {
   success: boolean;
@@ -184,6 +185,10 @@ Deno.serve(async (req) => {
     if (!originIsAllowed) {
       return new Response(JSON.stringify({ error: 'Origem não autorizada para esta loja.', code: 'ORIGIN_NOT_ALLOWED' }), { status: 403, headers });
     }
+    let mpTestMode=false;
+    if(Deno.env.get('MP_TEST_CHECKOUT_ENABLED')==='true'&&Deno.env.get('MP_TEST_CHECKOUT_ENV')==='staging'&&new Set((Deno.env.get('MP_TEST_ALLOWED_ORIGINS')||'').split(',').map(v=>v.trim()).filter(Boolean)).has(origin)){
+      try{const {data,error}=await adminClient.rpc('food_mp_test_checkout_eligible_v1',{p_store:storeId});mpTestMode=!error&&data===true;}catch{/* fail closed */}
+    }
 
     const salt = Deno.env.get('CHECKOUT_FINGERPRINT_SALT') || Deno.env.get('TURNSTILE_SECRET_KEY') || service.slice(-48);
     const fingerprint = await sha256(`${salt}:${remoteIp || 'unknown'}:${req.headers.get('user-agent') || 'unknown'}`);
@@ -204,6 +209,14 @@ Deno.serve(async (req) => {
         console.warn('Não foi possível preparar a autorização do comprovante.');
         return undefined;
       }
+    };
+    const readMpTestToken = async (orderId:string) => {
+      if(!mpTestMode)return undefined;
+      try {
+        const {data,error}=await adminClient.from('food_orders').select('id,store_id,total,payment_method,payment_status,status,payment_receipt_version,customer_email').eq('id',orderId).eq('store_id',storeId).eq('public_request_id',requestId).maybeSingle();
+        if(error)throw error;
+        return await checkoutMpTestToken({enabled:true,environment:'staging',origin,allowedOrigins:new Set((Deno.env.get('MP_TEST_ALLOWED_ORIGINS')||'').split(',').map(v=>v.trim()).filter(Boolean)),secret:Deno.env.get('MP_TEST_CHECKOUT_CAPABILITY_SECRET')||'',storeId,order:data,eligible:async()=>mpTestMode});
+      } catch { return undefined; }
     };
     const rpcResponse = await fetch(`${url}/rest/v1/rpc/food_create_public_order_with_receipt_v1`, {
       method: 'POST',
@@ -250,6 +263,8 @@ Deno.serve(async (req) => {
             idempotentReplay: true,
             receiptPickupLocationId: await readReceiptSource(existing.id),
             receiptToken: await readReceiptToken(existing.id),
+            mpTestCapability: await readMpTestToken(existing.id),
+            mpTestMode: mpTestMode && payloadRecord.payment_method==='pix',
           }), { status: 200, headers });
         }
       }
@@ -309,6 +324,8 @@ Deno.serve(async (req) => {
       orderNumber: Number(created.order_number),
       total: Number(created.order_total),
       receiptToken: await readReceiptToken(created.order_id),
+      mpTestCapability: await readMpTestToken(created.order_id),
+      mpTestMode: mpTestMode && payloadRecord.payment_method==='pix',
     }), { status: 200, headers });
   } catch (error) {
     return new Response(JSON.stringify({ error: error instanceof Error ? error.message : 'Erro inesperado no checkout.' }), { status: 400, headers });

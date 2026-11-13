@@ -47,3 +47,7 @@ verify_jwt = false
 [functions.food-order-conversation]
 # The handler verifies a staff session or a scoped conversation capability.
 verify_jwt = false
+
+# HMAC-authenticated provider callback; disabled by application gates by default.
+[functions.food-mercadopago-webhook-test]
+verify_jwt = false

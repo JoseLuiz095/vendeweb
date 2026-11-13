@@ -1,0 +1,7 @@
+# Pix Mercado Pago — integração de teste incompleta
+
+Desativada por padrão. Não implantar nem habilitar em produção. A emissão da capability exige `MP_TEST_CHECKOUT_ENABLED=true`, `MP_TEST_CHECKOUT_ENV=staging`, origem explicitamente em `MP_TEST_ALLOWED_ORIGINS`, segredo dedicado e autorização positiva da RPC de elegibilidade. O endpoint verifica novamente tudo isso e usa uma capability distinta da declaração de comprovante.
+
+As RPCs service-role `food_mp_test_checkout_eligible_v1`, `food_mp_test_order_reserve_v1`, `food_mp_test_order_find_v1` e `food_mp_test_order_bind_v1` ainda são pré-requisitos: devem garantir isolamento de ambiente, loja autorizada, conexão OAuth de teste, snapshot do pedido imutável, geração/conexão, concorrência, idempotência persistente e rejeição de pedido alterado. O endpoint falha fechado sem elas. O registro da conexão OAuth também exige suas próprias RPCs. E-mail do cliente deve ser informado; não é substituído por um endereço inventado.
+
+Antes de habilitar em staging: revisar alterações simultâneas no pedido e na conexão durante a ida ao provedor, tratamento de timeout após criação, reserva única, rotação/expiração do token, limites de requisição, credenciais e teste de rede com vendedores/pagadores de teste. Implementar webhook autenticado e conciliação transacional antes de apresentar confirmação automática. O status retornado é informativo e não altera pagamento, estoque ou entrega. Os testes atuais usam transportes simulados; não demonstram uma cobrança real ou um sandbox funcional.
