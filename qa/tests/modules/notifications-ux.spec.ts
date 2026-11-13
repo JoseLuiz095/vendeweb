@@ -41,6 +41,24 @@ test('central não confirma entrega quando o navegador rejeita a notificação',
   await expect(dialog.getByText(/Último sinal/)).toHaveCount(0);
 });
 
+test('permissão concedida no card atualiza a central sem recarregar', async ({ page }) => {
+  await mockBackend(page, { auth: true });
+  await page.addInitScript(({ USER, STORE }) => {
+    localStorage.setItem(`vendeweb-pwa-nudge:admin:${USER}:${STORE}`, '2');
+    class FakeNotification {
+      static permission = 'default';
+      static async requestPermission() { FakeNotification.permission = 'granted'; return 'granted'; }
+    }
+    Object.defineProperty(window, 'Notification', { configurable: true, value: FakeNotification });
+  }, { USER, STORE });
+  await page.goto('/admin/pedidos');
+  await page.getByRole('button', { name: 'Permitir avisos' }).click();
+  await page.getByRole('button', { name: 'Abrir diagnóstico de notificações', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: 'Diagnóstico de notificações' });
+  await expect(dialog.getByText('Permitida', { exact: true })).toBeVisible();
+  await expect(dialog.getByText(/teste acima verifica apenas o aviso local/i)).toBeVisible();
+});
+
 test('troca entre comércio e serviços limpa o diagnóstico da loja anterior', async ({ page }) => {
   await mockBackend(page, { auth: true });
   const otherStoreId = '00000000-0000-4000-8000-000000000002';

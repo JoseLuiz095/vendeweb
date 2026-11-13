@@ -1,3 +1,4 @@
+import { confirmPasswordChange } from '../utils/confirmPasswordChange';
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { isDemoMode } from '../lib/config';
 import { getSupabaseClient, supabaseClientOrNull } from '../lib/supabase';
@@ -30,7 +31,7 @@ type AuthContextValue = {
   refreshAccess: () => Promise<void>;
   refreshMfaLevel: () => Promise<MfaLevel>;
   selectStore: (storeId: string) => void;
-  completeTemporaryPasswordChange: (currentPassword: string, newPassword: string) => Promise<void>;
+  completeTemporaryPasswordChange: (currentPassword: string, newPassword: string, captchaToken: string) => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -201,7 +202,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch (e) {
       const message = e instanceof Error ? e.message : 'Não foi possível entrar.';
       setError(message);
-      if (!isDemoMode) await getSupabaseClient().auth.signOut().catch(() => undefined);
+      if (!isDemoMode) await getSupabaseClient().auth.signOut({ scope: 'local' }).catch(() => undefined);
       clearAccess();
       return false;
     } finally { setLoading(false); }
@@ -209,17 +210,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = useCallback(async () => {
     if (isDemoMode) localStorage.removeItem(DEMO_AUTH_KEY);
-    else await getSupabaseClient().auth.signOut();
+    else await getSupabaseClient().auth.signOut({ scope: 'local' });
     clearAccess();
     setError('');
   }, [clearAccess]);
 
-  const completeTemporaryPasswordChange = useCallback(async (currentPassword: string, newPassword: string) => {
+  const completeTemporaryPasswordChange = useCallback(async (currentPassword: string, newPassword: string, captchaToken: string) => {
     if (isDemoMode) throw new Error('Troca de senha temporária disponível apenas com Supabase ativo.');
     if (!membership) throw new Error('Vínculo da loja não encontrado.');
-    await updateAuthenticatedPassword(currentPassword, newPassword);
-    await restFetch<unknown>(`food_store_users?id=eq.${encodeURIComponent(membership.id)}`, { method:'PATCH', body:{ must_change_password:false } });
-    await refreshAccess();
+    await updateAuthenticatedPassword(currentPassword, newPassword, captchaToken);
+    await confirmPasswordChange(membership.id,
+      () => restFetch<Array<{id:string;must_change_password:boolean}>>(`food_store_users?id=eq.${encodeURIComponent(membership.id)}&select=id,must_change_password`, { method:'PATCH', body:{ must_change_password:false }, prefer:'return=representation' }),
+      refreshAccess,
+    );
   }, [membership, refreshAccess]);
 
   const value = useMemo<AuthContextValue>(() => ({

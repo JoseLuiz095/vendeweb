@@ -5,6 +5,7 @@ import { DEMO_CREDENTIALS, useAuth } from '../../contexts/AuthContext';
 import { TurnstileWidget } from '../../components/ui/TurnstileWidget';
 import { appConfig } from '../../lib/config';
 import { PLATFORM_BRAND } from '../../lib/brand';
+import { adminReturnPath } from '../../utils/adminReturnPath';
 
 export default function AdminLogin(){
   const {signIn,user,membership,loading,error,mode}=useAuth();
@@ -18,15 +19,16 @@ export default function AdminLogin(){
   const captchaRequired=mode!=='demo';
   const receiveCaptcha=useCallback((token:string)=>setCaptchaToken(token),[]);
 
-  useEffect(()=>{if(user&&membership)navigate('/admin',{replace:true})},[user,membership,navigate]);
+  const from=(location.state as {from?:string}|null)?.from;
+  const destination=adminReturnPath(from);
+  useEffect(()=>{if(user&&membership)navigate(destination,{replace:true})},[user,membership,navigate,destination]);
 
   const submit=async(e:FormEvent)=>{
     e.preventDefault();
     if(captchaRequired&&!captchaToken)return;
     const ok=await signIn(email,password,'store',captchaToken);
     if(ok){
-      const from=(location.state as {from?:string}|null)?.from;
-      navigate(from&&from.startsWith('/admin')?from:'/admin',{replace:true});
+      navigate(destination,{replace:true});
       return;
     }
     if(captchaRequired)setCaptchaReset((value)=>value+1);

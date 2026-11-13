@@ -439,6 +439,8 @@ export type OrderPaymentStatus = 'pending' | 'paid';
 
 export type CreateOrderResult = {
   receiptToken?: string;
+  mpTestCapability?: string;
+  mpTestMode?: boolean;
   receiptPickupLocationId?: string | null;
   orderId: string;
   orderNumber: number;
@@ -477,6 +479,8 @@ export type ManualOrderInput = {
 
 export type OrderConfirmation = {
   receiptToken?: string;
+  mpTestCapability?: string;
+  mpTestMode?: boolean;
   storeId?: string;
   /** Origem de comunicação validada no servidor; não define retirada/estoque. */
   receiptPickupLocationId?: string;

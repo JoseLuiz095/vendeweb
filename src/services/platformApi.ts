@@ -1,4 +1,5 @@
 import { isStoreNameConflict, STORE_NAME_TAKEN } from '../utils/storeName';
+import { isStoreSlugConflict, STORE_SLUG_TAKEN } from '../utils/storeSlug';
 import { DEFAULT_PLATFORM_SETTINGS } from '../data/platformDefaults';
 import { isDemoMode } from '../lib/config';
 import { edgeFunctionHealth, invokeFunction, restFetch } from '../lib/supabaseRest';
@@ -301,7 +302,7 @@ export const platformApi = {
       const health = await edgeFunctionHealth('food-platform-create-store');
       if (health.version !== 'foodweb-fitness-1') throw new Error('A criação de Fitness/Academia aguarda a atualização segura do provisionamento. Nenhuma loja foi criada.');
     }
-    const result = await invokeFunction<{storeId:string;slug:string;invited:boolean;existingUser?:boolean;createdWithPassword?:boolean;warning?:string;expiresAt?:string;businessSegmentConfigured?:boolean;billingExempt?:boolean}>('food-platform-create-store', input).catch(error => { if (isStoreNameConflict(error)) throw new Error(STORE_NAME_TAKEN); throw error; });
+    const result = await invokeFunction<{storeId:string;slug:string;invited:boolean;existingUser?:boolean;createdWithPassword?:boolean;warning?:string;expiresAt?:string;businessSegmentConfigured?:boolean;billingExempt?:boolean}>('food-platform-create-store', input).catch(error => { if (isStoreNameConflict(error)) throw new Error(STORE_NAME_TAKEN); if (isStoreSlugConflict(error)) throw new Error(STORE_SLUG_TAKEN); throw error; });
     if (input.businessSegment === 'fitness') {
       if (!result.businessSegmentConfigured) throw new Error('A loja foi criada, mas o segmento Fitness/Academia não foi confirmado. Revise esta loja no Admin Master antes de continuar.');
       if (input.billingExempt && !result.billingExempt) throw new Error('A loja foi criada, mas a isenção não foi confirmada. Revise a assinatura antes de continuar.');

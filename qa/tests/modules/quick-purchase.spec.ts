@@ -42,14 +42,16 @@ for(const width of [320,390,768,1366]){
   await expect(page.getByRole('button',{name:/Retirada Buscar/})).toHaveAttribute('aria-pressed','true');
   await expect(page.getByLabel('Rua',{exact:true})).toHaveCount(0);
   await expect(page.locator('input[required]:visible')).toHaveCount(2);
+  await page.getByLabel('Nome',{exact:true}).fill('Cliente visitante');
+  await page.getByLabel(/WhatsApp \/ telefone/).fill('11999999999');
+  await expect(page.getByRole('checkbox',{name:/Salvar meus dados neste navegador/})).toBeChecked();
+  await page.getByRole('button',{name:/Continuar/}).click();
+  await page.getByText('Ver produtos (3)').click();
   await page.getByText('Editar quantidades',{exact:true}).click();
   const quantities=page.locator('.checkout-quantity-line').first();
   await expect(quantities.getByRole('button',{name:'Aumentar quantidade'})).toBeDisabled();
   await quantities.getByRole('button',{name:'Diminuir quantidade'}).click();
   await expect(page.locator('.summary-total')).toContainText('20,00');
-  await page.getByLabel('Nome',{exact:true}).fill('Cliente visitante');
-  await page.getByLabel(/WhatsApp \/ telefone/).fill('11999999999');
-  await expect(page.getByRole('checkbox',{name:/Salvar meus dados neste navegador/})).toBeChecked();
   if(width===390)await expect(page.locator('#foodweb-splash-screen')).toHaveCount(0);
   if(width===390)await page.screenshot({path:info.outputPath('checkout-depois.png'),fullPage:true});
   await page.getByRole('button',{name:/Registrar pedido|^Finalizar$/}).filter({visible:true}).first().click();
@@ -117,9 +119,11 @@ test('falha no backend mantém carrinho e dados sem confirmar pedido',async({pag
  await page.getByLabel('Nome',{exact:true}).fill('Cliente visitante');
  await page.getByLabel(/WhatsApp \/ telefone/).fill('11999999999');
  await page.route('**/functions/v1/food-public-checkout',r=>r.fulfill({status:409,json:{error:'Estoque alterado. Revise o pedido.'}}));
+ await page.getByRole('button',{name:/Continuar/}).click();
  await page.getByRole('button',{name:/Registrar pedido|^Finalizar$/}).filter({visible:true}).first().click();
  await expect(page.locator('.checkout-inline-error')).toBeVisible();
  await expect(page).toHaveURL(/finalizar/);
+ await page.getByRole('button',{name:'Voltar',exact:true}).click();
  await expect(page.getByLabel('Nome',{exact:true})).toHaveValue('Cliente visitante');
  expect(await page.evaluate(key=>JSON.parse(localStorage.getItem(key)||'[]').length,`foodservice_cart_v1:${STORE}`)).toBe(1);
 });
@@ -137,4 +141,33 @@ test('rascunho fica na sessão quando o cliente desmarca o salvamento duradouro'
  expect(await page.evaluate(key=>localStorage.getItem(key),key)).toBeNull();
  await page.reload();
  await expect(page.getByLabel('Nome',{exact:true})).toHaveValue('Cliente privado');
+});
+
+
+test('desmarcar salvamento remove dados anteriores e mantém a escolha após recarregar',async({page})=>{
+ await mockBackend(page); await pickup(page);
+ await page.goto('/doce-lua?ponto=trabalho');
+ await page.getByRole('button',{name:'Adicionar Brigadeiro teste',exact:true}).click();
+ await page.evaluate(({storeId})=>{
+   const profile={customerName:'Pessoa anterior',customerPhone:'11999999999',customerEmail:'',fulfillment:'pickup'};
+   document.cookie=`foodweb_customer_profile_v1_${storeId}=${encodeURIComponent(JSON.stringify(profile))}; Path=/; SameSite=Lax`;
+   localStorage.setItem(`foodweb_recent_order_v1:${storeId}`,JSON.stringify({items:[{id:'item'}],customerName:'Pessoa anterior',customerPhone:'11999999999',createdAt:new Date().toISOString()}));
+ },{storeId:STORE});
+ await page.goto('/doce-lua/finalizar');
+ await expect(page.getByLabel('Nome',{exact:true})).toHaveValue('Pessoa anterior');
+ const checkbox=page.getByRole('checkbox',{name:/Salvar meus dados neste navegador/});
+ await checkbox.uncheck();
+ await expect.poll(()=>page.evaluate(storeId=>document.cookie.includes(`foodweb_customer_profile_v1_${storeId}=`),STORE)).toBe(false);
+ expect(await page.evaluate(storeId=>localStorage.getItem(`foodweb_recent_order_v1:${storeId}`),STORE)).toBeNull();
+ await expect.poll(()=>page.evaluate(storeId=>JSON.parse(sessionStorage.getItem(`foodweb_checkout_draft_v1:${storeId}`)||'{}').customerName,STORE)).toBe('Pessoa anterior');
+ await page.reload();
+ await expect(checkbox).not.toBeChecked();
+ await expect(page.getByLabel('Nome',{exact:true})).toHaveValue('Pessoa anterior');
+ await page.getByRole('button',{name:/Continuar/}).click();
+ await page.getByRole('button',{name:/Registrar pedido|^Finalizar$/}).filter({visible:true}).first().click();
+ await expect(page).toHaveURL(new RegExp(ORDER));
+ const confirmation=await page.evaluate(orderId=>JSON.parse(sessionStorage.getItem(`foodservice_order_confirmation_v1_${orderId}`)||'null'),ORDER);
+ expect(confirmation).toMatchObject({orderId:ORDER,storeId:STORE});
+ expect(await page.evaluate(storeId=>document.cookie.includes(`foodweb_customer_profile_v1_${storeId}=`),STORE)).toBe(false);
+ expect(await page.evaluate(storeId=>localStorage.getItem(`foodweb_recent_order_v1:${storeId}`),STORE)).toBeNull();
 });

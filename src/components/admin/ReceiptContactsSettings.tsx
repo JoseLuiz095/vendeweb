@@ -24,7 +24,7 @@ export default function ReceiptContactsSettings({storeId,demo=false}:{storeId:st
  }
  return <section id="comprovantes" className="admin-card receipt-settings" aria-labelledby="receipt-settings-title">
   <h2 id="receipt-settings-title">Destinos dos comprovantes</h2>
-  <p>Configure o WhatsApp da loja e os contatos dos pontos. Ao clicar em “Enviar comprovante pelo WhatsApp”, o pedido é marcado como pago; pedidos para retirada em um ponto são concluídos e têm o estoque baixado automaticamente.</p>
+  <p>Configure o WhatsApp da loja e os contatos dos pontos. A loja deve conferir o recebimento e confirmar o pagamento; abrir o WhatsApp não altera o pagamento nem conclui a retirada.</p>
   {(!visible||state.loading)?<p role="status">Carregando contatos…</p>:<>{state.error&&<p role="alert">{state.error}</p>}{!demo&&<>
    {points.map(point=><div key={point.id}><PointContactsEditor storeId={storeId} pointId={point.id} pointName={point.name}/></div>)}
    <p>O link geral usa o WhatsApp da loja. Sem ele, o cliente escolhe um dos pontos com destino cadastrado. Um pedido originado em um ponto usa o contato desse ponto; se não houver, usa o WhatsApp da loja.</p>

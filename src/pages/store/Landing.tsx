@@ -76,19 +76,6 @@ const planMarketingContent: Record<string, PlanMarketingContent> = {
   },
 };
 
-const fallback: PublicLanding = {
-  stores: [],
-  demoStoreSlug: 'central-food-demo',
-  demoEnabled: true,
-  demoDurationDays: 14,
-  contactProtected: true,
-  plans: [
-    { id: 'essential', code: 'ESSENTIAL', name: 'Essencial', monthlyPrice: 49.9, featureCodes: ['storefront', 'orders', 'whatsapp', 'delivery'], marketingBenefits: [], productLimit: 40, imageLimitPerProduct: 1, categoryLimit: 12, addonLimit: 40, customDomain: false, reports: false, prioritySupport: false },
-    { id: 'starter', code: 'STARTER', name: 'Profissional', monthlyPrice: 79.9, featureCodes: ['storefront', 'orders', 'whatsapp', 'delivery', 'analytics', 'finance', 'financial_documents', 'custom_banner', 'multiple_images'], marketingBenefits: [], productLimit: 120, imageLimitPerProduct: 5, categoryLimit: 30, addonLimit: 120, customDomain: false, reports: true, prioritySupport: false },
-    { id: 'professional', code: 'PROFESSIONAL', name: 'Premium', monthlyPrice: 129.9, featureCodes: ['storefront', 'orders', 'whatsapp', 'delivery', 'analytics', 'finance', 'financial_documents', 'custom_banner', 'multiple_images'], marketingBenefits: [], productLimit: null, imageLimitPerProduct: 10, categoryLimit: null, addonLimit: null, customDomain: true, reports: true, prioritySupport: true },
-  ],
-};
-
 const planFeatures = (plan: LandingPlan, content: PlanMarketingContent) => {
   const allowed = (feature: string) => !(
     (!plan.customDomain && /dom[ií]nio pr[oó]prio/i.test(feature))
@@ -126,22 +113,27 @@ const getPlanContent = (plan: LandingPlan, trialDays: number): PlanMarketingCont
 export default function Landing() {
   const [data, setData] = useState<PublicLanding | null>(null);
   const [deepDemoOpen, setDeepDemoOpen] = useState(false);
+  const [loadError, setLoadError] = useState(false);
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
-    void loadPublicLanding().then(setData).catch(() => setData(fallback));
-  }, []);
-
-  const view = data || fallback;
-  const demoHref = `/${encodeURIComponent(view.demoStoreSlug)}`;
-  const trialDays = view.demoEnabled ? view.demoDurationDays : 14;
+    let active = true;
+    setLoadError(false);
+    void loadPublicLanding().then(value => { if (active) setData(value); }).catch(() => { if (active) setLoadError(true); });
+    return () => { active = false; };
+  }, [attempt]);
 
   if (!data) return <div className="food-sales-page food-sales-page--segments">
     <header className="sales-nav"><div className="sales-shell"><a className="sales-brand" href="/">VendeWeb</a><nav aria-label="Navegação comercial"><a href="#recursos">Recursos</a><a href="#ramos">Para seu negócio</a><a href="#planos">Planos</a></nav></div></header>
     <CommercialHero/>
     <section id="recursos" className="sales-shell"><h2>Venda online com uma operação organizada</h2><p>Publique seu catálogo, compartilhe o link da loja, receba pedidos e acompanhe seus produtos. Recursos adicionais dependem do plano e da liberação para cada negócio.</p></section>
     <section id="ramos" className="sales-shell"><h2 id="demonstracao">Uma vitrine para diferentes negócios</h2><p>Alimentação, floricultura, comércio e serviços podem começar com o catálogo e os recursos adequados ao seu segmento.</p></section>
-    <section id="planos" className="sales-shell"><h2>Conheça os planos da VendeWeb</h2><p role="status">Consultando planos e lojas disponíveis…</p></section>
+    <section id="planos" className="sales-shell"><h2>Conheça os planos da VendeWeb</h2>{loadError ? <div role="alert"><p>Não foi possível consultar os planos e as lojas. Tente novamente.</p><button type="button" onClick={() => setAttempt(value => value + 1)}>Tentar novamente</button></div> : <p role="status">Consultando planos e lojas disponíveis…</p>}</section>
   </div>;
+
+  const view = data;
+  const demoHref = `/${encodeURIComponent(view.demoStoreSlug)}`;
+  const trialDays = view.demoEnabled ? view.demoDurationDays : 14;
 
   return <div className="food-sales-page food-sales-page-v43 food-sales-page-v44 food-sales-page-v59 food-sales-page--segments">
     <header className="sales-nav sales-nav-v44"><div className="sales-shell">

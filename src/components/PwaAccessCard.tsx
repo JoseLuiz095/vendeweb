@@ -47,6 +47,7 @@ export function PwaAccessCard({role,scope,name,notifications=false}:Props){
     if(typeof Notification==='undefined')return;
     const result=await Notification.requestPermission();
     setPermission(result);
+    window.dispatchEvent(new Event('vendeweb:notification-permission-change'));
     if(result!=='default')dismiss();
   };
   return <section className="pwa-access-card" aria-label="Aplicativo e permissões">

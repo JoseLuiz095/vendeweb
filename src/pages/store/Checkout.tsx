@@ -22,7 +22,7 @@ import { buildWhatsAppMessage } from '../../utils/whatsapp';
 import { storefrontPath } from '../../utils/storefrontRoute';
 import { normalizeText } from '../../utils/text';
 import { getStoreOpenStatus } from '../../utils/storeHours';
-import { loadCustomerCheckoutProfile, saveCustomerCheckoutProfile, saveRecentOrder } from '../../utils/customerSales';
+import { clearCustomerCheckoutProfile, clearRecentOrder, loadCustomerCheckoutProfile, saveCustomerCheckoutProfile, saveRecentOrder } from '../../utils/customerSales';
 import { loadFulfillmentPreference } from '../../utils/fulfillmentPreference';
 import { PickupPointSelector } from './PickupPointSelector';
 import { pointStock, usePickupAvailability } from './usePickupAvailability';
@@ -38,6 +38,7 @@ const REQUEST_KEY_PREFIX = 'foodservice_checkout_request_v1';
 const requestKey = (storeId: string) => `${REQUEST_KEY_PREFIX}:${storeId}`;
 const DRAFT_KEY_PREFIX = 'foodweb_checkout_draft_v1';
 const draftKey = (storeId: string) => `${DRAFT_KEY_PREFIX}:${storeId}`;
+const rememberKey = (storeId: string) => `foodweb_checkout_remember_v1:${storeId}`;
 const newRequestId = () => typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
 const localDateTimeInputValue = (date: Date) => {
   const pad = (value: number) => String(value).padStart(2, '0');
@@ -64,10 +65,10 @@ const readPartyConfig = (groups: OptionGroup[]): PartyOrderConfig | undefined =>
   }
 };
 
-export default function Checkout() {
+export default function Checkout({ embedded = false }: { embedded?: boolean } = {}) {
   const { items: allItems, clear, removeItem, updateQuantity,receiptSourceCode } = useCart();
-  const [searchParams] = useSearchParams();
-  const quickId = searchParams.get('quick');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const quickId = embedded ? null : searchParams.get('quick');
   const quickQuantity = Math.max(1, Math.min(99, Number(searchParams.get('qty')) || 1));
   const items = quickId ? allItems.filter((item) => item.id === quickId).map((item) => ({ ...item, quantity: Math.min(item.quantity, quickQuantity) })) : allItems;
   const subtotal = calculateCartSubtotal(items);
@@ -76,6 +77,7 @@ export default function Checkout() {
   const { showToast } = useToast();
   const navigate = useNavigate();
   const [form, setForm] = useState<CheckoutData>(initial);
+  const [fulfillmentChosen, setFulfillmentChosen] = useState(false);
   const pickup = usePickupAvailability();
   const [saving, setSaving] = useState(false);
   const [cepLoading, setCepLoading] = useState(false);
@@ -135,8 +137,8 @@ export default function Checkout() {
     if (!pickup.pickupLocationId && normalizedDraft.pickupLocationId && !searchParams.get('ponto')) pickup.setPickupLocationId(normalizedDraft.pickupLocationId);
     setDraftReadyForStore('');
     setForm({ ...initial, ...(profile || {}), ...normalizedDraft, pickupLocationId: pickup.pickupLocationId, ...(preferredFulfillment ? { fulfillment: preferredFulfillment } : {}), deliveryFee: 0 });
-    setRememberCustomer(true);
-    if (profile) setRememberCustomer(true);
+    try { setRememberCustomer(sessionStorage.getItem(rememberKey(settings.id)) !== 'false'); }
+    catch { setRememberCustomer(true); }
     setDraftReadyForStore(settings.id);
     try {
       const key = checkoutRequestKey;
@@ -159,11 +161,11 @@ export default function Checkout() {
   }, [draftReadyForStore, form, settings.id]);
 
   useEffect(() => {
-    if (!loading && items.length && settings.id && !trackedCheckout.current) {
+    if (!loading && items.length && settings.id && (!embedded || fulfillmentChosen) && !trackedCheckout.current) {
       trackedCheckout.current = true;
       void trackPublicEvent(settings.id, 'checkout_started');
     }
-  }, [loading, items.length, settings.id]);
+  }, [loading, items.length, settings.id, embedded, fulfillmentChosen]);
 
   useEffect(() => {
     if (form.fulfillment === 'delivery' && !settings.deliveryEnabled && settings.pickupEnabled) update('fulfillment', 'pickup');
@@ -270,15 +272,16 @@ export default function Checkout() {
   const scheduleNoticeVisible = scheduleRequired || outsideHours || currentBeforeDeliveryStart || Boolean(form.scheduledFor);
 
   const selectFulfillment = (fulfillment: CheckoutData['fulfillment']) => {
+    setFulfillmentChosen(true);
     setSubmitError('');
     setForm((current) => ({
       ...current,
       fulfillment,
       // A confirmação depende da modalidade escolhida. O cliente pode informar
       // um novo horário, mas nunca carregamos automaticamente um horário inválido.
-      scheduledFor: '',
-      scheduledForExplicit: false,
-      flexibleTimingConfirmed: false,
+      scheduledFor: embedded && current.fulfillment === fulfillment ? current.scheduledFor : '',
+      scheduledForExplicit: embedded && current.fulfillment === fulfillment ? current.scheduledForExplicit : false,
+      flexibleTimingConfirmed: embedded && current.fulfillment === fulfillment ? current.flexibleTimingConfirmed : false,
     }));
   };
 
@@ -336,35 +339,34 @@ export default function Checkout() {
 
   const validateStep = (currentStep: number) => {
     if (currentStep === 0) {
+      if (embedded && !fulfillmentChosen) return 'Escolha entrega ou retirada.';
+      if (!items.length) return 'Seu carrinho está vazio.';
+      if(receiptContactsEnabled&&receiptSourceCode){if(pickup.pointsLoading)return 'Aguarde a consulta do ponto de origem do comprovante.';if(pickup.pointsError||!pickup.points.some(p=>p.short_code.toUpperCase()===receiptSourceCode))return 'O ponto do link está indisponível. Abra o link geral da loja ou confira outro link antes de confirmar.';}
+      if (form.fulfillment === 'pickup' && pickup.pointsLoading) return 'Aguarde a consulta dos pontos de retirada.';
+      if (form.fulfillment === 'pickup' && pickup.pointsError) return pickup.pointsError;
+      if (pointInsufficientItems.length) return `Estoque insuficiente em ${pickup.selectedPoint?.name}. Ajuste as quantidades ou escolha outro ponto.`;
       if (form.customerName.trim().length < 2) return 'Informe seu nome.';
       const phoneDigits = form.customerPhone.replace(/\D/g, '');
       if (phoneDigits.length < 10 || phoneDigits.length > 15) return 'Informe um telefone válido.';
       if (form.customerEmail && !/^\S+@\S+\.\S+$/.test(form.customerEmail.trim())) return 'Confira o e-mail informado ou deixe esse campo em branco.';
-    if (!items.length) return 'Seu carrinho está vazio.';
-    if(receiptContactsEnabled&&receiptSourceCode){if(pickup.pointsLoading)return 'Aguarde a consulta do ponto de origem do comprovante.';if(pickup.pointsError||!pickup.points.some(p=>p.short_code.toUpperCase()===receiptSourceCode))return 'O ponto do link está indisponível. Abra o link geral da loja ou confira outro link antes de confirmar.';}
-    if (form.fulfillment === 'pickup' && pickup.pointsLoading) return 'Aguarde a consulta dos pontos de retirada.';
-    if (form.fulfillment === 'pickup' && pickup.pointsError) return pickup.pointsError;
-    if (pointInsufficientItems.length) return `Estoque insuficiente em ${pickup.selectedPoint?.name}. Ajuste as quantidades ou escolha outro ponto.`;
-    if (outsideHours && !settings.allowScheduledOrders) return form.fulfillment === 'pickup' ? `A retirada funciona das ${settings.pickupStartTime || '07:00'} às ${settings.pickupEndTime || '22:00'}.` : `${settings.name} está fechada agora. ${openStatus.detail}.`;
-    if (form.scheduledFor && new Date(form.scheduledFor).getTime() <= Date.now()) return 'O agendamento precisa estar no futuro.';
-    if (stockSchedulingRequired && (!form.scheduledFor || new Date(form.scheduledFor).getTime() < tomorrowStart.getTime())) return 'Há item sem disponibilidade hoje. Escolha um horário a partir de amanhã para agendar o pedido.';
-    if (partySchedulingRequired && (!form.scheduledFor || new Date(form.scheduledFor).getTime() < scheduleMinimum.getTime())) return partyLeadTimeDays > 0 ? `Esta encomenda para festa precisa ser agendada com pelo menos ${partyLeadTimeDays} dia${partyLeadTimeDays === 1 ? '' : 's'} de antecedência.` : 'Escolha um horário futuro para esta encomenda para festa.';
-    if (scheduleRequired && !form.scheduledFor) return form.fulfillment === 'pickup' ? `A retirada funciona das ${settings.pickupStartTime || '07:00'} às ${settings.pickupEndTime || '22:00'}. Escolha um horário para agendar.` : 'Escolha um horário para agendar este pedido.';
-    if (scheduledDeliveryBeforeStart) return `As entregas começam às ${settings.deliveryStartTime}. Escolha um horário de entrega a partir desse horário.`;
-    if (scheduledOutsidePickupWindow) return `A retirada funciona das ${settings.pickupStartTime || '07:00'} às ${settings.pickupEndTime || '22:00'}. Escolha um horário dentro dessa janela.`;
-    if ((outsideHours || currentBeforeDeliveryStart) && !settings.allowScheduledOrders) return currentBeforeDeliveryStart ? `As entregas começam às ${settings.deliveryStartTime}. Se não quiser aguardar, selecione retirada.` : form.fulfillment === 'pickup' ? `A retirada funciona das ${settings.pickupStartTime || '07:00'} às ${settings.pickupEndTime || '22:00'}.` : `${settings.name} está fechada agora. ${openStatus.detail}.`;
-    if (flexibleTimingRequired && !form.flexibleTimingConfirmed) return `Confirme que aceita o atendimento conforme a próxima janela disponível. ${timingConfirmationLabel}`;
-    if (form.fulfillment === 'delivery') {
-      if (!settings.deliveryEnabled) return 'Delivery está desativado nesta loja.';
-      if (!form.deliveryZoneId || !selectedZone) return 'Selecione uma área de entrega disponível.';
-      if (!form.street.trim() || !form.addressNumber.trim()) return 'Informe rua e número da entrega.';
-    } else if (!settings.pickupEnabled) return 'Retirada está desativada nesta loja.';
-    return '';
+      if (outsideHours && !settings.allowScheduledOrders) return form.fulfillment === 'pickup' ? `A retirada funciona das ${settings.pickupStartTime || '07:00'} às ${settings.pickupEndTime || '22:00'}.` : `${settings.name} está fechada agora. ${openStatus.detail}.`;
+      if (form.scheduledFor && new Date(form.scheduledFor).getTime() <= Date.now()) return 'O agendamento precisa estar no futuro.';
+      if (stockSchedulingRequired && (!form.scheduledFor || new Date(form.scheduledFor).getTime() < tomorrowStart.getTime())) return 'Há item sem disponibilidade hoje. Escolha um horário a partir de amanhã para agendar o pedido.';
+      if (partySchedulingRequired && (!form.scheduledFor || new Date(form.scheduledFor).getTime() < scheduleMinimum.getTime())) return partyLeadTimeDays > 0 ? `Esta encomenda para festa precisa ser agendada com pelo menos ${partyLeadTimeDays} dia${partyLeadTimeDays === 1 ? '' : 's'} de antecedência.` : 'Escolha um horário futuro para esta encomenda para festa.';
+      if (scheduleRequired && !form.scheduledFor) return form.fulfillment === 'pickup' ? `A retirada funciona das ${settings.pickupStartTime || '07:00'} às ${settings.pickupEndTime || '22:00'}. Escolha um horário para agendar.` : 'Escolha um horário para agendar este pedido.';
+      if (scheduledDeliveryBeforeStart) return `As entregas começam às ${settings.deliveryStartTime}. Escolha um horário de entrega a partir desse horário.`;
+      if (scheduledOutsidePickupWindow) return `A retirada funciona das ${settings.pickupStartTime || '07:00'} às ${settings.pickupEndTime || '22:00'}. Escolha um horário dentro dessa janela.`;
+      if ((outsideHours || currentBeforeDeliveryStart) && !settings.allowScheduledOrders) return currentBeforeDeliveryStart ? `As entregas começam às ${settings.deliveryStartTime}. Se não quiser aguardar, selecione retirada.` : form.fulfillment === 'pickup' ? `A retirada funciona das ${settings.pickupStartTime || '07:00'} às ${settings.pickupEndTime || '22:00'}.` : `${settings.name} está fechada agora. ${openStatus.detail}.`;
+      if (flexibleTimingRequired && !form.flexibleTimingConfirmed) return `Confirme que aceita o atendimento conforme a próxima janela disponível. ${timingConfirmationLabel}`;
+      if (form.fulfillment === 'delivery') {
+        if (!settings.deliveryEnabled) return 'Delivery está desativado nesta loja.';
+        if (!form.deliveryZoneId || !selectedZone) return 'Selecione uma área de entrega disponível.';
+        if (!form.street.trim() || !form.addressNumber.trim()) return 'Informe rua e número da entrega.';
+      } else if (!settings.pickupEnabled) return 'Retirada está desativada nesta loja.';
+      return '';
     }
-    if (currentStep === 1) {
     if (!enabledPayments.includes(form.paymentMethod)) return 'Selecione uma forma de pagamento disponível.';
     if (form.paymentMethod === 'cash' && form.needsChange && (!form.changeFor || form.changeFor <= total)) return 'O valor para troco deve ser maior que o total do pedido.';
-    }
     if (settings.minimumOrder > 0 && subtotal < settings.minimumOrder) return `O pedido mínimo é ${currency.format(settings.minimumOrder)}.`;
     if (!isDoceLuaPilot && !form.reviewConfirmed) return 'Confirme que revisou o pedido antes de finalizar.';
     if (appConfig.turnstileSiteKey && !turnstileToken) return 'Conclua a verificação anti-spam.';
@@ -373,7 +375,7 @@ export default function Checkout() {
 
   const changeStep = (next: number) => {
     if (next > step) {
-      const error = validateStep(step);
+      const error = validateStep(0);
       if (error) {
         setSubmitError(error);
         window.requestAnimationFrame(() => document.querySelector<HTMLElement>('.checkout-inline-error')?.focus());
@@ -391,7 +393,7 @@ export default function Checkout() {
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     if (saving) return;
-    if (step !== 1) { changeStep(step + 1); return; }
+    if (step === 0) { changeStep(1); return; }
     const invalidStep = [0, 1].find((index) => Boolean(validateStep(index)));
     const error = invalidStep === undefined ? '' : validateStep(invalidStep);
     if (error) {
@@ -462,7 +464,7 @@ export default function Checkout() {
         }
       }
       const confirmation: OrderConfirmation = {
-        storeId: settings.id, receiptToken:result.receiptToken, receiptPickupLocationId: receiptContactsEnabled ? result.receiptPickupLocationId || undefined : undefined,
+        storeId: settings.id, receiptToken:result.receiptToken, mpTestCapability:result.mpTestCapability, mpTestMode:result.mpTestMode, receiptPickupLocationId: receiptContactsEnabled ? result.receiptPickupLocationId || undefined : undefined,
         orderId: result.orderId, orderNumber: result.orderNumber, total: result.total, paymentMethod: form.paymentMethod, customerName: form.customerName,
         fulfillment: form.fulfillment, storeName: settings.name, storeWhatsapp: settings.whatsapp, pixEnabled: settings.pixEnabled,
         pickupPointName: form.fulfillment === 'pickup' ? pickup.selectedPoint?.name : undefined,
@@ -472,7 +474,7 @@ export default function Checkout() {
         createdAt: new Date().toISOString(),
       };
       saveOrderConfirmation(confirmation);
-      saveRecentOrder(settings.id, items, form.customerName, form.customerPhone);
+      if (rememberCustomer) saveRecentOrder(settings.id, items, form.customerName, form.customerPhone);
       if (rememberCustomer) saveCustomerCheckoutProfile(settings.id, {
         customerName: form.customerName, customerPhone: form.customerPhone, customerEmail: form.customerEmail, fulfillment: form.fulfillment,
         zipCode: form.zipCode, street: form.street, addressNumber: form.addressNumber, complement: form.complement, neighborhood: form.neighborhood,
@@ -499,34 +501,33 @@ export default function Checkout() {
   if (loading) return <div className="page-center"><LoaderCircle className="spin"/>Carregando checkout...</div>;
   if (!items.length) return <div className="simple-page"><header className="simple-topbar container"><Link to={storefrontPath(storeBasePath)}><ArrowLeft size={19}/>Voltar ao cardápio</Link></header><div className="cart-empty"><ShoppingBag size={48}/><h1>Seu carrinho está vazio</h1><Link className="primary-button" to={storefrontPath(storeBasePath)}>Ver cardápio</Link></div></div>;
 
-  return <div className="simple-page checkout-page checkout-page-v44">
-    <header className="simple-topbar checkout-topbar-v44 container"><Link to={storefrontPath(storeBasePath, '/carrinho')}><ArrowLeft size={19}/>Voltar ao carrinho</Link><strong>{PLATFORM_BRAND}</strong><span>{settings.name}</span></header>
-    <details className="checkout-trust-details container"><summary>Pedido protegido · saiba como seus dados são usados</summary><div className="checkout-trustbar-v44"><span><ShieldCheck size={17}/><b>Pedido protegido</b><small>Turnstile e validação no servidor</small></span><span><LockKeyhole size={17}/><b>Dados usados só no pedido</b><small>Sem exposição do suporte interno</small></span><span><CheckCircle2 size={17}/><b>{whatsappAvailable ? 'Pedido salvo primeiro' : 'WhatsApp opcional'}</b><small>{whatsappAvailable ? 'Essencial para agilizar confirmação e suporte' : 'Essencial para agilizar confirmação e suporte'}</small></span></div></details>
+  return <div className={`simple-page checkout-page checkout-page-v44${embedded ? ' checkout-embedded' : ''}`}>
+    {!embedded && <header className="simple-topbar checkout-topbar-v44 container"><Link to={storefrontPath(storeBasePath, '/carrinho')}><ArrowLeft size={19}/>Voltar ao carrinho</Link><strong>{PLATFORM_BRAND}</strong><span>{settings.name}</span></header>}
+    {!embedded && <details className="checkout-trust-details container"><summary>Pedido protegido · saiba como seus dados são usados</summary><div className="checkout-trustbar-v44"><span><ShieldCheck size={17}/><b>Pedido protegido</b><small>Turnstile e validação no servidor</small></span><span><LockKeyhole size={17}/><b>Dados usados só no pedido</b><small>Sem exposição do suporte interno</small></span><span><CheckCircle2 size={17}/><b>{whatsappAvailable ? 'Pedido salvo primeiro' : 'WhatsApp opcional'}</b><small>{whatsappAvailable ? 'Essencial para agilizar confirmação e suporte' : 'Essencial para agilizar confirmação e suporte'}</small></span></div></details>}
     <form className="container checkout-layout checkout-layout--premium" onSubmit={submit} noValidate>
       <section className="checkout-main">
-        <div className="page-title checkout-flow-title"><span className="eyebrow">SEU PEDIDO, EM POUCOS PASSOS</span><h1>Finalizar pedido</h1><p>Informe seus dados e escolha como pagar. É rápido e sem cadastro.</p></div>
+        <div className="page-title checkout-flow-title"><span className="eyebrow">SEU PEDIDO</span><h1>{embedded ? 'Continue seu pedido' : 'Finalizar pedido'}</h1><p>Informe seus dados e escolha como pagar. É rápido e sem cadastro.</p></div>
         <ol className="checkout-flow-progress" aria-label="Etapas da finalização">{['Dados e entrega', 'Finalizar'].map((label, index) => <li key={label} aria-current={step === index ? 'step' : undefined} className={step === index ? 'is-active' : index < step ? 'is-complete' : ''}><span>{index < step ? '✓' : index + 1}</span><b>{label}</b></li>)}</ol>
         <h2 className="checkout-flow-heading" ref={stepHeading} tabIndex={-1}>{['Seus dados e entrega', 'Pagamento e revisão'][step]}</h2>
         {submitError && <div className="checkout-inline-error" role="alert" tabIndex={-1}><AlertCircle size={19}/><div><strong>Não foi possível finalizar ainda</strong><span>{submitError}</span></div></div>}
 
         <div className="checkout-step" hidden={step !== 0}>
-        {scheduleNoticeVisible && <div className="checkout-alert" role="status"><AlertCircle size={19}/><div><strong>{partySchedulingRequired ? 'Agendamento da encomenda de festa' : stockSchedulingRequired ? 'Agendamento necessário para este pedido' : flexibleTimingAvailable ? 'Pedido sem horário fixo' : currentBeforeDeliveryStart ? 'Entregas começam mais tarde' : form.fulfillment === 'pickup' ? 'Retirada fora da janela' : 'Loja fechada agora'}</strong><span>{partySchedulingRequired ? `Este produto é preparado sob encomenda. ${partyLeadTimeDays > 0 ? `Escolha a data com pelo menos ${partyLeadTimeDays} dia${partyLeadTimeDays === 1 ? '' : 's'} de antecedência` : 'Escolha um horário futuro'} e confirme os detalhes da arte pelo Instagram.` : stockSchedulingRequired ? 'Um ou mais itens estão sem saldo suficiente hoje. Escolha um horário a partir de amanhã.' : flexibleTimingAvailable ? timingConfirmationLabel : currentBeforeDeliveryStart ? `A janela de entrega começa às ${settings.deliveryStartTime}. Se não quiser aguardar, selecione retirada.` : form.fulfillment === 'pickup' ? `A retirada funciona das ${settings.pickupStartTime || '07:00'} às ${settings.pickupEndTime || '22:00'}.` : `${openStatus.detail}. ${settings.allowScheduledOrders ? 'Você pode continuar sem agendar, confirmando a próxima janela, ou escolher um horário.' : 'Novos pedidos ficam bloqueados fora do horário.'}`}</span>{showScheduleField && <label className="scheduled-order-field">Agendar para <span className="scheduled-order-field__optional">{scheduleRequired ? 'obrigatório para este pedido' : 'opcional'}</span><input type="datetime-local" value={form.scheduledFor} min={localDateTimeInputValue(scheduleMinimum)} onChange={(event)=>{ const value=event.target.value; setForm((current)=>({...current,scheduledFor:value,scheduledForExplicit:Boolean(value),flexibleTimingConfirmed:false})); setSubmitError(''); }}/><small>{partySchedulingRequired ? `Disponível a partir de ${localDateTimeInputValue(scheduleMinimum).replace('T', ', ')}` : stockSchedulingRequired ? `Disponível a partir de amanhã${form.fulfillment === 'delivery' && settings.deliveryStartTime ? ` e para delivery após ${settings.deliveryStartTime}` : '.'}` : form.fulfillment === 'delivery' && settings.deliveryStartTime ? `Escolha ${settings.deliveryStartTime} ou mais tarde para delivery.` : `Escolha um horário entre ${settings.pickupStartTime || '07:00'} e ${settings.pickupEndTime || '22:00'}.`}</small></label>}{flexibleTimingRequired && <label className="schedule-flexible-confirmation"><input type="checkbox" checked={Boolean(form.flexibleTimingConfirmed)} onChange={(event)=>update('flexibleTimingConfirmed',event.target.checked)}/><span><strong>Confirmo que posso aguardar</strong><small>{timingConfirmationLabel}</small></span></label>}</div></div>}
-
-        </div>
-        <div className="checkout-step" hidden={step !== 0}>
-        <section className="checkout-card"><div className="checkout-card__title"><UserRound size={20}/><div><strong>Seus dados</strong><span>Somente o essencial para registrar o pedido.</span></div></div><div className="form-grid checkout-essential-fields"><label>Nome<input required autoComplete="name" value={form.customerName} onChange={(event) => update('customerName', event.target.value)} placeholder="Seu nome"/></label><label>WhatsApp / telefone<input required type="tel" inputMode="tel" autoComplete="tel" value={form.customerPhone} onChange={(event) => update('customerPhone', event.target.value)} placeholder="(27) 99999-9999"/></label></div><details className="checkout-extra-fields"><summary>Mais informações <small>opcionais</small></summary><div className="form-grid"><label className="full">E-mail<input type="email" autoComplete="email" value={form.customerEmail} onChange={(event) => update('customerEmail', event.target.value)} placeholder="voce@email.com"/></label><label>Como conheceu a loja?<select value={form.acquisitionSource || ''} onChange={(event) => update('acquisitionSource', (event.target.value || undefined) as CheckoutData['acquisitionSource'])}><option value="">Selecione</option><option value="instagram">Instagram</option><option value="whatsapp">WhatsApp</option><option value="google">Google</option><option value="indicacao">Indicação</option><option value="outro">Outro</option></select></label><label>@ do Instagram<input value={form.customerInstagram || ''} onChange={(event) => update('customerInstagram', event.target.value)} placeholder="@seuusuario"/></label></div></details><label className="switch-row full checkout-remember-row"><span><strong>Salvar meus dados neste navegador</strong><small>Nome, contato e endereço ficam salvos por até 180 dias neste navegador. Desmarque para não guardar. Nenhum dado de pagamento é salvo.</small></span><input type="checkbox" checked={rememberCustomer} onChange={(event) => setRememberCustomer(event.target.checked)}/></label></section>
-
-        </div>
-        <div className="checkout-step" hidden={step !== 0}>
-        <section className="checkout-card"><div className="checkout-card__title"><Truck size={20}/><div><strong>Como quer receber?</strong><span>Escolha delivery ou retirada.</span></div></div><div className="fulfillment-options">{settings.deliveryEnabled && <button type="button" aria-pressed={form.fulfillment === 'delivery'} className={form.fulfillment === 'delivery' ? 'selected' : ''} onClick={() => selectFulfillment('delivery')}><Truck size={20}/><span><strong>Delivery</strong><small>Receber no endereço</small></span></button>}{settings.pickupEnabled && <button type="button" aria-pressed={form.fulfillment === 'pickup'} className={form.fulfillment === 'pickup' ? 'selected' : ''} onClick={() => selectFulfillment('pickup')}><Store size={20}/><span><strong>Retirada</strong><small>Buscar na loja</small></span></button>}</div>
-           {form.fulfillment === 'delivery' && <><div className="checkout-location-action"><div><strong>Preencher com minha localização</strong><small>Opcional. Usaremos sua localização uma única vez para sugerir o endereço; número e área continuam sob sua conferência.</small></div><button type="button" className="secondary-button" onClick={() => void useCurrentLocation()} disabled={locationLoading}>{locationLoading ? <LoaderCircle className="spin" size={16}/> : <LocateFixed size={16}/>}Usar localização</button></div>{locationHint && <div className="checkout-location-hint" role="status"><MapPin size={16}/><span>{locationHint} <small>Dados de endereço sugeridos por <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a>.</small></span></div>}<div className="form-grid address-grid"><label>CEP<div className="field-with-button"><input inputMode="numeric" autoComplete="postal-code" value={form.zipCode} onChange={(event) => update('zipCode', event.target.value)} placeholder="00000-000"/><button type="button" onClick={() => void searchCep()} disabled={cepLoading}>{cepLoading ? <LoaderCircle className="spin" size={16}/> : <MapPin size={16}/>}Buscar</button></div></label><label>Bairro / área<select required value={form.deliveryZoneId} onChange={(event) => { const zone = deliveryZones.find((item) => item.id === event.target.value); setForm((current) => ({ ...current, deliveryZoneId: zone?.id || '', neighborhood: zone?.name || '', deliveryFee: zone?.fee || 0, deliveryCity: zone?.city || current.deliveryCity, deliveryState: zone?.state || current.deliveryState })); }}><option value="">Selecione</option>{deliveryZones.filter((zone) => zone.active).map((zone) => <option key={zone.id} value={zone.id}>{zone.name} · {zone.fee === 0 ? 'Grátis' : currency.format(zone.fee)}</option>)}</select></label><label className="full">Rua<input required autoComplete="address-line1" value={form.street} onChange={(event) => update('street', event.target.value)}/></label><label>Número<input required value={form.addressNumber} onChange={(event) => update('addressNumber', event.target.value)}/></label><details className="checkout-extra-fields checkout-address-extra"><summary>Complemento e referência <small>opcionais</small></summary><div className="form-grid"><label>Complemento<input value={form.complement} onChange={(event) => update('complement', event.target.value)}/></label><label>Ponto de referência<input value={form.referencePoint} onChange={(event) => update('referencePoint', event.target.value)}/></label></div></details></div></>}
-          {form.fulfillment === 'pickup' && <PickupPointSelector points={pickup.points} value={pickup.pickupLocationId} onChange={(id) => { pickup.setPickupLocationId(id); update('pickupLocationId', id); }} loading={pickup.pointsLoading} error={pickup.pointsError} invalidQr={pickup.invalidQr} identifiedByQr={pickup.identifiedByQr}/>}
-          {form.fulfillment === 'pickup' && !pickup.points.length && !pickup.pointsLoading && !pickup.pointsError && <div className="pickup-info"><MapPin size={18}/><div><strong>{settings.hidePublicAddress ? 'Local de retirada combinado com a loja' : settings.address || settings.name}</strong><span>{settings.hidePublicAddress ? settings.pickupInstructions || 'Após registrar o pedido, confirme o local diretamente com a loja.' : `${settings.city}${settings.state ? `/${settings.state}` : ''}`}</span></div></div>}
-          {form.fulfillment === 'pickup' && pickup.selectedPoint && <p className="store-point-stock" role="status">{pickup.availabilityLoading ? 'Consultando estoque deste ponto…' : pickup.availabilityError || (pointInsufficientItems.length ? `Há itens sem saldo suficiente em ${pickup.selectedPoint.name}. Ajuste o carrinho ou escolha outro ponto.` : 'O estoque deste ponto será consultado novamente antes de registrar o pedido.')}</p>}
+        <section className="checkout-card"><div className="checkout-card__title"><Truck size={20}/><div><strong>Como quer receber?</strong><span>Escolha delivery ou retirada.</span></div></div><div className="fulfillment-options">{settings.deliveryEnabled && <button type="button" aria-pressed={(!embedded || fulfillmentChosen) && form.fulfillment === 'delivery'} className={(!embedded || fulfillmentChosen) && form.fulfillment === 'delivery' ? 'selected' : ''} onClick={() => selectFulfillment('delivery')}><Truck size={20}/><span><strong>Delivery</strong><small>Receber no endereço</small></span></button>}{settings.pickupEnabled && <button type="button" aria-pressed={(!embedded || fulfillmentChosen) && form.fulfillment === 'pickup'} className={(!embedded || fulfillmentChosen) && form.fulfillment === 'pickup' ? 'selected' : ''} onClick={() => selectFulfillment('pickup')}><Store size={20}/><span><strong>Retirada</strong><small>Buscar na loja</small></span></button>}</div>
+           {(!embedded || fulfillmentChosen) && form.fulfillment === 'delivery' && <><div className="checkout-location-action"><div><strong>Preencher com minha localização</strong><small>Opcional. Usaremos sua localização uma única vez para sugerir o endereço; número e área continuam sob sua conferência.</small></div><button type="button" className="secondary-button" onClick={() => void useCurrentLocation()} disabled={locationLoading}>{locationLoading ? <LoaderCircle className="spin" size={16}/> : <LocateFixed size={16}/>}Usar localização</button></div>{locationHint && <div className="checkout-location-hint" role="status"><MapPin size={16}/><span>{locationHint} <small>Dados de endereço sugeridos por <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a>.</small></span></div>}<div className="form-grid address-grid"><label>CEP<div className="field-with-button"><input inputMode="numeric" autoComplete="postal-code" value={form.zipCode} onChange={(event) => update('zipCode', event.target.value)} placeholder="00000-000"/><button type="button" onClick={() => void searchCep()} disabled={cepLoading}>{cepLoading ? <LoaderCircle className="spin" size={16}/> : <MapPin size={16}/>}Buscar</button></div></label><label>Bairro / área<select required value={form.deliveryZoneId} onChange={(event) => { const zone = deliveryZones.find((item) => item.id === event.target.value); setForm((current) => ({ ...current, deliveryZoneId: zone?.id || '', neighborhood: zone?.name || '', deliveryFee: zone?.fee || 0, deliveryCity: zone?.city || current.deliveryCity, deliveryState: zone?.state || current.deliveryState })); }}><option value="">Selecione</option>{deliveryZones.filter((zone) => zone.active).map((zone) => <option key={zone.id} value={zone.id}>{zone.name} · {zone.fee === 0 ? 'Grátis' : currency.format(zone.fee)}</option>)}</select></label><label className="full">Rua<input required autoComplete="address-line1" value={form.street} onChange={(event) => update('street', event.target.value)}/></label><label>Número<input required value={form.addressNumber} onChange={(event) => update('addressNumber', event.target.value)}/></label><details className="checkout-extra-fields checkout-address-extra"><summary>Complemento e referência <small>opcionais</small></summary><div className="form-grid"><label>Complemento<input value={form.complement} onChange={(event) => update('complement', event.target.value)}/></label><label>Ponto de referência<input value={form.referencePoint} onChange={(event) => update('referencePoint', event.target.value)}/></label></div></details></div></>}
+          {(!embedded || fulfillmentChosen) && form.fulfillment === 'pickup' && <PickupPointSelector showChange points={pickup.points} value={pickup.pickupLocationId} onChange={(id) => { pickup.setPickupLocationId(id); update('pickupLocationId', id); if (searchParams.has('ponto')) { const params = new URLSearchParams(searchParams); params.delete('ponto'); setSearchParams(params, { replace: true }); } }} loading={pickup.pointsLoading} error={pickup.pointsError} invalidQr={pickup.invalidQr} identifiedByQr={pickup.identifiedByQr}/>}
+          {(!embedded || fulfillmentChosen) && form.fulfillment === 'pickup' && !pickup.points.length && !pickup.pointsLoading && !pickup.pointsError && <div className="pickup-info"><MapPin size={18}/><div><strong>{settings.hidePublicAddress ? 'Local de retirada combinado com a loja' : settings.address || settings.name}</strong><span>{settings.hidePublicAddress ? settings.pickupInstructions || 'Após registrar o pedido, confirme o local diretamente com a loja.' : `${settings.city}${settings.state ? `/${settings.state}` : ''}`}</span></div></div>}
+          {(!embedded || fulfillmentChosen) && form.fulfillment === 'pickup' && pickup.selectedPoint && <p className="store-point-stock" role="status">{pickup.availabilityLoading ? 'Consultando estoque deste ponto…' : pickup.availabilityError || (pointInsufficientItems.length ? `Há itens sem saldo suficiente em ${pickup.selectedPoint.name}. Ajuste o carrinho ou escolha outro ponto.` : 'O estoque deste ponto será consultado novamente antes de registrar o pedido.')}</p>}
         </section>
 
+        {(!embedded || fulfillmentChosen) && <>
+        {scheduleNoticeVisible && <div className="checkout-alert" role="status"><AlertCircle size={19}/><div><strong>{partySchedulingRequired ? 'Agendamento da encomenda de festa' : stockSchedulingRequired ? 'Agendamento necessário para este pedido' : flexibleTimingAvailable ? 'Pedido sem horário fixo' : currentBeforeDeliveryStart ? 'Entregas começam mais tarde' : form.fulfillment === 'pickup' ? 'Retirada fora da janela' : 'Loja fechada agora'}</strong><span>{partySchedulingRequired ? `Este produto é preparado sob encomenda. ${partyLeadTimeDays > 0 ? `Escolha a data com pelo menos ${partyLeadTimeDays} dia${partyLeadTimeDays === 1 ? '' : 's'} de antecedência` : 'Escolha um horário futuro'} e confirme os detalhes da arte pelo Instagram.` : stockSchedulingRequired ? 'Um ou mais itens estão sem saldo suficiente hoje. Escolha um horário a partir de amanhã.' : flexibleTimingAvailable ? timingConfirmationLabel : currentBeforeDeliveryStart ? `A janela de entrega começa às ${settings.deliveryStartTime}. Se não quiser aguardar, selecione retirada.` : form.fulfillment === 'pickup' ? `A retirada funciona das ${settings.pickupStartTime || '07:00'} às ${settings.pickupEndTime || '22:00'}.` : `${openStatus.detail}. ${settings.allowScheduledOrders ? 'Você pode continuar sem agendar, confirmando a próxima janela, ou escolher um horário.' : 'Novos pedidos ficam bloqueados fora do horário.'}`}</span>{showScheduleField && <label className="scheduled-order-field">Agendar para <span className="scheduled-order-field__optional">{scheduleRequired ? 'obrigatório para este pedido' : 'opcional'}</span><input type="datetime-local" value={form.scheduledFor} min={localDateTimeInputValue(scheduleMinimum)} onChange={(event)=>{ const value=event.target.value; setForm((current)=>({...current,scheduledFor:value,scheduledForExplicit:Boolean(value),flexibleTimingConfirmed:false})); setSubmitError(''); }}/><small>{partySchedulingRequired ? `Disponível a partir de ${localDateTimeInputValue(scheduleMinimum).replace('T', ', ')}` : stockSchedulingRequired ? `Disponível a partir de amanhã${form.fulfillment === 'delivery' && settings.deliveryStartTime ? ` e para delivery após ${settings.deliveryStartTime}` : '.'}` : form.fulfillment === 'delivery' && settings.deliveryStartTime ? `Escolha ${settings.deliveryStartTime} ou mais tarde para delivery.` : `Escolha um horário entre ${settings.pickupStartTime || '07:00'} e ${settings.pickupEndTime || '22:00'}.`}</small></label>}{flexibleTimingRequired && <label className="schedule-flexible-confirmation"><input type="checkbox" checked={Boolean(form.flexibleTimingConfirmed)} onChange={(event)=>update('flexibleTimingConfirmed',event.target.checked)}/><span><strong>Confirmo que posso aguardar</strong><small>{timingConfirmationLabel}</small></span></label>}</div></div>}
+
+        <section className="checkout-card"><div className="checkout-card__title"><UserRound size={20}/><div><strong>Seus dados</strong><span>Somente o essencial para registrar o pedido.</span></div></div><div className="form-grid checkout-essential-fields"><label>Nome<input required autoComplete="name" value={form.customerName} onChange={(event) => update('customerName', event.target.value)} placeholder="Seu nome"/></label><label>WhatsApp / telefone<input required type="tel" inputMode="tel" autoComplete="tel" value={form.customerPhone} onChange={(event) => update('customerPhone', event.target.value)} placeholder="(27) 99999-9999"/></label></div><details className="checkout-extra-fields"><summary>Mais informações <small>opcionais</small></summary><div className="form-grid"><label className="full">E-mail<input type="email" autoComplete="email" value={form.customerEmail} onChange={(event) => update('customerEmail', event.target.value)} placeholder="voce@email.com"/></label><label>Como conheceu a loja?<select value={form.acquisitionSource || ''} onChange={(event) => update('acquisitionSource', (event.target.value || undefined) as CheckoutData['acquisitionSource'])}><option value="">Selecione</option><option value="instagram">Instagram</option><option value="whatsapp">WhatsApp</option><option value="google">Google</option><option value="indicacao">Indicação</option><option value="outro">Outro</option></select></label><label>@ do Instagram<input value={form.customerInstagram || ''} onChange={(event) => update('customerInstagram', event.target.value)} placeholder="@seuusuario"/></label></div></details><label className="switch-row full checkout-remember-row"><span><strong>Salvar meus dados neste navegador</strong><small>Nome, contato e endereço ficam salvos por até 180 dias neste navegador. Desmarque para não guardar. Nenhum dado de pagamento é salvo.</small></span><input type="checkbox" checked={rememberCustomer} onChange={(event) => { const checked = event.target.checked; setRememberCustomer(checked); try { sessionStorage.setItem(rememberKey(settings.id), String(checked)); } catch { /* armazenamento indisponível */ } if (!checked) { clearCustomerCheckoutProfile(settings.id); clearRecentOrder(settings.id); } }}/></label></section>
+
+        </>}
         </div>
         <div className="checkout-step" hidden={step !== 1}>
+        {(!embedded || fulfillmentChosen) && <>
         <section className="checkout-card"><div className="checkout-card__title"><CreditCard size={20}/><div><strong>Pagamento</strong><span>Escolha como deseja pagar.</span></div></div><div className="payment-options" role="group" aria-label="Forma de pagamento">{enabledPayments.map((method) => <button type="button" key={method} aria-pressed={form.paymentMethod === method} className={form.paymentMethod === method ? 'selected' : ''} onClick={() => update('paymentMethod', method)}>{method === 'pix' ? <QrCode size={20}/> : method === 'cash' ? <Banknote size={20}/> : <CreditCard size={20}/>}<span><strong>{method === 'pix' ? 'PIX' : method === 'cash' ? 'Dinheiro' : method === 'card' ? (form.fulfillment === 'delivery' ? 'Cartão na entrega' : 'Cartão na retirada') : 'Confirmar com a loja'}</strong><small>{method === 'pix' ? 'Dados para pagar na confirmação' : method === 'cash' ? 'Informe se precisa de troco' : method === 'card' ? 'Pagamento presencial com a loja' : 'Combine o pagamento no atendimento'}</small></span>{form.paymentMethod === method && <CheckCircle2 size={17} className="payment-option-check" aria-hidden="true"/>}</button>)}</div>
           {form.paymentMethod === 'card' && <div className="cash-change-box"><strong>Cartão por aproximação (NFC)</strong><small>A cobrança será feita presencialmente pela loja. O WhatsApp fica disponível para confirmar o atendimento e eventuais orientações.</small></div>}
           {form.paymentMethod === 'cash' && <div className="cash-change-box"><label className="switch-row"><span><strong>Precisa de troco?</strong><small>Informe o valor que será entregue.</small></span><input type="checkbox" checked={form.needsChange} onChange={(event) => { update('needsChange', event.target.checked); if (!event.target.checked) update('changeFor', null); }}/></label>{form.needsChange && <label>Troco para<input type="number" min="0" step="0.01" value={form.changeFor ?? ''} onChange={(event) => update('changeFor', event.target.value ? Number(event.target.value) : null)} placeholder="Ex.: 100,00"/></label>}{form.needsChange && form.changeFor != null && changeAmount > 0 && <div className="change-result"><span>Troco calculado</span><strong>{currency.format(changeAmount)}</strong></div>}</div>}
@@ -534,14 +535,13 @@ export default function Checkout() {
 
         <details className="checkout-card checkout-order-notes"><summary>Observações do pedido <small>opcionais</small></summary><label>Instruções para a loja<textarea rows={3} maxLength={500} value={form.notes} onChange={(event) => update('notes', event.target.value)} placeholder="Preferência de embalagem ou instruções para atender ao pedido"/></label></details>
 
-        </div>
-        <div className="checkout-step" hidden={step !== 1}>
         <section className="checkout-card checkout-security-panel-v44"><div className="checkout-card__title"><ShieldCheck size={20}/><div><strong>Verificação de segurança</strong><span>Proteção contra pedidos automatizados e abusivos.</span></div></div><div className="checkout-security-check"><div><strong>Confirme que esta ação é humana</strong><span>Nenhum dado do pedido é enviado ao Turnstile. A validação retorna apenas um token de segurança.</span></div>{appConfig.turnstileSiteKey?<TurnstileWidget siteKey={appConfig.turnstileSiteKey} action="checkout" onToken={onTurnstileToken} resetSignal={turnstileReset}/>:<div className="checkout-security-missing"><AlertCircle size={17}/><span>Proteção anti-robô não configurada neste build.</span></div>}</div></section>
+        </>}
         </div>
-        <div className="checkout-step-actions">{step > 0 && <button className="secondary-button" type="button" onClick={() => changeStep(step - 1)}>Voltar</button>}{step < 1 ? <button key="next" className="primary-button" type="button" onClick={() => changeStep(step + 1)}>Continuar <span aria-hidden="true">→</span></button> : <button key="submit" className="primary-button checkout-mobile-final" type="submit" disabled={saving}>{saving ? 'Registrando...' : `Registrar pedido · ${currency.format(total)}`}</button>}</div>
+        {(!embedded || fulfillmentChosen) && <div className="checkout-step-actions">{step > 0 && <button className="secondary-button" type="button" onClick={() => changeStep(0)}>Voltar</button>}{step === 0 ? <button key="next" className="primary-button" type="button" onClick={() => changeStep(1)}>Continuar <span aria-hidden="true">→</span></button> : <button key="submit" className="primary-button checkout-mobile-final" type="submit" disabled={saving}>{saving ? 'Registrando...' : `Registrar pedido · ${currency.format(total)}`}</button>}</div>}
       </section>
 
-      <aside className={`order-summary checkout-summary ${step === 1 ? 'checkout-summary--review' : ''}`}>
+      {(!embedded || fulfillmentChosen) && <aside className={`order-summary checkout-summary ${step === 1 ? 'checkout-summary--review' : ''}`}>
         <span className="eyebrow">RESUMO</span>
         <div className="store-checkout-context"><strong>{settings.name}</strong><span>{form.fulfillment === 'pickup' ? pickup.selectedPoint ? `Retirada em ${pickup.selectedPoint.name} · validação no pedido` : pickup.pointsLoading ? 'Consultando ponto de retirada…' : 'Estoque principal · retirada a combinar com a loja' : 'Entrega no endereço informado'}</span></div>
         <details className="checkout-summary-products"><summary>Ver produtos ({items.reduce((count, item) => count + item.quantity, 0)})</summary>
@@ -563,8 +563,7 @@ export default function Checkout() {
         <button className="primary-button checkout-submit" disabled={saving} type="submit">{saving ? <><LoaderCircle className="spin" size={18}/>Registrando...</> : <><CheckCircle2 size={18}/>Registrar pedido · {currency.format(total)}</>}</button>
         <small className="checkout-security-note">Confira os itens e o total antes de registrar. Na próxima tela, guarde o número do pedido e veja as orientações da loja.</small>
         </div>
-      </aside>
-
+      </aside>}
     </form>
   </div>;
 }

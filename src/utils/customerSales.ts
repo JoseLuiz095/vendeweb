@@ -90,6 +90,11 @@ export function saveRecentOrder(storeId: string, items: CartItem[], customerName
   try { localStorage.setItem(recentOrderKey(storeId), JSON.stringify(snapshot)); } catch { /* armazenamento indisponível */ }
 }
 
+export function clearRecentOrder(storeId: string) {
+  if (!storeId) return;
+  try { localStorage.removeItem(recentOrderKey(storeId)); } catch { /* armazenamento indisponível */ }
+}
+
 export function loadRecentOrder(storeId: string, maxAgeDays = 180): RecentOrderSnapshot | null {
   if (!storeId) return null;
   try {
@@ -133,7 +138,7 @@ export function loadCustomerCheckoutProfile(storeId: string): CustomerCheckoutPr
 
 export function clearCustomerCheckoutProfile(storeId: string) {
   if (!storeId || typeof document === 'undefined') return;
-  document.cookie = `${customerProfileCookie(storeId)}=; Max-Age=0; Path=/; SameSite=Lax`;
+  try { document.cookie = `${customerProfileCookie(storeId)}=; Max-Age=0; Path=/; SameSite=Lax`; } catch { /* cookies indisponíveis */ }
 }
 
 export function normalizeWhatsappPhone(phone?: string) {

@@ -49,7 +49,10 @@ export const createOrderPaymentHandler = (deps: Dependencies) => async (req: Req
     }
     const body = JSON.parse(raw);
     // A capability de comprovante usa o mesmo segredo dedicado do link, sem MFA ou autorização extra da loja.
-    const receiptReportingReady=secret.length>=32;
+    // A client click does not prove a transfer or attachment. Keep payment
+    // pending until an authorized store member confirms receipt. This also
+    // disables old clients holding a previously issued receipt capability.
+    const receiptReportingReady=false;
     if(body.action==='receipt_capabilities')return reply(200,{receiptReportingConfigured:receiptReportingReady});
     if(body.action==='report_receipt'){
       if(!receiptReportingReady||!deps.reportReceipt)return reply(503,{error:'O aviso de comprovante ainda não está ativado. Fale com a loja.'});
@@ -113,3 +116,4 @@ export const createOrderPaymentHandler = (deps: Dependencies) => async (req: Req
     return reply(400, { error: 'Não foi possível consultar o pagamento. Tente novamente.' });
   }
 };
+

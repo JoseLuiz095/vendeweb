@@ -16,24 +16,17 @@ async function openOrder(page:Page,token?:string) {
   await page.getByRole('button',{name:'Já fiz o PIX · enviar comprovante'}).click();
 }
 
-test('com autorização do checkout um clique registra o pagamento informado',async({page,context})=>{
+for (const token of ['checkout.receipt', undefined]) test(`abrir contato não confirma pagamento, token: ${token ? 'presente' : 'ausente'}`,async({page,context})=>{
   const calls:unknown[]=[];
   await context.route('https://wa.me/**',route=>route.fulfill({contentType:'text/plain',body:'Conversa de teste.'}));
-  await openOrder(page,'checkout.receipt');
-  await page.route('**/functions/v1/food-order-payment',route=>{
-    calls.push(route.request().postDataJSON());
-    return route.fulfill({json:{ok:true,status:'paid',autoPickedUp:false}});
-  });
+  await openOrder(page,token);
+  await page.route('**/functions/v1/food-order-payment',route=>{ calls.push(route.request().postDataJSON()); return route.fulfill({status:500}); });
   const area=page.getByRole('region',{name:'Enviar comprovante'});
   const popup=page.waitForEvent('popup');
-  await area.getByRole('button',{name:'Enviar comprovante pelo WhatsApp'}).click();
+  await area.getByRole('link',{name:'Abrir WhatsApp e enviar comprovante'}).click();
   const opened=await popup;
-  await expect(area.getByRole('status')).toContainText('Pagamento marcado como pago');
-  expect(calls).toEqual([{action:'report_receipt',token:'checkout.receipt'}]);
+  await expect(area).toContainText('Aguardando confirmação da loja');
+  await expect(area).not.toContainText('Pagamento marcado como pago');
+  expect(calls).toEqual([]);
   await opened.close();
-});
-
-test('sem autorização o cliente é informado que precisa da conferência da loja',async({page})=>{
-  await openOrder(page);
-  await expect(page.getByText('A confirmação automática do pagamento está indisponível. Envie o comprovante e solicite a conferência da loja.')).toBeVisible();
 });

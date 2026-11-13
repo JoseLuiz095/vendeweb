@@ -28,3 +28,22 @@
 .food-modules textarea { min-height: 90px; }
 .food-modules fieldset { min-width: 0; border: 1px solid #bbbcc5; border-radius: 8px; }
 @media (max-width: 600px) { .module-row { align-items: flex-start; } .module-actions { width: 100%; } .module-actions .button { flex: 1 1 140px; } .module-inline { width: 100%; } .module-inline label { flex: 1; } }
+
+/* Padrão de acompanhamento reaproveitável, restrito à área de personalizados. */
+.custom-heading { display:flex; align-items:center; gap:.8rem; flex-wrap:wrap; }
+.custom-heading h2 { margin:.15rem 0; }
+.custom-icon { display:grid; place-items:center; width:48px; height:48px; border-radius:14px; background:#e9edff; color:#344caa; flex:none; }
+.custom-eyebrow { color:#52639b; font-size:.72rem; font-weight:750; letter-spacing:.08em; }
+.custom-guide { display:flex; gap:.75rem; align-items:flex-start; padding:1rem; border:1px solid #dce2fb; border-radius:12px; background:#f4f6ff; color:#334466; }
+.custom-guide div { display:grid; gap:.25rem; } .custom-guide span { line-height:1.5; }
+.custom-workspace details>summary { cursor:pointer; font-weight:700; padding:.3rem 0; }
+.custom-help,.custom-deadline { display:flex; gap:.4rem; align-items:center; color:#526078; }
+.custom-list-title { display:flex; justify-content:space-between; align-items:center; gap:.5rem; margin:1.5rem 0 .5rem; flex-wrap:wrap; }
+.custom-list-title h3 { margin:.2rem 0; }.custom-list-title>span { color:#596477; font-size:.85rem; }
+.custom-empty { display:grid; justify-items:center; text-align:center; gap:.4rem; border:1px dashed #c8d0e3; border-radius:12px; background:#fafbff; padding:1.5rem; color:#526078; }
+.custom-empty p { margin:0; max-width:34rem; }
+.custom-project { border-color:#dce2ee; box-shadow:0 2px 8px #25365b0d; }.custom-project h3 { margin:.6rem 0; }
+.custom-status { display:inline-block; border-radius:999px; background:#edf3ff; color:#294d91; padding:.3rem .65rem; font-size:.8rem; font-weight:700; }
+.custom-details { margin-top:.8rem; color:#46566e; }.custom-details p { margin:.5rem 0; }
+.custom-files { margin-top:1rem; padding:1rem; background:#f8faff; border:1px solid #dce4f2; border-radius:12px; }
+.custom-files h4 { display:flex; align-items:center; gap:.45rem; margin:0; }.custom-files p { margin:.4rem 0; }.custom-file-empty { color:#627087; font-size:.85rem; }

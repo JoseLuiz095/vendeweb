@@ -1,10 +1,11 @@
 import { test, expect } from '@playwright/test';
-import { mockBackend, STORE, PRODUCT, ORDER } from './fixtures';
+import { mockBackend, STORE, PRODUCT, ORDER, snapshot } from './fixtures';
 
 test('delivery mobile preserves contact/address on reload and shows fee before ordering',async({page,context})=>{
  await page.setViewportSize({width:390,height:844});
  await context.grantPermissions(['clipboard-read','clipboard-write']);
  const {writes}=await mockBackend(page);
+ await page.route('**/rest/v1/rpc/food_get_public_storefront_v1',r=>r.fulfill({json:{...snapshot,store:{...snapshot.store,average_preparation_min:10,average_preparation_max:20}}}));
  await page.addInitScript(({STORE,PRODUCT})=>localStorage.setItem(`foodservice_cart_v1:${STORE}`,JSON.stringify([{id:`${PRODUCT}|base`,productId:PRODUCT,productName:'Brigadeiro teste',quantity:1,options:[],unitPrice:10}])) ,{STORE,PRODUCT});
  await page.goto('/doce-lua/finalizar');
  await page.getByRole('button',{name:/Continuar/}).click();
@@ -36,4 +37,20 @@ test('delivery mobile preserves contact/address on reload and shows fee before o
  await page.getByRole('button',{name:'Copiar código Pix'}).click();
  expect(await page.evaluate(()=>navigator.clipboard.readText())).toContain('540515.00');
  await expect(page.getByRole('button',{name:'Já fiz o PIX · enviar comprovante'})).toBeVisible();
+});
+
+
+test('pedido sob encomenda mostra previsão quando há tempo configurado', async ({page}) => {
+ await page.setViewportSize({width:390,height:844});
+ await mockBackend(page);
+ await page.route('**/rest/v1/rpc/food_get_public_storefront_v1',r=>r.fulfill({json:{...snapshot,store:{...snapshot.store,average_preparation_min:10,average_preparation_max:20},products:snapshot.products.map(product=>({...product,made_to_order:true}))}}));
+ await page.addInitScript(({STORE,PRODUCT})=>localStorage.setItem(`foodservice_cart_v1:${STORE}`,JSON.stringify([{id:`${PRODUCT}|base`,productId:PRODUCT,productName:'Brigadeiro teste',quantity:1,options:[],unitPrice:10}])),{STORE,PRODUCT});
+ await page.goto('/doce-lua/finalizar');
+ await page.getByLabel('Nome',{exact:true}).fill('Cliente teste');
+ await page.getByLabel(/WhatsApp \/ telefone/).fill('11999999999');
+ await page.getByLabel('Bairro / área').selectOption('50000000-0000-4000-8000-000000000001');
+ await page.getByLabel('Rua',{exact:true}).fill('Rua de teste');
+ await page.getByLabel('Número',{exact:true}).fill('10');
+ await page.getByRole('button',{name:/Continuar/}).click();
+ await expect(page.locator('.preparation-summary')).toContainText('10–20 minutos');
 });
