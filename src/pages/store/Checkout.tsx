@@ -89,6 +89,8 @@ export default function Checkout({ embedded = false }: { embedded?: boolean } = 
   const [rememberCustomer, setRememberCustomer] = useState(true);
   const [draftReadyForStore, setDraftReadyForStore] = useState('');
   const [submitError, setSubmitError] = useState('');
+  const [step, setStep] = useState(0);
+  const stepHeading = useRef<HTMLHeadingElement>(null);
   const trackedCheckout = useRef(false);
   const appliedQr = useRef('');
   useEffect(() => {
@@ -268,7 +270,6 @@ export default function Checkout({ embedded = false }: { embedded?: boolean } = 
   const scheduleRequired = stockSchedulingRequired || partySchedulingRequired || (form.fulfillment === 'pickup' && outsideHours);
   const showScheduleField = scheduleRequired || (settings.allowScheduledOrders && (outsideHours || currentBeforeDeliveryStart || Boolean(form.scheduledFor)));
   const scheduleNoticeVisible = scheduleRequired || outsideHours || currentBeforeDeliveryStart || Boolean(form.scheduledFor);
-  const submitDisabled = saving || ((outsideHours || currentBeforeDeliveryStart) && !settings.allowScheduledOrders) || (scheduleRequired && !form.scheduledFor);
 
   const selectFulfillment = (fulfillment: CheckoutData['fulfillment']) => {
     setFulfillmentChosen(true);
@@ -336,30 +337,34 @@ export default function Checkout({ embedded = false }: { embedded?: boolean } = 
     }
   };
 
-  const validate = () => {
-    if (!items.length) return 'Seu carrinho está vazio.';
-    if(receiptContactsEnabled&&receiptSourceCode){if(pickup.pointsLoading)return 'Aguarde a consulta do ponto de origem do comprovante.';if(pickup.pointsError||!pickup.points.some(p=>p.short_code.toUpperCase()===receiptSourceCode))return 'O ponto do link está indisponível. Abra o link geral da loja ou confira outro link antes de confirmar.';}
-    if (form.fulfillment === 'pickup' && pickup.pointsLoading) return 'Aguarde a consulta dos pontos de retirada.';
-    if (form.fulfillment === 'pickup' && pickup.pointsError) return pickup.pointsError;
-    if (pointInsufficientItems.length) return `Estoque insuficiente em ${pickup.selectedPoint?.name}. Ajuste as quantidades ou escolha outro ponto.`;
-    if (form.customerName.trim().length < 2) return 'Informe seu nome.';
-    const phoneDigits = form.customerPhone.replace(/\D/g, '');
-    if (phoneDigits.length < 10 || phoneDigits.length > 15) return 'Informe um telefone válido.';
-    if (form.customerEmail && !/^\S+@\S+\.\S+$/.test(form.customerEmail.trim())) return 'Confira o e-mail informado ou deixe esse campo em branco.';
-    if (outsideHours && !settings.allowScheduledOrders) return form.fulfillment === 'pickup' ? `A retirada funciona das ${settings.pickupStartTime || '07:00'} às ${settings.pickupEndTime || '22:00'}.` : `${settings.name} está fechada agora. ${openStatus.detail}.`;
-    if (form.scheduledFor && new Date(form.scheduledFor).getTime() <= Date.now()) return 'O agendamento precisa estar no futuro.';
-    if (stockSchedulingRequired && (!form.scheduledFor || new Date(form.scheduledFor).getTime() < tomorrowStart.getTime())) return 'Há item sem disponibilidade hoje. Escolha um horário a partir de amanhã para agendar o pedido.';
-    if (partySchedulingRequired && (!form.scheduledFor || new Date(form.scheduledFor).getTime() < scheduleMinimum.getTime())) return partyLeadTimeDays > 0 ? `Esta encomenda para festa precisa ser agendada com pelo menos ${partyLeadTimeDays} dia${partyLeadTimeDays === 1 ? '' : 's'} de antecedência.` : 'Escolha um horário futuro para esta encomenda para festa.';
-    if (scheduleRequired && !form.scheduledFor) return form.fulfillment === 'pickup' ? `A retirada funciona das ${settings.pickupStartTime || '07:00'} às ${settings.pickupEndTime || '22:00'}. Escolha um horário para agendar.` : 'Escolha um horário para agendar este pedido.';
-    if (scheduledDeliveryBeforeStart) return `As entregas começam às ${settings.deliveryStartTime}. Escolha um horário de entrega a partir desse horário.`;
-    if (scheduledOutsidePickupWindow) return `A retirada funciona das ${settings.pickupStartTime || '07:00'} às ${settings.pickupEndTime || '22:00'}. Escolha um horário dentro dessa janela.`;
-    if ((outsideHours || currentBeforeDeliveryStart) && !settings.allowScheduledOrders) return currentBeforeDeliveryStart ? `As entregas começam às ${settings.deliveryStartTime}. Se não quiser aguardar, selecione retirada.` : form.fulfillment === 'pickup' ? `A retirada funciona das ${settings.pickupStartTime || '07:00'} às ${settings.pickupEndTime || '22:00'}.` : `${settings.name} está fechada agora. ${openStatus.detail}.`;
-    if (flexibleTimingRequired && !form.flexibleTimingConfirmed) return `Confirme que aceita o atendimento conforme a próxima janela disponível. ${timingConfirmationLabel}`;
-    if (form.fulfillment === 'delivery') {
-      if (!settings.deliveryEnabled) return 'Delivery está desativado nesta loja.';
-      if (!form.deliveryZoneId || !selectedZone) return 'Selecione uma área de entrega disponível.';
-      if (!form.street.trim() || !form.addressNumber.trim()) return 'Informe rua e número da entrega.';
-    } else if (!settings.pickupEnabled) return 'Retirada está desativada nesta loja.';
+  const validateStep = (currentStep: number) => {
+    if (currentStep === 0) {
+      if (embedded && !fulfillmentChosen) return 'Escolha entrega ou retirada.';
+      if (!items.length) return 'Seu carrinho está vazio.';
+      if(receiptContactsEnabled&&receiptSourceCode){if(pickup.pointsLoading)return 'Aguarde a consulta do ponto de origem do comprovante.';if(pickup.pointsError||!pickup.points.some(p=>p.short_code.toUpperCase()===receiptSourceCode))return 'O ponto do link está indisponível. Abra o link geral da loja ou confira outro link antes de confirmar.';}
+      if (form.fulfillment === 'pickup' && pickup.pointsLoading) return 'Aguarde a consulta dos pontos de retirada.';
+      if (form.fulfillment === 'pickup' && pickup.pointsError) return pickup.pointsError;
+      if (pointInsufficientItems.length) return `Estoque insuficiente em ${pickup.selectedPoint?.name}. Ajuste as quantidades ou escolha outro ponto.`;
+      if (form.customerName.trim().length < 2) return 'Informe seu nome.';
+      const phoneDigits = form.customerPhone.replace(/\D/g, '');
+      if (phoneDigits.length < 10 || phoneDigits.length > 15) return 'Informe um telefone válido.';
+      if (form.customerEmail && !/^\S+@\S+\.\S+$/.test(form.customerEmail.trim())) return 'Confira o e-mail informado ou deixe esse campo em branco.';
+      if (outsideHours && !settings.allowScheduledOrders) return form.fulfillment === 'pickup' ? `A retirada funciona das ${settings.pickupStartTime || '07:00'} às ${settings.pickupEndTime || '22:00'}.` : `${settings.name} está fechada agora. ${openStatus.detail}.`;
+      if (form.scheduledFor && new Date(form.scheduledFor).getTime() <= Date.now()) return 'O agendamento precisa estar no futuro.';
+      if (stockSchedulingRequired && (!form.scheduledFor || new Date(form.scheduledFor).getTime() < tomorrowStart.getTime())) return 'Há item sem disponibilidade hoje. Escolha um horário a partir de amanhã para agendar o pedido.';
+      if (partySchedulingRequired && (!form.scheduledFor || new Date(form.scheduledFor).getTime() < scheduleMinimum.getTime())) return partyLeadTimeDays > 0 ? `Esta encomenda para festa precisa ser agendada com pelo menos ${partyLeadTimeDays} dia${partyLeadTimeDays === 1 ? '' : 's'} de antecedência.` : 'Escolha um horário futuro para esta encomenda para festa.';
+      if (scheduleRequired && !form.scheduledFor) return form.fulfillment === 'pickup' ? `A retirada funciona das ${settings.pickupStartTime || '07:00'} às ${settings.pickupEndTime || '22:00'}. Escolha um horário para agendar.` : 'Escolha um horário para agendar este pedido.';
+      if (scheduledDeliveryBeforeStart) return `As entregas começam às ${settings.deliveryStartTime}. Escolha um horário de entrega a partir desse horário.`;
+      if (scheduledOutsidePickupWindow) return `A retirada funciona das ${settings.pickupStartTime || '07:00'} às ${settings.pickupEndTime || '22:00'}. Escolha um horário dentro dessa janela.`;
+      if ((outsideHours || currentBeforeDeliveryStart) && !settings.allowScheduledOrders) return currentBeforeDeliveryStart ? `As entregas começam às ${settings.deliveryStartTime}. Se não quiser aguardar, selecione retirada.` : form.fulfillment === 'pickup' ? `A retirada funciona das ${settings.pickupStartTime || '07:00'} às ${settings.pickupEndTime || '22:00'}.` : `${settings.name} está fechada agora. ${openStatus.detail}.`;
+      if (flexibleTimingRequired && !form.flexibleTimingConfirmed) return `Confirme que aceita o atendimento conforme a próxima janela disponível. ${timingConfirmationLabel}`;
+      if (form.fulfillment === 'delivery') {
+        if (!settings.deliveryEnabled) return 'Delivery está desativado nesta loja.';
+        if (!form.deliveryZoneId || !selectedZone) return 'Selecione uma área de entrega disponível.';
+        if (!form.street.trim() || !form.addressNumber.trim()) return 'Informe rua e número da entrega.';
+      } else if (!settings.pickupEnabled) return 'Retirada está desativada nesta loja.';
+      return '';
+    }
     if (!enabledPayments.includes(form.paymentMethod)) return 'Selecione uma forma de pagamento disponível.';
     if (form.paymentMethod === 'cash' && form.needsChange && (!form.changeFor || form.changeFor <= total)) return 'O valor para troco deve ser maior que o total do pedido.';
     if (settings.minimumOrder > 0 && subtotal < settings.minimumOrder) return `O pedido mínimo é ${currency.format(settings.minimumOrder)}.`;
@@ -368,11 +373,31 @@ export default function Checkout({ embedded = false }: { embedded?: boolean } = 
     return '';
   };
 
+  const changeStep = (next: number) => {
+    if (next > step) {
+      const error = validateStep(0);
+      if (error) {
+        setSubmitError(error);
+        window.requestAnimationFrame(() => document.querySelector<HTMLElement>('.checkout-inline-error')?.focus());
+        return;
+      }
+    }
+    setSubmitError('');
+    setStep(next);
+    window.requestAnimationFrame(() => {
+      stepHeading.current?.focus();
+      stepHeading.current?.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
+    });
+  };
+
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     if (saving) return;
-    const error = validate();
+    if (step === 0) { changeStep(1); return; }
+    const invalidStep = [0, 1].find((index) => Boolean(validateStep(index)));
+    const error = invalidStep === undefined ? '' : validateStep(invalidStep);
     if (error) {
+      if (invalidStep !== undefined) setStep(invalidStep);
       setSubmitError(error);
       showToast(error, 'error');
       window.requestAnimationFrame(() => { const alert=document.querySelector<HTMLElement>('.checkout-inline-error'); alert?.focus(); alert?.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'center' }); });
@@ -481,9 +506,12 @@ export default function Checkout({ embedded = false }: { embedded?: boolean } = 
     {!embedded && <details className="checkout-trust-details container"><summary>Pedido protegido · saiba como seus dados são usados</summary><div className="checkout-trustbar-v44"><span><ShieldCheck size={17}/><b>Pedido protegido</b><small>Turnstile e validação no servidor</small></span><span><LockKeyhole size={17}/><b>Dados usados só no pedido</b><small>Sem exposição do suporte interno</small></span><span><CheckCircle2 size={17}/><b>{whatsappAvailable ? 'Pedido salvo primeiro' : 'WhatsApp opcional'}</b><small>{whatsappAvailable ? 'Essencial para agilizar confirmação e suporte' : 'Essencial para agilizar confirmação e suporte'}</small></span></div></details>}
     <form className="container checkout-layout checkout-layout--premium" onSubmit={submit} noValidate>
       <section className="checkout-main">
-        <div className="page-title"><span className="eyebrow">ESCOLHER → RECEBER → PEDIR</span><h1>{embedded ? 'Continue seu pedido' : 'Finalização'}</h1>{!embedded&&<ol className="storefront-checkout-progress" aria-label="Etapas do pedido"><li> <span>✓</span> Carrinho</li><li aria-current="step"><span>2</span> Finalização</li><li><span>3</span> Confirmação</li></ol>}<p>{embedded?'Escolha como receber para continuar. Você ainda pode alterar os produtos acima.':'Compre sem criar conta. Confira os itens, informe seu contato e escolha como receber.'}</p><small className="checkout-draft-status">Seu preenchimento é recuperado nesta aba. Salvar os dados para futuras compras é opcional.</small></div>
+        <div className="page-title checkout-flow-title"><span className="eyebrow">SEU PEDIDO</span><h1>{embedded ? 'Continue seu pedido' : 'Finalizar pedido'}</h1><p>Informe seus dados e escolha como pagar. É rápido e sem cadastro.</p></div>
+        <ol className="checkout-flow-progress" aria-label="Etapas da finalização">{['Dados e entrega', 'Finalizar'].map((label, index) => <li key={label} aria-current={step === index ? 'step' : undefined} className={step === index ? 'is-active' : index < step ? 'is-complete' : ''}><span>{index < step ? '✓' : index + 1}</span><b>{label}</b></li>)}</ol>
+        <h2 className="checkout-flow-heading" ref={stepHeading} tabIndex={-1}>{['Seus dados e entrega', 'Pagamento e revisão'][step]}</h2>
         {submitError && <div className="checkout-inline-error" role="alert" tabIndex={-1}><AlertCircle size={19}/><div><strong>Não foi possível finalizar ainda</strong><span>{submitError}</span></div></div>}
 
+        <div className="checkout-step" hidden={step !== 0}>
         <section className="checkout-card"><div className="checkout-card__title"><Truck size={20}/><div><strong>Como quer receber?</strong><span>Escolha delivery ou retirada.</span></div></div><div className="fulfillment-options">{settings.deliveryEnabled && <button type="button" aria-pressed={(!embedded || fulfillmentChosen) && form.fulfillment === 'delivery'} className={(!embedded || fulfillmentChosen) && form.fulfillment === 'delivery' ? 'selected' : ''} onClick={() => selectFulfillment('delivery')}><Truck size={20}/><span><strong>Delivery</strong><small>Receber no endereço</small></span></button>}{settings.pickupEnabled && <button type="button" aria-pressed={(!embedded || fulfillmentChosen) && form.fulfillment === 'pickup'} className={(!embedded || fulfillmentChosen) && form.fulfillment === 'pickup' ? 'selected' : ''} onClick={() => selectFulfillment('pickup')}><Store size={20}/><span><strong>Retirada</strong><small>Buscar na loja</small></span></button>}</div>
            {(!embedded || fulfillmentChosen) && form.fulfillment === 'delivery' && <><div className="checkout-location-action"><div><strong>Preencher com minha localização</strong><small>Opcional. Usaremos sua localização uma única vez para sugerir o endereço; número e área continuam sob sua conferência.</small></div><button type="button" className="secondary-button" onClick={() => void useCurrentLocation()} disabled={locationLoading}>{locationLoading ? <LoaderCircle className="spin" size={16}/> : <LocateFixed size={16}/>}Usar localização</button></div>{locationHint && <div className="checkout-location-hint" role="status"><MapPin size={16}/><span>{locationHint} <small>Dados de endereço sugeridos por <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a>.</small></span></div>}<div className="form-grid address-grid"><label>CEP<div className="field-with-button"><input inputMode="numeric" autoComplete="postal-code" value={form.zipCode} onChange={(event) => update('zipCode', event.target.value)} placeholder="00000-000"/><button type="button" onClick={() => void searchCep()} disabled={cepLoading}>{cepLoading ? <LoaderCircle className="spin" size={16}/> : <MapPin size={16}/>}Buscar</button></div></label><label>Bairro / área<select required value={form.deliveryZoneId} onChange={(event) => { const zone = deliveryZones.find((item) => item.id === event.target.value); setForm((current) => ({ ...current, deliveryZoneId: zone?.id || '', neighborhood: zone?.name || '', deliveryFee: zone?.fee || 0, deliveryCity: zone?.city || current.deliveryCity, deliveryState: zone?.state || current.deliveryState })); }}><option value="">Selecione</option>{deliveryZones.filter((zone) => zone.active).map((zone) => <option key={zone.id} value={zone.id}>{zone.name} · {zone.fee === 0 ? 'Grátis' : currency.format(zone.fee)}</option>)}</select></label><label className="full">Rua<input required autoComplete="address-line1" value={form.street} onChange={(event) => update('street', event.target.value)}/></label><label>Número<input required value={form.addressNumber} onChange={(event) => update('addressNumber', event.target.value)}/></label><details className="checkout-extra-fields checkout-address-extra"><summary>Complemento e referência <small>opcionais</small></summary><div className="form-grid"><label>Complemento<input value={form.complement} onChange={(event) => update('complement', event.target.value)}/></label><label>Ponto de referência<input value={form.referencePoint} onChange={(event) => update('referencePoint', event.target.value)}/></label></div></details></div></>}
           {(!embedded || fulfillmentChosen) && form.fulfillment === 'pickup' && <PickupPointSelector showChange points={pickup.points} value={pickup.pickupLocationId} onChange={(id) => { pickup.setPickupLocationId(id); update('pickupLocationId', id); if (searchParams.has('ponto')) { const params = new URLSearchParams(searchParams); params.delete('ponto'); setSearchParams(params, { replace: true }); } }} loading={pickup.pointsLoading} error={pickup.pointsError} invalidQr={pickup.invalidQr} identifiedByQr={pickup.identifiedByQr}/>}
@@ -496,6 +524,10 @@ export default function Checkout({ embedded = false }: { embedded?: boolean } = 
 
         <section className="checkout-card"><div className="checkout-card__title"><UserRound size={20}/><div><strong>Seus dados</strong><span>Somente o essencial para registrar o pedido.</span></div></div><div className="form-grid checkout-essential-fields"><label>Nome<input required autoComplete="name" value={form.customerName} onChange={(event) => update('customerName', event.target.value)} placeholder="Seu nome"/></label><label>WhatsApp / telefone<input required type="tel" inputMode="tel" autoComplete="tel" value={form.customerPhone} onChange={(event) => update('customerPhone', event.target.value)} placeholder="(27) 99999-9999"/></label></div><details className="checkout-extra-fields"><summary>Mais informações <small>opcionais</small></summary><div className="form-grid"><label className="full">E-mail<input type="email" autoComplete="email" value={form.customerEmail} onChange={(event) => update('customerEmail', event.target.value)} placeholder="voce@email.com"/></label><label>Como conheceu a loja?<select value={form.acquisitionSource || ''} onChange={(event) => update('acquisitionSource', (event.target.value || undefined) as CheckoutData['acquisitionSource'])}><option value="">Selecione</option><option value="instagram">Instagram</option><option value="whatsapp">WhatsApp</option><option value="google">Google</option><option value="indicacao">Indicação</option><option value="outro">Outro</option></select></label><label>@ do Instagram<input value={form.customerInstagram || ''} onChange={(event) => update('customerInstagram', event.target.value)} placeholder="@seuusuario"/></label></div></details><label className="switch-row full checkout-remember-row"><span><strong>Salvar meus dados neste navegador</strong><small>Nome, contato e endereço ficam salvos por até 180 dias neste navegador. Desmarque para não guardar. Nenhum dado de pagamento é salvo.</small></span><input type="checkbox" checked={rememberCustomer} onChange={(event) => { const checked = event.target.checked; setRememberCustomer(checked); try { sessionStorage.setItem(rememberKey(settings.id), String(checked)); } catch { /* armazenamento indisponível */ } if (!checked) { clearCustomerCheckoutProfile(settings.id); clearRecentOrder(settings.id); } }}/></label></section>
 
+        </>}
+        </div>
+        <div className="checkout-step" hidden={step !== 1}>
+        {(!embedded || fulfillmentChosen) && <>
         <section className="checkout-card"><div className="checkout-card__title"><CreditCard size={20}/><div><strong>Pagamento</strong><span>Escolha como deseja pagar.</span></div></div><div className="payment-options" role="group" aria-label="Forma de pagamento">{enabledPayments.map((method) => <button type="button" key={method} aria-pressed={form.paymentMethod === method} className={form.paymentMethod === method ? 'selected' : ''} onClick={() => update('paymentMethod', method)}>{method === 'pix' ? <QrCode size={20}/> : method === 'cash' ? <Banknote size={20}/> : <CreditCard size={20}/>}<span><strong>{method === 'pix' ? 'PIX' : method === 'cash' ? 'Dinheiro' : method === 'card' ? (form.fulfillment === 'delivery' ? 'Cartão na entrega' : 'Cartão na retirada') : 'Confirmar com a loja'}</strong><small>{method === 'pix' ? 'Dados para pagar na confirmação' : method === 'cash' ? 'Informe se precisa de troco' : method === 'card' ? 'Pagamento presencial com a loja' : 'Combine o pagamento no atendimento'}</small></span>{form.paymentMethod === method && <CheckCircle2 size={17} className="payment-option-check" aria-hidden="true"/>}</button>)}</div>
           {form.paymentMethod === 'card' && <div className="cash-change-box"><strong>Cartão por aproximação (NFC)</strong><small>A cobrança será feita presencialmente pela loja. O WhatsApp fica disponível para confirmar o atendimento e eventuais orientações.</small></div>}
           {form.paymentMethod === 'cash' && <div className="cash-change-box"><label className="switch-row"><span><strong>Precisa de troco?</strong><small>Informe o valor que será entregue.</small></span><input type="checkbox" checked={form.needsChange} onChange={(event) => { update('needsChange', event.target.checked); if (!event.target.checked) update('changeFor', null); }}/></label>{form.needsChange && <label>Troco para<input type="number" min="0" step="0.01" value={form.changeFor ?? ''} onChange={(event) => update('changeFor', event.target.value ? Number(event.target.value) : null)} placeholder="Ex.: 100,00"/></label>}{form.needsChange && form.changeFor != null && changeAmount > 0 && <div className="change-result"><span>Troco calculado</span><strong>{currency.format(changeAmount)}</strong></div>}</div>}
@@ -505,11 +537,14 @@ export default function Checkout({ embedded = false }: { embedded?: boolean } = 
 
         <section className="checkout-card checkout-security-panel-v44"><div className="checkout-card__title"><ShieldCheck size={20}/><div><strong>Verificação de segurança</strong><span>Proteção contra pedidos automatizados e abusivos.</span></div></div><div className="checkout-security-check"><div><strong>Confirme que esta ação é humana</strong><span>Nenhum dado do pedido é enviado ao Turnstile. A validação retorna apenas um token de segurança.</span></div>{appConfig.turnstileSiteKey?<TurnstileWidget siteKey={appConfig.turnstileSiteKey} action="checkout" onToken={onTurnstileToken} resetSignal={turnstileReset}/>:<div className="checkout-security-missing"><AlertCircle size={17}/><span>Proteção anti-robô não configurada neste build.</span></div>}</div></section>
         </>}
+        </div>
+        {(!embedded || fulfillmentChosen) && <div className="checkout-step-actions">{step > 0 && <button className="secondary-button" type="button" onClick={() => changeStep(0)}>Voltar</button>}{step === 0 ? <button key="next" className="primary-button" type="button" onClick={() => changeStep(1)}>Continuar <span aria-hidden="true">→</span></button> : <button key="submit" className="primary-button checkout-mobile-final" type="submit" disabled={saving}>{saving ? 'Registrando...' : `Registrar pedido · ${currency.format(total)}`}</button>}</div>}
       </section>
 
-      {(!embedded || fulfillmentChosen) && <aside className="order-summary checkout-summary">
+      {(!embedded || fulfillmentChosen) && <aside className={`order-summary checkout-summary ${step === 1 ? 'checkout-summary--review' : ''}`}>
         <span className="eyebrow">RESUMO</span>
         <div className="store-checkout-context"><strong>{settings.name}</strong><span>{form.fulfillment === 'pickup' ? pickup.selectedPoint ? `Retirada em ${pickup.selectedPoint.name} · validação no pedido` : pickup.pointsLoading ? 'Consultando ponto de retirada…' : 'Estoque principal · retirada a combinar com a loja' : 'Entrega no endereço informado'}</span></div>
+        <details className="checkout-summary-products"><summary>Ver produtos ({items.reduce((count, item) => count + item.quantity, 0)})</summary>
          <div className="checkout-items-mini">{items.map((item) => { const product = products.find((candidate) => candidate.id === item.productId); const config = product?.partyOrderConfig?.enabled ? product.partyOrderConfig : readPartyConfig(product?.optionGroups || []); return <div key={item.id}><span>{item.quantity}x {item.productName}{config && <small>{item.partyPackageWeightGrams || config.packageWeightGrams} g por pacote · encomenda para festa</small>}{item.options.length > 0 && <small>{item.options.map((option) => option.itemName).join(' · ')}</small>}</span><strong>{currency.format(cartItemUnitTotal(item) * item.quantity)}</strong></div>; })}</div>
         {!quickId && <details className="checkout-quantity-editor"><summary>Editar quantidades</summary>{items.map(item => {
           const product=products.find(candidate=>candidate.id===item.productId);
@@ -517,16 +552,18 @@ export default function Checkout({ embedded = false }: { embedded?: boolean } = 
           return <div className="checkout-quantity-line" key={item.id}><span>{item.productName}{item.options.length>0 && <small>{item.options.map(option=>option.itemName).join(' · ')}</small>}</span><QuantityControl value={item.quantity} max={limit} onChange={value=>updateQuantity(item.id,value)}/></div>;
         })}<Link to={storefrontPath(storeBasePath,'/carrinho')}>Remover ou personalizar itens</Link></details>}
         {quickId && <Link to={storefrontPath(storeBasePath,'/carrinho')}>Editar itens no carrinho</Link>}
+        </details>
         <div className="summary-line"><span>Subtotal</span><strong>{currency.format(subtotal)}</strong></div>
         {form.fulfillment === 'delivery' && <div className="summary-line"><span>Entrega</span><strong>{deliveryFee === 0 ? 'Grátis' : currency.format(deliveryFee)}</strong></div>}
         <div className="summary-total"><span>Total</span><strong>{currency.format(total)}</strong></div>
-        <div className="preparation-summary"><CheckCircle2 size={18}/><div><strong>Previsão atual:</strong><span>{estimatedMin}–{estimatedMax} minutos</span></div></div>
+        {(partySchedulingRequired || stockSchedulingRequired || items.some(item => products.find(product => product.id === item.productId)?.madeToOrder)) && estimatedMax > 0 && <div className="preparation-summary"><CheckCircle2 size={18}/><div><strong>Previsão atual:</strong><span>{estimatedMin}–{estimatedMax} minutos</span></div></div>}
+        <div hidden={step !== 1} className="checkout-review-actions">
         {!isDoceLuaPilot && <label className="checkout-review-check checkout-review-check-v44"><input type="checkbox" checked={form.reviewConfirmed} onChange={(event) => update('reviewConfirmed', event.target.checked)}/><span><strong>Confirmo que revisei o pedido.</strong><small>Confira itens, telefone, endereço e pagamento antes de registrar.</small></span></label>}
         {isDoceLuaPilot && <div className="checkout-pilot-note"><CheckCircle2 size={17}/><span>O pedido será conferido pela loja no painel após o envio. Guarde o número exibido na confirmação.</span></div>}
-        <button className="primary-button checkout-submit" disabled={submitDisabled} type="submit">{saving ? <><LoaderCircle className="spin" size={18}/>Registrando...</> : <><CheckCircle2 size={18}/>Registrar pedido · {currency.format(total)}</>}</button>
+        <button className="primary-button checkout-submit" disabled={saving} type="submit">{saving ? <><LoaderCircle className="spin" size={18}/>Registrando...</> : <><CheckCircle2 size={18}/>Registrar pedido · {currency.format(total)}</>}</button>
         <small className="checkout-security-note">Confira os itens e o total antes de registrar. Na próxima tela, guarde o número do pedido e veja as orientações da loja.</small>
+        </div>
       </aside>}
-      {(!embedded || fulfillmentChosen) && <div className="checkout-mobile-submit"><div><small>Total do pedido</small><strong>{currency.format(total)}</strong></div><button className="primary-button" disabled={submitDisabled} type="submit">{saving ? <LoaderCircle className="spin" size={18}/> : <><CheckCircle2 size={17}/> Finalizar</>}</button></div>}
     </form>
   </div>;
 }

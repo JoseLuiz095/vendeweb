@@ -15,7 +15,12 @@ for (const width of [320, 390, 820, 1366]) {
     await expect(checkout.getByLabel('Nome', { exact: true })).toHaveCount(0);
     await checkout.getByRole('button', { name: /Retirada Buscar/ }).click();
     await expect(checkout.getByLabel('Nome', { exact: true })).toBeVisible();
+    await checkout.getByLabel('Nome', { exact: true }).fill('Cliente teste');
+    await checkout.getByLabel(/WhatsApp \/ telefone/).fill('11999999999');
+    await checkout.getByRole('button', { name: /Continuar/ }).click();
+    await expect(checkout.getByRole('heading', { name: 'Pagamento e revisão' })).toBeVisible();
     await expect(checkout.locator('.summary-total')).toContainText('10,00');
+    await expect(checkout.locator('.preparation-summary')).toHaveCount(0);
     const submit = checkout.getByRole('button', { name: /Registrar pedido/ });
     await submit.scrollIntoViewIfNeeded();
     await expect(submit).toBeVisible();

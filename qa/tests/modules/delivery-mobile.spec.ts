@@ -1,23 +1,33 @@
 import { test, expect } from '@playwright/test';
-import { mockBackend, STORE, PRODUCT, ORDER } from './fixtures';
+import { mockBackend, STORE, PRODUCT, ORDER, snapshot } from './fixtures';
 
 test('delivery mobile preserves contact/address on reload and shows fee before ordering',async({page,context})=>{
  await page.setViewportSize({width:390,height:844});
  await context.grantPermissions(['clipboard-read','clipboard-write']);
  const {writes}=await mockBackend(page);
+ await page.route('**/rest/v1/rpc/food_get_public_storefront_v1',r=>r.fulfill({json:{...snapshot,store:{...snapshot.store,average_preparation_min:10,average_preparation_max:20}}}));
  await page.addInitScript(({STORE,PRODUCT})=>localStorage.setItem(`foodservice_cart_v1:${STORE}`,JSON.stringify([{id:`${PRODUCT}|base`,productId:PRODUCT,productName:'Brigadeiro teste',quantity:1,options:[],unitPrice:10}])) ,{STORE,PRODUCT});
  await page.goto('/doce-lua/finalizar');
+ await page.getByRole('button',{name:/Continuar/}).click();
+ await expect(page.locator('.checkout-inline-error')).toContainText('Informe seu nome');
+ await expect(page.getByRole('heading',{name:'Seus dados e entrega',exact:true})).toBeVisible();
  await page.getByLabel('Nome',{exact:true}).fill('Cliente entrega');
  await page.getByLabel(/WhatsApp \/ telefone/).fill('11999999999');
  await page.getByLabel('Bairro / área').selectOption('50000000-0000-4000-8000-000000000001');
  await page.getByLabel('Rua',{exact:true}).fill('Rua de teste');
  await page.getByLabel('Número',{exact:true}).fill('10');
- await expect(page.locator('.summary-total')).toContainText('15,00');
  await expect.poll(()=>page.evaluate(key=>JSON.parse(sessionStorage.getItem(key)||'{}').street,`foodweb_checkout_draft_v1:${STORE}`)).toBe('Rua de teste');
  await page.reload();
  await expect(page.getByLabel('Nome',{exact:true})).toHaveValue('Cliente entrega');
  await expect(page.getByLabel('Rua',{exact:true})).toHaveValue('Rua de teste');
  await expect(page.getByLabel('Número',{exact:true})).toHaveValue('10');
+ await page.getByRole('button',{name:/Continuar/}).click();
+ await expect(page.getByRole('heading',{name:'Pagamento e revisão',exact:true})).toBeVisible();
+ await expect(page.locator('.preparation-summary')).toHaveCount(0);
+ await page.getByRole('button',{name:'Voltar',exact:true}).click();
+ await expect(page.getByLabel('Nome',{exact:true})).toHaveValue('Cliente entrega');
+ await page.getByRole('button',{name:/Continuar/}).click();
+ expect(writes.filter(w=>w.url.endsWith('/food-public-checkout'))).toHaveLength(0);
  await expect(page.locator('.summary-total')).toContainText('15,00');
  await page.getByRole('button',{name:/Registrar pedido|^Finalizar$/}).filter({visible:true}).first().click();
  await expect(page).toHaveURL(new RegExp(ORDER));
@@ -27,4 +37,20 @@ test('delivery mobile preserves contact/address on reload and shows fee before o
  await page.getByRole('button',{name:'Copiar código Pix'}).click();
  expect(await page.evaluate(()=>navigator.clipboard.readText())).toContain('540515.00');
  await expect(page.getByRole('button',{name:'Já fiz o PIX · enviar comprovante'})).toBeVisible();
+});
+
+
+test('pedido sob encomenda mostra previsão quando há tempo configurado', async ({page}) => {
+ await page.setViewportSize({width:390,height:844});
+ await mockBackend(page);
+ await page.route('**/rest/v1/rpc/food_get_public_storefront_v1',r=>r.fulfill({json:{...snapshot,store:{...snapshot.store,average_preparation_min:10,average_preparation_max:20},products:snapshot.products.map(product=>({...product,made_to_order:true}))}}));
+ await page.addInitScript(({STORE,PRODUCT})=>localStorage.setItem(`foodservice_cart_v1:${STORE}`,JSON.stringify([{id:`${PRODUCT}|base`,productId:PRODUCT,productName:'Brigadeiro teste',quantity:1,options:[],unitPrice:10}])),{STORE,PRODUCT});
+ await page.goto('/doce-lua/finalizar');
+ await page.getByLabel('Nome',{exact:true}).fill('Cliente teste');
+ await page.getByLabel(/WhatsApp \/ telefone/).fill('11999999999');
+ await page.getByLabel('Bairro / área').selectOption('50000000-0000-4000-8000-000000000001');
+ await page.getByLabel('Rua',{exact:true}).fill('Rua de teste');
+ await page.getByLabel('Número',{exact:true}).fill('10');
+ await page.getByRole('button',{name:/Continuar/}).click();
+ await expect(page.locator('.preparation-summary')).toContainText('10–20 minutos');
 });
