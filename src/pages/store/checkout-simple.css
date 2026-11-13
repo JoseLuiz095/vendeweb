@@ -9,3 +9,40 @@
 .checkout-quantity-line .quantity-control{flex-shrink:0}
 .checkout-quantity-line .quantity-control>button{min-width:40px;min-height:44px}
 .checkout-trust-details>summary:focus-visible,.checkout-order-notes>summary:focus-visible,.checkout-quantity-editor>summary:focus-visible{outline:3px solid var(--food-store-primary,var(--color-primary,#206c60));outline-offset:3px;border-radius:6px}
+.checkout-step[hidden],.checkout-review-actions[hidden]{display:none!important}
+.checkout-flow-title{margin-bottom:0}
+.checkout-flow-progress{display:flex;list-style:none;padding:0;margin:0 0 4px;gap:0}
+.checkout-flow-progress li{position:relative;display:flex;align-items:center;gap:8px;flex:1;min-width:0;color:#68766e;font-size:.75rem}
+.checkout-flow-progress li:not(:last-child)::after{content:'';height:1px;background:#d5ddd7;flex:1;margin:0 10px}
+.checkout-flow-progress li span{display:grid;place-items:center;flex:0 0 30px;height:30px;border:1px solid #c7d3ca;border-radius:50%;background:#fff;font-weight:800}
+.checkout-flow-progress li.is-active,.checkout-flow-progress li.is-complete{color:var(--food-store-primary,var(--green))}
+.checkout-flow-progress li.is-active span,.checkout-flow-progress li.is-complete span{background:var(--food-store-primary,var(--green));border-color:var(--food-store-primary,var(--green));color:#fff}
+.checkout-flow-heading{font-size:1rem;margin:4px 0 0;scroll-margin-top:24px;outline:none}
+.checkout-step:not([hidden]){display:grid;gap:14px;animation:checkout-step-enter .24s ease-out both}
+.checkout-step-actions{display:flex;gap:10px;justify-content:space-between}
+.checkout-step-actions button{min-height:48px}
+.checkout-step-actions .primary-button{margin-left:auto;min-width:165px;justify-content:center}
+.checkout-review-actions .checkout-submit{width:100%}
+@keyframes checkout-step-enter{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+@media(max-width:900px){.checkout-summary:not(.checkout-summary--review){display:none}.checkout-layout--premium{padding-bottom:40px}.checkout-summary--review{order:initial}}
+@media(max-width:560px){.checkout-flow-progress li{display:grid;justify-items:center;text-align:center;gap:5px;font-size:.65rem}.checkout-flow-progress li:not(:last-child)::after{position:absolute;top:15px;left:calc(50% + 20px);width:calc(100% - 40px);margin:0}.checkout-flow-progress li b{line-height:1.25}.checkout-step-actions .primary-button{flex:1}.checkout-step-actions .secondary-button{min-width:90px}}
+@media(prefers-reduced-motion:reduce){.checkout-step:not([hidden]){animation:none}}
+
+.checkout-page-v44 .checkout-summary .checkout-review-actions .checkout-submit{display:flex;justify-content:center;width:100%;margin:12px 0}
+.checkout-flow-progress li span{width:30px}
+.checkout-page-v44 .checkout-summary .checkout-review-actions:not([hidden]){display:grid;gap:12px;margin:12px 0 0}
+.checkout-mobile-final{display:none}
+@media(max-width:900px){
+ .checkout-page-v44 .checkout-layout--premium{padding-bottom:100px}
+ .checkout-page-v44 .checkout-step-actions{position:fixed;z-index:40;bottom:0;left:0;right:0;padding:10px 12px calc(10px + env(safe-area-inset-bottom));background:#fff;border-top:1px solid #e4e4df;box-shadow:0 -5px 20px rgba(0,0,0,.08)}
+ .checkout-page-v44 .checkout-step-actions .checkout-mobile-final{display:flex;flex:1;justify-content:center}
+ .checkout-page-v44 .checkout-summary .checkout-review-actions .checkout-submit{display:none}
+ .checkout-page-v44 .checkout-summary--review{margin-top:0}
+}
+.checkout-summary-products{border-block:1px solid #e4e9e5;margin:12px 0}
+.checkout-summary-products>summary{min-height:44px;display:flex;align-items:center;cursor:pointer;font-size:.85rem;font-weight:700;color:var(--food-store-primary,var(--green))}
+.checkout-summary-products>summary::after{content:'+';margin-left:auto;font-size:1.15rem}
+.checkout-summary-products[open]>summary::after{content:'−'}
+@media(max-width:900px){.checkout-page-v44 .checkout-security-panel-v44 .checkout-card__title{margin-bottom:8px}.checkout-page-v44 .checkout-security-check{padding:10px}.checkout-page-v44 .checkout-security-check>div:first-child span{display:none}}
+/* A barra fixa deve acompanhar a janela, inclusive após a animação de entrada da loja. */
+.food-storefront-theme .store-route-view:has(.checkout-page){animation:none;transform:none}
