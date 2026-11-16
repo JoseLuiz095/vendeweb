@@ -5,6 +5,7 @@ import packageJson from '../../../package.json';
 import type { EdgeFunctionHealth } from '../../lib/supabaseRest';
 import type { PlatformEventLog } from '../../services/interactionTelemetry';
 import { platformApi } from '../../services/platformApi';
+import { getSupabaseClient } from '../../lib/supabase';
 import type { PlatformSystemCheck } from '../../types';
 
 const numberLabel=(value:number)=>new Intl.NumberFormat('pt-BR').format(value);
@@ -32,6 +33,20 @@ export default function MasterDiagnostics(){
   const[eventResultFilter,setEventResultFilter]=useState('all');
   const[loading,setLoading]=useState(true);
   const[error,setError]=useState('');
+  const[aiTesting,setAiTesting]=useState(false);
+  const[aiResult,setAiResult]=useState('');
+  const[aiError,setAiError]=useState('');
+
+  const testAI=async()=>{
+    if(aiTesting)return;
+    setAiTesting(true);setAiResult('');setAiError('');
+    try{
+      const {data,error:invokeError}=await getSupabaseClient().functions.invoke('food-gemini-diagnostic',{body:{}});
+      if(invokeError||data?.ok!==true||typeof data.model!=='string'||typeof data.text!=='string') throw new Error('Não foi possível concluir o teste. Confira a configuração e tente novamente.');
+      setAiResult(`${data.model}: ${data.text}`);
+    }catch{setAiError('Não foi possível concluir o teste. Confira a configuração e tente novamente.');}
+    finally{setAiTesting(false);}
+  };
 
   const run=async()=>{
     setLoading(true);setError('');setFunctionError('');setCheckoutError('');setEventsError('');
@@ -71,6 +86,7 @@ export default function MasterDiagnostics(){
 
   return <>
     <div className="admin-page-title"><div><span className="eyebrow">DIAGNÓSTICO FOODWEB</span><h1>Saúde e interações da plataforma</h1><InfoHint label="Sobre Saúde e interações da plataforma">Banco, Edge Functions, Turnstile e o histórico técnico das ações importantes.</InfoHint></div><button type="button" className="secondary-button" onClick={()=>void run()} disabled={loading}><RefreshCw size={17}/>{loading?'Validando...':'Executar novamente'}</button></div>
+    <section className="admin-card"><h2>Teste de conexão com Gemini</h2><p>Envia uma mensagem fixa de teste ao provedor, sem dados de clientes. A solicitação pode consumir a cota configurada.</p><button type="button" className="secondary-button" disabled={aiTesting} onClick={()=>void testAI()}>{aiTesting?'Testando…':'Testar conexão com Gemini'}</button>{aiResult&&<p role="status">Conexão confirmada. {aiResult}</p>}{aiError&&<p role="alert">{aiError}</p>}</section>
     {error&&<section className="admin-card diagnostic-error"><TriangleAlert size={22}/><div><strong>Falha no diagnóstico do banco</strong><p>{error}</p><small>Confirme as migrations e se a sessão do Master está em AAL2.</small></div></section>}
     <section className={`admin-card edge-function-status ${functionHealth?.ok?'ok':'error'}`}><CloudCog size={24}/><div><span className="eyebrow">CRIAÇÃO AUTOMÁTICA DE LOJAS</span><h2>food-platform-create-store</h2>{functionHealth?.ok?<p><strong>Publicada e respondendo.</strong> Versão {functionHealth.version}.</p>:<><p><strong>Indisponível.</strong> {functionError||'A função não respondeu.'}</p><div className="diagnostic-command"><code>npx supabase@2.116.0 functions deploy food-platform-create-store --project-ref SEU_PROJECT_REF</code></div></>}</div></section>
     <section className={`admin-card edge-function-status ${checkoutReady?'ok':'error'}`}><ShieldCheck size={24}/><div><span className="eyebrow">CHECKOUT PÚBLICO</span><h2>food-public-checkout + Turnstile</h2>{checkoutHealth?.ok?<p><strong>Função publicada.</strong> Versão {checkoutHealth.version}. Turnstile: {checkoutHealth.turnstileConfigured?'configurado':'não configurado'} · obrigatório: {checkoutHealth.turnstileRequired?'sim':'não'} · origem atual: {checkoutHealth.originAllowed===false?'não autorizada':'autorizada'}.</p>:<p><strong>Indisponível.</strong> {checkoutError||'A função não respondeu.'}</p>}{!checkoutReady&&<div className="diagnostic-help-block"><strong>Wrangler não publica Edge Functions do Supabase.</strong><small>Configure TURNSTILE_SECRET_KEY, TURNSTILE_REQUIRED=true e PUBLIC_APP_ORIGINS={productionOrigin}. Depois publique novamente a função.</small><div className="diagnostic-command"><code>npx supabase@2.116.0 functions deploy food-public-checkout --project-ref SEU_PROJECT_REF --no-verify-jwt</code></div></div>}</div></section>
