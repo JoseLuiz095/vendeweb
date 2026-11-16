@@ -105,7 +105,7 @@ export default function Cart() {
         <span className="eyebrow">RESUMO</span>
         <div className="summary-total"><span>Subtotal</span><strong>{currency.format(subtotal)}</strong></div>
         {settings.minimumOrder > 0 && <div className={`minimum-order ${minimumMissing > 0 ? 'warning' : ''}`}><span>Pedido mínimo: {currency.format(settings.minimumOrder)}</span>{minimumMissing > 0 && <strong>Faltam {currency.format(minimumMissing)}</strong>}</div>}
-        {pickup.selectedPoint ? <p>Retirada em <strong>{pickup.selectedPoint.name}</strong>. Sem taxa de entrega.</p> : settings.deliveryEnabled ? <p>Taxa de entrega calculada ao escolher o bairro. Retirada sem taxa.</p> : <p>Retirada sem taxa de entrega.</p>}
+        {pickup.selectedPoint ? <p>Retirada em <strong>{pickup.selectedPoint.name}</strong>. Sem taxa de entrega.</p> : settings.deliveryEnabled ? <p>Taxa de entrega calculada ao escolher o bairro.{settings.pickupEnabled && ' Retirada sem taxa.'}</p> : <p>Retirada sem taxa de entrega.</p>}
         {insufficient.length > 0 && <p className="store-point-stock store-point-stock--warning" role="alert">Há itens sem saldo suficiente no ponto escolhido. {settings.deliveryEnabled ? 'No checkout, escolha delivery ou altere o ponto de retirada.' : 'Ajuste as quantidades ou selecione outro ponto.'}</p>}
         {minimumMissing > 0 || pickupOnlyShortage ? <button type="button" className="primary-button cart-continue-button" disabled><AlertCircle size={18}/>{pickupOnlyShortage ? 'Ajuste o estoque do ponto' : 'Complete o pedido'}</button> : <Link className="primary-button cart-continue-button" to={storefrontPath(storeBasePath, '/finalizar')}>{insufficient.length ? 'Escolher delivery' : 'Continuar'} <ArrowRight size={18}/></Link>}
       </aside>

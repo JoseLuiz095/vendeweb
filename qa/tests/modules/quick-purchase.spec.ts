@@ -46,7 +46,9 @@ for(const width of [320,390,768,1366]){
   await page.getByLabel(/WhatsApp \/ telefone/).fill('11999999999');
   await expect(page.getByRole('checkbox',{name:/Salvar meus dados neste navegador/})).toBeChecked();
   await page.getByRole('button',{name:/Continuar/}).click();
-  await page.getByText('Ver produtos (3)').click();
+  await expect(page.locator('.checkout-summary-products')).toHaveAttribute('open', '');
+  await expect(page.getByLabel('Dados para conferência')).toContainText('Cliente visitante');
+  await expect(page.getByLabel('Dados para conferência')).toContainText('Trabalho');
   await page.getByText('Editar quantidades',{exact:true}).click();
   const quantities=page.locator('.checkout-quantity-line').first();
   await expect(quantities.getByRole('button',{name:'Aumentar quantidade'})).toBeDisabled();
