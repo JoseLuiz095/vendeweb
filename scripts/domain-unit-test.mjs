@@ -66,4 +66,20 @@ assert.equal(storeHours.storeDateKey(new Date('2026-10-23T01:30:00.000Z'),'Ameri
 assert.equal(storeHours.storeDateKey(new Date('2026-10-23T01:30:00.000Z'),'UTC'),'2026-10-23');
 assert.equal(storeHours.storeDateKey(new Date('2026-10-23T01:30:00.000Z'),'invalid/timezone'),'2026-10-22');
 assert.match(storeHours.storeDateLabel(new Date('2026-10-23T01:30:00.000Z'),'America/Sao_Paulo'),/qui/);
+const schedule = { timezone:'America/Sao_Paulo', days: [
+  {day:0,enabled:false,open:'08:00',close:'18:00',breakStart:'',breakEnd:''},
+  {day:1,enabled:true,open:'12:00',close:'20:00',breakStart:'15:00',breakEnd:'16:00'},
+  {day:2,enabled:true,open:'22:00',close:'02:00',breakStart:'00:30',breakEnd:'01:00'},
+  ...[3,4,5,6].map(day=>({day,enabled:false,open:'08:00',close:'18:00',breakStart:'',breakEnd:''})),
+] };
+const monday = new Date('2026-11-16T16:00:00Z');
+const overview = storeHours.getOpeningScheduleOverview(schedule,monday,{start:'14:00',end:'20:00'});
+assert.equal(overview.days.find(day=>day.day===1).summary,'12:00–15:00 · 16:00–20:00');
+assert.equal(overview.days.find(day=>day.day===0).summary,'Fechado');
+assert.equal(storeHours.getStoreOpenStatus(schedule,monday).open,true);
+assert.equal(storeHours.getStoreOpenStatus(schedule,new Date('2026-11-16T18:30:00Z')).label,'Em almoço');
+assert.equal(storeHours.getStoreOpenStatus(schedule,new Date('2026-11-15T16:00:00Z')).open,false);
+assert.equal(storeHours.getStoreOpenStatus(schedule,new Date('2026-11-18T03:15:00Z')).open,true);
+assert.equal(storeHours.getStoreOpenStatus(schedule,new Date('2026-11-18T03:45:00Z')).label,'Em almoço');
+assert.equal(storeHours.getStoreOpenStatus(schedule,new Date('2026-11-18T05:00:00Z')).open,false);
 console.log('OK domínio: canônico www, marketing root, links públicos/customizados, convite/recuperação, aliases com query/hash, proteção contra open redirect e preservação de compras na origem antiga.');

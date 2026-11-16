@@ -37,8 +37,10 @@ export function StoreHeader(){
   const whatsapp=sanitizeWhatsAppNumber(settings.whatsapp);
   const instagramHandle=normalizeInstagramHandle(settings.instagram);
   const instagramUrl=instagramHandle ? `https://www.instagram.com/${encodeURIComponent(instagramHandle)}/` : '';
-  const status=useMemo(()=>getStoreOpenStatus(settings.openingSchedule, new Date(), { start: settings.pickupStartTime || '07:00', end: settings.pickupEndTime || '22:00' }),[settings.openingSchedule,settings.pickupStartTime,settings.pickupEndTime]);
-  const scheduleOverview=useMemo(()=>getOpeningScheduleOverview(settings.openingSchedule, new Date(), { start: settings.pickupStartTime || '07:00', end: settings.pickupEndTime || '22:00' }),[settings.openingSchedule,settings.pickupStartTime,settings.pickupEndTime]);
+  const [hoursNow,setHoursNow]=useState(()=>new Date());
+  useEffect(()=>{const timer=window.setInterval(()=>setHoursNow(new Date()),60000);return()=>window.clearInterval(timer);},[]);
+  const status=useMemo(()=>getStoreOpenStatus(settings.openingSchedule, hoursNow),[settings.openingSchedule,hoursNow]);
+  const scheduleOverview=useMemo(()=>getOpeningScheduleOverview(settings.openingSchedule, hoursNow),[settings.openingSchedule,hoursNow]);
   const todaySchedule = scheduleOverview.today?.summary || 'Consulte os horários';
   const [hoursOpen,setHoursOpen]=useState(false);
   const hoursDialogRef=useRef<HTMLDivElement>(null);
@@ -109,7 +111,7 @@ export function StoreHeader(){
         {profileDescription&&<p>{profileDescription}</p>}
         <div className="food-store-profile-meta">
           <div className="food-hours-popover" ref={hoursRef}><button type="button" className="food-hours-button food-hours-button--compact" aria-expanded={hoursOpen} onClick={()=>setHoursOpen((current)=>!current)}><Clock3 size={15}/><span><small>Hoje</small><strong>{todaySchedule}</strong></span><ChevronDown size={15} aria-hidden="true"/></button>
-            {hoursOpen&&createPortal(<div className="dismissible-panel-overlay" style={getStorefrontThemeStyle(settings.visualTheme)} onPointerDown={event=>{if(event.target===event.currentTarget){event.preventDefault();setHoursOpen(false);}}}><div ref={hoursDialogRef} tabIndex={-1} className="hours-details-list food-hours-list food-hours-flyout" role="dialog" aria-modal="true" aria-label="Horários da semana"><div className="food-hours-flyout__header"><div><strong>Horários da loja</strong><span>Confira os dias de atendimento</span></div><button type="button" className="food-hours-flyout__close" aria-label="Fechar horários" onClick={()=>setHoursOpen(false)}><X size={16}/></button></div><div className="food-hours-flyout__days">{scheduleOverview.days.map((day)=><div key={day.day} className={`hours-details-item ${day.isToday?'is-today':''}`}><strong>{day.shortLabel}</strong><span>{day.summary}</span></div>)}</div></div></div>,document.body)}
+            {hoursOpen&&createPortal(<div className="dismissible-panel-overlay" style={getStorefrontThemeStyle(settings.visualTheme)} onPointerDown={event=>{if(event.target===event.currentTarget){event.preventDefault();setHoursOpen(false);}}}><div ref={hoursDialogRef} tabIndex={-1} className="hours-details-list food-hours-list food-hours-flyout" role="dialog" aria-modal="true" aria-label="Horários da semana"><div className="food-hours-flyout__header"><div><strong>Horários da loja</strong><span>Confira os dias de atendimento</span></div><button type="button" className="food-hours-flyout__close" aria-label="Fechar horários" onClick={()=>setHoursOpen(false)}><X size={16}/></button></div><div className="food-hours-flyout__days">{scheduleOverview.days.map((day)=><div key={day.day} className={`hours-details-item ${day.isToday?'is-today':''}`}><strong>{day.shortLabel}</strong><span>{day.summary}</span></div>)}{settings.pickupEnabled&&<div className="hours-details-item"><strong>Retirada</strong><span>{pickupWindowLabel}</span></div>}{settings.deliveryEnabled&&settings.deliveryStartTime&&<div className="hours-details-item"><strong>Entrega</strong><span>A partir das {settings.deliveryStartTime}</span></div>}</div></div></div>,document.body)}
           </div>
           {settings.minimumOrder>0&&<span><Store size={14}/>Mínimo R$ {settings.minimumOrder.toFixed(2).replace('.',',')}</span>}
         </div>
