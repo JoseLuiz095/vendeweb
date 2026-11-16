@@ -37,6 +37,9 @@ test('assistant returns a non-publishing draft and stores no conversation',async
   assert.match(result.body.text,/Ideia 1/);
   assert.deepEqual(result.storeReads,['food_store_users','food_service_professionals']);
   assert.equal(result.requestBody.store,false);
+  const systemPrompt=result.requestBody.input[0].content[0].text;
+  assert.match(systemPrompt,/área profissional é nutrition/);
+  assert.doesNotMatch(systemPrompt,/Nutricionista de teste|CRN|000001\/ES/);
   assert.equal(result.requestBody.model,'test-model');
   assert.equal(result.requestBody.input[1].content[0].text,'Crie ideias para apresentar o novo serviço da loja.');
 });
