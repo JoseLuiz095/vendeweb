@@ -229,19 +229,17 @@ export function formatOpeningSchedule(schedule: OpeningSchedule): string {
   return enabled.map((day) => `${SHORT[day.day]} ${serviceWindows(day)}`).join(' · ');
 }
 
-export const getOpeningScheduleOverview = (schedule: OpeningSchedule, now = new Date(), serviceWindow?: StoreServiceWindow) => {
+export const getOpeningScheduleOverview = (schedule: OpeningSchedule, now = new Date()) => {
   const normalized = normalizeOpeningSchedule(schedule);
   let currentDay = now.getDay();
   try { currentDay = zonedParts(now, normalized.timezone).day; } catch { /* fallback local */ }
-  const windowStart = serviceWindow?.start && /^\d{2}:\d{2}$/.test(serviceWindow.start) ? serviceWindow.start : '';
-  const windowEnd = serviceWindow?.end && /^\d{2}:\d{2}$/.test(serviceWindow.end) ? serviceWindow.end : '';
   const days = normalized.days
     .map((day) => ({
       ...day,
       isToday: day.day === currentDay,
       shortLabel: SHORT[day.day],
       fullLabel: DAY_NAMES[day.day],
-      summary: serviceWindows(windowStart && windowEnd ? { ...day, open: windowStart, close: windowEnd, breakStart: '', breakEnd: '' } : day),
+      summary: serviceWindows(day),
     }))
     .sort((a,b) => ((a.day || 7) - (b.day || 7)));
   return { today: days.find((day) => day.isToday) || days[0], days };
