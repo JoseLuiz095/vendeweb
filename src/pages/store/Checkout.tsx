@@ -186,6 +186,7 @@ export default function Checkout({ embedded = false }: { embedded?: boolean } = 
   }, [enabledPayments, form.paymentMethod]);
 
   const selectedZone = deliveryZones.find((zone) => zone.id === form.deliveryZoneId && zone.active);
+  const deliveryFeePending = form.fulfillment === 'delivery' && !selectedZone;
   const deliveryFee = form.fulfillment === 'delivery' ? selectedZone?.fee ?? 0 : 0;
   const total = roundMoney(subtotal + deliveryFee);
   const changeAmount = form.paymentMethod === 'cash' && form.needsChange && form.changeFor ? roundMoney(form.changeFor - total) : 0;
@@ -535,6 +536,15 @@ export default function Checkout({ embedded = false }: { embedded?: boolean } = 
 
         <details className="checkout-card checkout-order-notes"><summary>Observações do pedido <small>opcionais</small></summary><label>Instruções para a loja<textarea rows={3} maxLength={500} value={form.notes} onChange={(event) => update('notes', event.target.value)} placeholder="Preferência de embalagem ou instruções para atender ao pedido"/></label></details>
 
+        <section className="checkout-card checkout-review-details" aria-label="Dados para conferência">
+          <div className="checkout-card__title"><CheckCircle2 size={20}/><div><strong>Confira os dados do pedido</strong><span>Você pode corrigir antes de registrar.</span></div></div>
+          <p><strong>Cliente:</strong> {form.customerName} · {form.customerPhone}</p>
+          <p><strong>{form.fulfillment === 'delivery' ? 'Entrega:' : 'Retirada:'}</strong> {form.fulfillment === 'delivery' ? [form.street, form.addressNumber, form.complement, selectedZone?.name].filter(Boolean).join(', ') : pickup.selectedPoint?.name || 'A combinar com a loja'}</p>
+          {form.scheduledFor && <p><strong>Agendamento:</strong> {Number.isNaN(new Date(form.scheduledFor).getTime()) ? form.scheduledFor : new Date(form.scheduledFor).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}</p>}
+          <p><strong>Pagamento:</strong> {form.paymentMethod === 'pix' ? 'Pix' : form.paymentMethod === 'cash' ? 'Dinheiro' : form.paymentMethod === 'card' ? 'Cartão presencial' : 'Confirmar com a loja'}</p>
+          <button type="button" className="secondary-button" onClick={() => changeStep(0)}>Alterar dados ou entrega</button>
+        </section>
+
         <section className="checkout-card checkout-security-panel-v44"><div className="checkout-card__title"><ShieldCheck size={20}/><div><strong>Verificação de segurança</strong><span>Proteção contra pedidos automatizados e abusivos.</span></div></div><div className="checkout-security-check"><div><strong>Confirme que esta ação é humana</strong><span>Nenhum dado do pedido é enviado ao Turnstile. A validação retorna apenas um token de segurança.</span></div>{appConfig.turnstileSiteKey?<TurnstileWidget siteKey={appConfig.turnstileSiteKey} action="checkout" onToken={onTurnstileToken} resetSignal={turnstileReset}/>:<div className="checkout-security-missing"><AlertCircle size={17}/><span>Proteção anti-robô não configurada neste build.</span></div>}</div></section>
         </>}
         </div>
@@ -544,7 +554,7 @@ export default function Checkout({ embedded = false }: { embedded?: boolean } = 
       {(!embedded || fulfillmentChosen) && <aside className={`order-summary checkout-summary ${step === 1 ? 'checkout-summary--review' : ''}`}>
         <span className="eyebrow">RESUMO</span>
         <div className="store-checkout-context"><strong>{settings.name}</strong><span>{form.fulfillment === 'pickup' ? pickup.selectedPoint ? `Retirada em ${pickup.selectedPoint.name} · validação no pedido` : pickup.pointsLoading ? 'Consultando ponto de retirada…' : 'Estoque principal · retirada a combinar com a loja' : 'Entrega no endereço informado'}</span></div>
-        <details className="checkout-summary-products"><summary>Ver produtos ({items.reduce((count, item) => count + item.quantity, 0)})</summary>
+        <details key={step} className="checkout-summary-products" open={step === 1}><summary>Produtos ({items.reduce((count, item) => count + item.quantity, 0)})</summary>
          <div className="checkout-items-mini">{items.map((item) => { const product = products.find((candidate) => candidate.id === item.productId); const config = product?.partyOrderConfig?.enabled ? product.partyOrderConfig : readPartyConfig(product?.optionGroups || []); return <div key={item.id}><span>{item.quantity}x {item.productName}{config && <small>{item.partyPackageWeightGrams || config.packageWeightGrams} g por pacote · encomenda para festa</small>}{item.options.length > 0 && <small>{item.options.map((option) => option.itemName).join(' · ')}</small>}</span><strong>{currency.format(cartItemUnitTotal(item) * item.quantity)}</strong></div>; })}</div>
         {!quickId && <details className="checkout-quantity-editor"><summary>Editar quantidades</summary>{items.map(item => {
           const product=products.find(candidate=>candidate.id===item.productId);
@@ -554,8 +564,9 @@ export default function Checkout({ embedded = false }: { embedded?: boolean } = 
         {quickId && <Link to={storefrontPath(storeBasePath,'/carrinho')}>Editar itens no carrinho</Link>}
         </details>
         <div className="summary-line"><span>Subtotal</span><strong>{currency.format(subtotal)}</strong></div>
-        {form.fulfillment === 'delivery' && <div className="summary-line"><span>Entrega</span><strong>{deliveryFee === 0 ? 'Grátis' : currency.format(deliveryFee)}</strong></div>}
-        <div className="summary-total"><span>Total</span><strong>{currency.format(total)}</strong></div>
+        {form.fulfillment === 'delivery' && <div className="summary-line"><span>Entrega</span><strong>{deliveryFeePending ? 'Informe a área de entrega' : deliveryFee === 0 ? 'Grátis' : currency.format(deliveryFee)}</strong></div>}
+        <div className="summary-total"><span>{deliveryFeePending ? 'Subtotal dos produtos' : 'Total'}</span><strong>{currency.format(total)}</strong></div>
+        {deliveryFeePending && <p role="status">O total será atualizado após a escolha da área de entrega.</p>}
         {(partySchedulingRequired || stockSchedulingRequired || items.some(item => products.find(product => product.id === item.productId)?.madeToOrder)) && estimatedMax > 0 && <div className="preparation-summary"><CheckCircle2 size={18}/><div><strong>Previsão atual:</strong><span>{estimatedMin}–{estimatedMax} minutos</span></div></div>}
         <div hidden={step !== 1} className="checkout-review-actions">
         {!isDoceLuaPilot && <label className="checkout-review-check checkout-review-check-v44"><input type="checkbox" checked={form.reviewConfirmed} onChange={(event) => update('reviewConfirmed', event.target.checked)}/><span><strong>Confirmo que revisei o pedido.</strong><small>Confira itens, telefone, endereço e pagamento antes de registrar.</small></span></label>}
