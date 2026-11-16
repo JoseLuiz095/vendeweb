@@ -18,6 +18,8 @@ export function FitnessStudentPreferences({store,userId,token,onAuthorizationCha
   const [editingReminder,setEditingReminder]=useState('');
   const [pauseUntil,setPauseUntil]=useState('');
   const [loading,setLoading]=useState(true);
+  const [loadFailed,setLoadFailed]=useState(false);
+  const [loadAttempt,setLoadAttempt]=useState(0);
   const [busy,setBusy]=useState(false);
   const [error,setError]=useState('');
   const [notice,setNotice]=useState('');
@@ -26,7 +28,7 @@ export function FitnessStudentPreferences({store,userId,token,onAuthorizationCha
     const [next,auth,received]=await Promise.all([professionalApi.reminders(store,token),professionalApi.authorizationList(store,token),professionalApi.messages(store,token)]);
     setReminders(next.reminders||[]);setInbox(next.inbox||[]);setProfessionals(auth.professionals||[]);setMessages(received||[]);
   };
-  useEffect(()=>{let active=true;setLoading(true);setError('');void Promise.all([professionalApi.reminders(store,token),professionalApi.authorizationList(store,token),professionalApi.messages(store,token)]).then(([next,auth,received])=>{if(active){setReminders(next.reminders||[]);setInbox(next.inbox||[]);setProfessionals(auth.professionals||[]);setMessages(received||[]);}}).catch(cause=>{if(active)setError((cause as Error).message);}).finally(()=>{if(active)setLoading(false);});return()=>{active=false;};},[store,userId,token]);
+  useEffect(()=>{let active=true;setLoading(true);setLoadFailed(false);setError('');void Promise.all([professionalApi.reminders(store,token),professionalApi.authorizationList(store,token),professionalApi.messages(store,token)]).then(([next,auth,received])=>{if(active){setReminders(next.reminders||[]);setInbox(next.inbox||[]);setProfessionals(auth.professionals||[]);setMessages(received||[]);}}).catch(cause=>{if(active){setLoadFailed(true);setError((cause as Error).message||'Não foi possível carregar suas preferências.');}}).finally(()=>{if(active)setLoading(false);});return()=>{active=false;};},[store,userId,token,loadAttempt]);
   const act=async(fn:()=>Promise<unknown>,message:string)=>{if(busy)return;setBusy(true);setError('');setNotice('');try{await fn();await reload();onAuthorizationChange?.();setNotice(message);}catch(cause){setError((cause as Error).message);}finally{setBusy(false);}};
   const save=async(event:FormEvent)=>{
     event.preventDefault();if(busy||weekdays.length===0)return;
@@ -48,7 +50,7 @@ export function FitnessStudentPreferences({store,userId,token,onAuthorizationCha
     <h2 id="student-routine-title">Meus lembretes e permissões</h2>
     <p>Configure horários para treino, agenda, hidratação ou outras rotinas. O lembrete de hidratação não define quantidade de água nem orientação individual.</p>
     {error&&<p role="alert">{error}</p>}{notice&&<p role="status">{notice}</p>}
-    {loading?<p role="status">Carregando suas preferências…</p>:<>
+    {loading?<p role="status">Carregando suas preferências…</p>:loadFailed?<button type="button" className="secondary-button" onClick={()=>setLoadAttempt(current=>current+1)}>Tentar novamente</button>:<>
       <form className="business-form-grid" onSubmit={event=>void save(event)}>
         <label>Rotina<select value={kind} onChange={event=>changeKind(event.target.value as StudentReminder['kind'])}>{Object.entries(kinds).map(([value,name])=><option value={value} key={value}>{name}</option>)}</select></label>
         <label>Nome do lembrete<input required maxLength={100} value={label} onChange={event=>setLabel(event.target.value)}/></label>
