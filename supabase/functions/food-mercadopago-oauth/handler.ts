@@ -44,6 +44,13 @@ export const createTestOAuthHandler=(deps:Deps)=>async(req:Request):Promise<Resp
   if(!actor)return reply(401,{error:'Entre novamente na conta da loja.'});
   if(!await deps.authorize(actor,store))return reply(403,{error:'Sem acesso à configuração desta loja.'});
   if(body.action==='status'){
+   // Report only fixed configuration categories, never the configured values.
+   if(!/^\d{1,32}$/.test(deps.clientId)) console.error('mp_test_oauth_config','client_id_format');
+   try {
+    const redirect=new URL(deps.redirectUri);
+    if(redirect.protocol!=='https:'||redirect.username||redirect.password||redirect.hash||redirect.search)
+     console.error('mp_test_oauth_config','redirect_format');
+   } catch { console.error('mp_test_oauth_config','redirect_format'); }
    const result=await deps.status(store);
    return reply(200,{connected:result.connected,environment:'test',...(result.connected&&result.sellerId?{sellerId:result.sellerId}:{})});
   }
