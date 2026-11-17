@@ -42,7 +42,12 @@ export default function MasterDiagnostics(){
     setAiTesting(true);setAiResult('');setAiError('');
     try{
       const {data,error:invokeError}=await getSupabaseClient().functions.invoke('food-gemini-diagnostic',{body:{}});
-      if(invokeError||data?.ok!==true||typeof data.model!=='string'||typeof data.text!=='string') throw new Error('Não foi possível concluir o teste. Confira a configuração e tente novamente.');
+      if(invokeError){
+        const response=invokeError.context;
+        if(response instanceof Response && response.status===503) {setAiError('O Gemini está temporariamente indisponível. Tente novamente mais tarde.');return;}
+        throw invokeError;
+      }
+      if(data?.ok!==true||typeof data.model!=='string'||typeof data.text!=='string') throw new Error('Resposta inválida.');
       setAiResult(`${data.model}: ${data.text}`);
     }catch{setAiError('Não foi possível concluir o teste. Confira a configuração e tente novamente.');}
     finally{setAiTesting(false);}
@@ -104,3 +109,4 @@ export default function MasterDiagnostics(){
     <section className="admin-card master-guidance"><span className="eyebrow">ESTABILIZAÇÃO</span><h2>Quando um botão “não fizer nada”</h2><InfoHint label="Sobre Quando um botão “não fizer nada”">Abra esta tela e procure em Interações sem conclusão ou Falhas recentes. A v0.5.0 registra erros globais e acompanha as decisões de mensalidade.</InfoHint></section>
   </>;
 }
+
