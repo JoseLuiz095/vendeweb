@@ -33,12 +33,20 @@ Deno.serve(async (request: Request) => {
       body: JSON.stringify({ model, input: 'Responda em português: conexão de teste concluída.', store: false, generation_config: { max_output_tokens: 256 } }),
       signal: AbortSignal.timeout(25000),
     });
-    if (!response.ok) return reply({ error: response.status === 429 ? 'Limite do Gemini atingido.' : 'Gemini indisponível ou configuração inválida.' }, response.status === 429 ? 429 : 502);
+    if (!response.ok) {
+      console.warn('gemini_diagnostic_provider_status', response.status);
+      return reply({ error: response.status === 429 ? 'Limite do Gemini atingido.' : 'Gemini indisponível ou configuração inválida.' }, response.status === 429 ? 429 : 502);
+    }
     const result = await response.json() as {status?:string;steps?:Array<{type?:string;content?:Array<{type?:string;text?:string}>}>};
     const text = result.steps?.filter(s => s.type === 'model_output').flatMap(s => s.content || []).find(c => c.type === 'text' && typeof c.text === 'string')?.text?.trim();
-    if (result.status !== 'completed' || !text) return reply({ error: 'O Gemini não retornou uma resposta concluída.' }, 502);
+    if (result.status !== 'completed' || !text) {
+      console.warn('gemini_diagnostic_incomplete_response', result.status === 'completed' ? 'missing_text' : 'not_completed');
+      return reply({ error: 'O Gemini não retornou uma resposta concluída.' }, 502);
+    }
     return reply({ ok: true, model, text: text.slice(0, 500) });
   } catch {
+    console.warn('gemini_diagnostic_request_failed');
     return reply({ error: 'Não foi possível concluir o diagnóstico de IA.' }, 502);
   }
 });
+
