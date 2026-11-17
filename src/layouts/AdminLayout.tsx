@@ -20,6 +20,7 @@ import {
   ShoppingBag,
   Store,
   Smartphone,
+  Sparkles,
   Tags,
   Truck,
   UtensilsCrossed,
@@ -58,6 +59,7 @@ const navSections: Array<{ label: string; items: Array<{ to: string; label: stri
     items: [
       { to: '/admin', label: 'Visão geral', icon: LayoutDashboard, end: true },
       { to: '/admin/primeiros-passos', label: 'Primeiros passos', icon: Rocket },
+      { to: '/admin/ia', label: 'Central de IA', icon: Sparkles },
     ],
   },
   {
@@ -201,6 +203,7 @@ export default function AdminLayout() {
             const preparationNavAllowed = new Set(['/admin','/admin/primeiros-passos','/admin/produtos','/admin/estoque','/admin/categorias','/admin/entregas','/admin/configuracoes','/admin/negocio']);
             const deliverySegments = ['food', 'confectionery', 'retail', 'printing3d', 'rentals', 'florist'];
             const items = section.items.filter((item) => (!item.requiresFeature || planHasFeature(planUsage.plan, item.requiresFeature))
+              && (item.to !== '/admin/ia' || membership?.role === 'owner' || membership?.role === 'admin')
               && (!membership?.limitedAccess || preparationNavAllowed.has(item.to))
               && (item.to !== '/admin/entregas' || deliverySegments.includes(segment.id))
               && (item.to !== '/admin/estoque' || deliverySegments.includes(segment.id) || products.some((product) => product.trackStock)));
@@ -273,3 +276,4 @@ export default function AdminLayout() {
     </div>
   );
 }
+
