@@ -32,7 +32,7 @@ export default function FitnessDashboard({storeId,storeName,timezone,business,li
   const formatDate=(value:string)=>{try{return new Intl.DateTimeFormat('pt-BR',{timeZone:timezone,dateStyle:'short',timeStyle:'short'}).format(new Date(value));}catch{return new Date(value).toLocaleString('pt-BR');}};
   const links=[
     ...(!limited&&moduleIsActive(business,'clients')?[{label:'Alunos',detail:'Cadastros e atendimentos',to:'/admin/operacao?tab=clients',icon:Users}]:[]),
-    ...(!limited&&moduleIsActive(business,'training')?[{label:'Fichas de treino',detail:'Modelos e fichas',to:'/admin/fitness#treinos',icon:Dumbbell}]:[]),
+    ...(!limited&&moduleIsActive(business,'training')?[{label:'Criar e atribuir treinos',detail:'Fichas e revisão profissional',to:'/admin/fitness#treinos',icon:Dumbbell},{label:'Ofertas e pagamentos',detail:'Criar uma oferta para venda',to:'/admin/fitness#ofertas-fitness',icon:ShoppingBag}]:[]),
     ...(!limited&&moduleIsActive(business,'nutrition')?[{label:'Nutrição',detail:'Planos alimentares',to:'/admin/fitness#nutricao',icon:Salad}]:[]),
     ...(!limited&&moduleIsActive(business,'appointments')?[{label:'Serviços e ofertas',detail:'Gerenciar serviços',to:'/admin/operacao?tab=services',icon:ShoppingBag}]:[{label:'Catálogo',detail:'Produtos e ofertas',to:'/admin/produtos',icon:ShoppingBag}]),
   ];
