@@ -7,6 +7,7 @@ test('payload Pix é limitado ao valor validado e preserva chave de repetição'
  assert.deepEqual(a,b);assert.equal(a.url,'https://api.mercadopago.com/v1/orders');
  assert.equal(a.body.total_amount,'10.10');assert.equal(a.body.transactions.payments[0].amount,'10.10');
  assert.equal(a.body.transactions.payments[0].payment_method.id,'pix');assert.equal(a.idempotencyKey,input.idempotencyKey);
+ assert.equal(a.body.payer.first_name,'APRO');
 });
 test('recusa valores inválidos e dados que impedem rastrear operação',()=>{
  for(const patch of [{total:'0.00'},{total:'1.001'},{total:'1e3'},{externalReference:'a:b'},{idempotencyKey:'bad'},{payerEmail:'abc'}])assert.throws(()=>buildTestPixOrder({...input,...patch}));

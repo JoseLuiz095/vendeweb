@@ -20,6 +20,7 @@ export function buildTestCardOrder(input: {
     idempotencyKey: pix.idempotencyKey,
     body: {
       ...pix.body,
+      payer: { email: input.payerEmail },
       transactions: { payments: [{ amount: pix.body.total_amount, payment_method: {
         id: input.paymentMethodId, type: input.paymentType, token: input.cardToken, installments: input.installments,
       } }] },
