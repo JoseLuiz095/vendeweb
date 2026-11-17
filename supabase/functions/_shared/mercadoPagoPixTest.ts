@@ -54,10 +54,12 @@ export type PixDecision =
  * `alreadyAppliedPaymentId` must be loaded under the same DB lock/transaction
  * as a future write; this function alone cannot provide idempotency or isolation.
  */
-export function decideMercadoPagoTestPix(input:{
+type DecisionInput = {
   notificationLiveMode:unknown; signedResourceId:string; authenticatedSellerId:string;
   binding:BoundOrder; providerOrder:ProviderOrder;
-}):PixDecision {
+};
+
+function decideTestPayment(input:DecisionInput, method:{id:string;type:string}):PixDecision {
   const {notificationLiveMode,signedResourceId,authenticatedSellerId,binding,providerOrder:o}=input;
   if(notificationLiveMode!==false) return {action:'review',reason:'not_test_event'};
   if(!binding.storeId || !binding.localOrderId || !binding.providerOrderId || !binding.externalReference ||
@@ -72,7 +74,7 @@ export function decideMercadoPagoTestPix(input:{
   if(!Array.isArray(payments) || payments.length!==1) return {action:'review',reason:'unexpected_payments'};
   const payment=payments[0];
   if(typeof payment.id!=='string' || !/^[A-Za-z0-9_-]{1,128}$/.test(payment.id) ||
-     payment.payment_method?.id!=='pix' || payment.payment_method?.type!=='bank_transfer' ||
+     payment.payment_method?.id!==method.id || payment.payment_method?.type!==method.type ||
      payment.status!=='processed' || payment.status_detail!=='accredited' ||
      brlCents(payment.amount)!==amount || brlCents(payment.paid_amount)!==amount || brlCents(o.total_paid_amount)!==amount) return {action:'review',reason:'payment_mismatch'};
   if(binding.alreadyAppliedPaymentId) return binding.alreadyAppliedPaymentId===payment.id
@@ -81,4 +83,16 @@ export function decideMercadoPagoTestPix(input:{
   // Restrict identifiers before composing the key so delimiters cannot collide.
   if(!/^[A-Za-z0-9_-]{1,128}$/.test(binding.sellerAccountId)) return {action:'review',reason:'invalid_account'};
   return {action:'apply',paymentId:payment.id,idempotencyKey:`mp:test:${binding.sellerAccountId}:${payment.id}`};
+}
+
+export function decideMercadoPagoTestPix(input:DecisionInput):PixDecision {
+  return decideTestPayment(input,{id:'pix',type:'bank_transfer'});
+}
+
+/** Experimental decision only; method must be bound to a trusted, immutable
+ * attempt, and the caller must persist the result in one locked transaction. */
+export function decideMercadoPagoTestCard(input:DecisionInput, method:{id:string;type:'credit_card'|'debit_card'}):PixDecision {
+  if(!method || !/^[A-Za-z0-9_-]{1,64}$/.test(method.id) || !['credit_card','debit_card'].includes(method.type))
+    return {action:'review',reason:'invalid_payment_method'};
+  return decideTestPayment(input,method);
 }
