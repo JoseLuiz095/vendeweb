@@ -46,3 +46,16 @@ test('origem, login, configuração e tamanho são validados antes da ação',as
  f.deps.enabled=false;assert.equal((await f.call({action:'status',storeId:store})).status,503);
  f.deps.enabled=true;assert.equal((await f.call({action:'complete',storeId:store,code:'a'.repeat(9000),state:'b'})).status,413);
 });
+test('falha ao iniciar registra somente a etapa, sem dados sensíveis',async()=>{
+ const f=fixture(), captured=[];const original=console.error;
+ console.error=(...values)=>captured.push(values);
+ try{
+  f.deps.clientId='invalid-sensitive-value';
+  assert.equal((await f.call({action:'start',storeId:store})).status,400);
+  assert.deepEqual(captured,[['mp_test_oauth_failure','start_config']]);
+  captured.length=0;f.deps.clientId='123';
+  f.deps.saveState=async()=>{throw new Error('sensitive-do-not-log')};
+  assert.equal((await f.call({action:'start',storeId:store})).status,400);
+  assert.deepEqual(captured,[['mp_test_oauth_failure','start_persistence']]);
+ }finally{console.error=original;}
+});
