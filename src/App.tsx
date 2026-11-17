@@ -51,6 +51,7 @@ const BusinessModules=lazy(()=>import('./platform/BusinessModules'));
 const BusinessOperations=lazy(()=>import('./platform/OperationsPage'));
 const FitnessAdmin=lazy(()=>import('./platform/FitnessAdminPage'));
 const ProfessionalPortal=lazy(()=>import('./platform/ProfessionalPortal'));
+const StoreAI=lazy(()=>import('./pages/admin/StoreAI'));
 
 function ProtectedAdmin() {
   const { user, membership, loading } = useAuth();
@@ -145,6 +146,7 @@ export default function App() {
       <Route path="/admin/negocio" element={<BusinessModules />} />
       <Route path="/admin/operacao" element={<BusinessOperations />} />
       <Route path="/admin/fitness" element={<FitnessAdmin />} />
+      <Route path="/admin/ia" element={<StoreAI />} />
     </Route>
 
     <Route path="/admin-master/login" element={<MasterLogin />} />
@@ -166,3 +168,4 @@ export default function App() {
     <Route path="*" element={<NotFound />} />
   </Routes></Suspense>;
 }
+
