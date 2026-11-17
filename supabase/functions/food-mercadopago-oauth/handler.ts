@@ -34,6 +34,7 @@ export const createTestOAuthHandler=(deps:Deps)=>async(req:Request):Promise<Resp
  if(req.method==='OPTIONS')return new Response(null,{status:204,headers});
  if(req.method!=='POST')return reply(405,{error:'Método não permitido.'});
  if(!deps.enabled||!deps.clientId||!deps.clientSecret||!deps.redirectUri||deps.key.length!==32)return reply(503,{error:'Conexão de teste indisponível.'});
+ let diagnosticStep: 'none'|'start_config'|'start_encryption'|'start_persistence' = 'none';
  try{
   const reader=req.body?.getReader(),decoder=new TextDecoder();let raw='',size=0;
   if(reader)for(;;){const {value,done}=await reader.read();if(done)break;size+=value.byteLength;if(size>8192){await reader.cancel();return reply(413,{error:'Solicitação muito grande.'});}raw+=decoder.decode(value,{stream:true});}raw+=decoder.decode();
@@ -43,12 +44,22 @@ export const createTestOAuthHandler=(deps:Deps)=>async(req:Request):Promise<Resp
   if(!actor)return reply(401,{error:'Entre novamente na conta da loja.'});
   if(!await deps.authorize(actor,store))return reply(403,{error:'Sem acesso à configuração desta loja.'});
   if(body.action==='status'){
+   // Report only fixed configuration categories, never the configured values.
+   if(!/^\d{1,32}$/.test(deps.clientId)) console.error('mp_test_oauth_config','client_id_format');
+   try {
+    const redirect=new URL(deps.redirectUri);
+    if(redirect.protocol!=='https:'||redirect.username||redirect.password||redirect.hash||redirect.search)
+     console.error('mp_test_oauth_config','redirect_format');
+   } catch { console.error('mp_test_oauth_config','redirect_format'); }
    const result=await deps.status(store);
    return reply(200,{connected:result.connected,environment:'test',...(result.connected&&result.sellerId?{sellerId:result.sellerId}:{})});
   }
   if(body.action==='start'){
+   diagnosticStep='start_config';
    const next=await beginTestOAuth({clientId:deps.clientId,redirectUri:deps.redirectUri,storeId:store,actorId:actor,now:(deps.now??Date.now)()});
+   diagnosticStep='start_encryption';
    const sealedVerifier=await sealTestSecret(deps.key,store,'oauth-verifier',next.verifier);
+   diagnosticStep='start_persistence';
    await deps.saveState({storeId:store,actorId:actor,stateHash:next.stateHash,sealedVerifier,expiresAt:next.expiresAt});
    return reply(200,{authorizationUrl:next.authorizationUrl});
   }
@@ -70,5 +81,9 @@ export const createTestOAuthHandler=(deps:Deps)=>async(req:Request):Promise<Resp
    return reply(200,{connected:true,environment:'test'});
   }
   return reply(400,{error:'Solicitação inválida.'});
- }catch{return reply(400,{error:'Não foi possível concluir a operação. Tente novamente.'});}
+ }catch{
+  // Fixed stage only: never record request, credentials, IDs, errors or URLs.
+  if(diagnosticStep!=='none') console.error('mp_test_oauth_failure',diagnosticStep);
+  return reply(400,{error:'Não foi possível concluir a operação. Tente novamente.'});
+ }
 };
