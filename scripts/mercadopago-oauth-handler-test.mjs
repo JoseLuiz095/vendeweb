@@ -59,3 +59,11 @@ test('falha ao iniciar registra somente a etapa, sem dados sensíveis',async()=>
   assert.deepEqual(captured,[['mp_test_oauth_failure','start_persistence']]);
  }finally{console.error=original;}
 });
+test('diagnóstico do status identifica formato inválido sem registrar valores',async()=>{
+ const f=fixture(),captured=[];const original=console.error;console.error=(...values)=>captured.push(values);
+ try{
+  f.deps.clientId='not-a-valid-id';f.deps.redirectUri='https://app.example.test/admin/configuracoes?secret=synthetic';
+  assert.equal((await f.call({action:'status',storeId:store})).status,200);
+  assert.deepEqual(captured,[['mp_test_oauth_config','client_id_format'],['mp_test_oauth_config','redirect_format']]);
+ }finally{console.error=original;}
+});
