@@ -28,14 +28,19 @@ Deno.serve(async (request: Request) => {
     const { error: limitError } = await admin.rpc('food_modules_rate_limit', { p_key: fingerprint });
     if (limitError) return reply({ error: 'Limite atingido ou diagnóstico indisponível. Tente mais tarde.' }, 429);
     const model = Deno.env.get('GEMINI_MODEL') || 'gemini-3.8-flash';
-    const response = await fetch('https://generativelanguage.googleapis.com/v1beta/interactions', {
+    const send = () => fetch('https://generativelanguage.googleapis.com/v1beta/interactions', {
       method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key, 'Api-Revision': '2026-05-20' },
       body: JSON.stringify({ model, input: 'Responda em português: conexão de teste concluída.', store: false, generation_config: { max_output_tokens: 256 } }),
-      signal: AbortSignal.timeout(25000),
+      signal: AbortSignal.timeout(12000),
     });
+    let response = await send();
+    if (response.status === 503) {
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      response = await send();
+    }
     if (!response.ok) {
       console.warn('gemini_diagnostic_provider_status', response.status);
-      return reply({ error: response.status === 429 ? 'Limite do Gemini atingido.' : 'Gemini indisponível ou configuração inválida.' }, response.status === 429 ? 429 : 502);
+      return reply({ error: response.status === 429 ? 'Limite do Gemini atingido.' : response.status === 503 ? 'O Gemini está temporariamente indisponível. Tente novamente mais tarde.' : 'Gemini indisponível ou configuração inválida.' }, response.status === 429 ? 429 : response.status === 503 ? 503 : 502);
     }
     const result = await response.json() as {status?:string;steps?:Array<{type?:string;content?:Array<{type?:string;text?:string}>}>};
     const text = result.steps?.filter(s => s.type === 'model_output').flatMap(s => s.content || []).find(c => c.type === 'text' && typeof c.text === 'string')?.text?.trim();
