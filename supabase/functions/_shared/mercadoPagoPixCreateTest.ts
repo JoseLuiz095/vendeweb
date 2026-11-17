@@ -13,5 +13,5 @@ export function buildTestPixOrder(input:{total:string;externalReference:string;i
  const canonical=`${amount/100n}.${String(amount%100n).padStart(2,'0')}`;
  return {url:'https://api.mercadopago.com/v1/orders',idempotencyKey:input.idempotencyKey,
   body:{type:'online',processing_mode:'automatic',total_amount:canonical,external_reference:input.externalReference,
-   transactions:{payments:[{amount:canonical,payment_method:{id:'pix',type:'bank_transfer'}}]},payer:{email:input.payerEmail}}};
+   transactions:{payments:[{amount:canonical,payment_method:{id:'pix',type:'bank_transfer'}}]},payer:{email:input.payerEmail,first_name:'APRO'}}};
 }
