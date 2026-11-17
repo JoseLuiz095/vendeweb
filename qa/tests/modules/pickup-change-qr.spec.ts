@@ -16,14 +16,15 @@ test('QR de um ponto permite escolher outro e mantém estoque e pedido no ponto 
  await page.getByRole('button',{name:'Adicionar Brigadeiro teste',exact:true}).click();
  await page.goto('/doce-lua/finalizar?ponto=trabalho');
  await expect(page.getByText('Local identificado: Trabalho')).toBeVisible();
- await expect(page.getByLabel('Ponto de retirada',{exact:true})).toBeVisible();
- await page.getByLabel('Ponto de retirada',{exact:true}).selectOption(b.id);
+ await expect(page.getByRole('combobox',{name:'Ponto de retirada',exact:true})).toBeVisible();
+ await page.getByRole('combobox',{name:'Ponto de retirada',exact:true}).selectOption(b.id);
  await expect(page.getByText('Ponto escolhido: Casa')).toBeVisible();
  await expect(page).not.toHaveURL(/ponto=trabalho/);
  await page.reload();
  await expect(page.getByText('Ponto escolhido: Casa')).toBeVisible();
  await page.getByLabel('Nome',{exact:true}).fill('Cliente teste');
  await page.getByLabel(/WhatsApp \/ telefone/).fill('11999999999');
+ await page.getByRole('button',{name:/^Continuar/}).click();
  await page.getByRole('button',{name:/Registrar pedido|^Finalizar$/}).filter({visible:true}).first().click();
  await expect(page).toHaveURL(new RegExp(ORDER));
  const order=writes.find(w=>w.url.endsWith('/food-public-checkout'));
@@ -41,12 +42,13 @@ test('sem saldo no ponto escolhido bloqueia o pedido e mantém o ponto após rec
  await page.goto('/doce-lua?ponto=trabalho');
  await page.getByRole('button',{name:'Adicionar Brigadeiro teste',exact:true}).click();
  await page.goto('/doce-lua/finalizar?ponto=trabalho');
- await page.getByLabel('Ponto de retirada',{exact:true}).selectOption(b.id);
+ await page.getByRole('combobox',{name:'Ponto de retirada',exact:true}).selectOption(b.id);
  await page.reload();
  await expect(page.getByText('Ponto escolhido: Casa')).toBeVisible();
  await page.getByLabel('Nome',{exact:true}).fill('Cliente teste');
  await page.getByLabel(/WhatsApp \/ telefone/).fill('11999999999');
- await page.getByRole('button',{name:/Registrar pedido|^Finalizar$/}).filter({visible:true}).first().click();
+ await page.getByRole('button',{name:/^Continuar/}).click();
  await expect(page.locator('.checkout-inline-error')).toContainText(/Estoque insuficiente/);
  expect(writes.filter(w=>w.url.endsWith('/food-public-checkout'))).toHaveLength(0);
 });
+
