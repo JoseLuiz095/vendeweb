@@ -38,8 +38,10 @@ const cloneSettingsForForm = (settings: StoreSettings) => {
 };
 
 export default function SettingsAdmin() {
-  const mercadoPagoUiEnabled = import.meta.env.VITE_MERCADO_PAGO_TEST_UI === 'true';
-  const pilotStoreId = String(import.meta.env.VITE_MERCADO_PAGO_TEST_STORE_ID || '').toLowerCase();
+  // The test UI is limited to the authorized DuoForma pilot. The server still
+  // enforces the allowlist, permissions and its independent activation switch.
+  const mercadoPagoUiEnabled = import.meta.env.VITE_MERCADO_PAGO_TEST_UI !== 'false';
+  const pilotStoreId = String(import.meta.env.VITE_MERCADO_PAGO_TEST_STORE_ID || '3659d8c9-0e68-4c86-9e0d-779c36ff28a9').toLowerCase();
   const [mercadoPagoCallback] = useState(() => mercadoPagoUiEnabled ? readMercadoPagoCallback() : null);
   useLayoutEffect(() => { if (mercadoPagoCallback) clearMercadoPagoCallback(); }, [mercadoPagoCallback]);
   const { settings, saveSettings, resetDemo, uploadStoreAsset, dataMode, loading, error, reloadAdmin, planUsage } = useStore();
@@ -51,6 +53,8 @@ export default function SettingsAdmin() {
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [coverFile, setCoverFile] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
+  const [settingsQuery, setSettingsQuery] = useState('');
+  const [selectedSection, setSelectedSection] = useState<string | null>(null);
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({ identity: false, service: true, alerts: true, growth: true, messages: true, confirm: true, pix: !mercadoPagoCallback, card: true, cash: true, order: true });
   const [messageCursor, setMessageCursor] = useState<{ key: keyof NonNullable<StoreSettings['messageTemplates']>; start: number; end: number }>({ key: 'received', start: 0, end: 0 });
   const canCustomBanner = planHasFeature(planUsage.plan, 'custom_banner');
@@ -60,15 +64,25 @@ export default function SettingsAdmin() {
   const pristineSettings = useMemo(() => cloneSettingsForForm(settings), [settings]);
   const hasUnsavedChanges = Boolean(logoFile || coverFile) || JSON.stringify(form) !== JSON.stringify(pristineSettings);
   const pushStatus = pwaPushStatus();
-  const toggleSection = (id: string) => setCollapsedSections((current) => ({ ...current, [id]: !current[id] }));
+  const toggleSection = (id: string) => {
+    setSelectedSection(collapsedSections[id] ? id : null);
+    setCollapsedSections((current) => ({ ...current, [id]: !current[id] }));
+  };
   const settingsGroups = [
-    { label: 'Loja e atendimento', items: [{ id: 'identity', label: 'Dados e visual', icon: Store }, { id: 'service', label: 'Pedidos e entregas', icon: Truck }, { id: 'stock', label: 'Estoque', icon: Store }] },
-    { label: 'Recebimento', items: [{ id: 'confirm', label: 'Confirmação manual', icon: Banknote }, { id: 'pix', label: 'PIX', icon: QrCode }, { id: 'card', label: 'Cartão', icon: CreditCard }, { id: 'cash', label: 'Dinheiro', icon: Banknote }, { id: 'order', label: 'Ordem no checkout', icon: CreditCard }] },
-    { label: 'Comunicação e vendas', items: [{ id: 'contacts', label: 'Telefones e comprovantes', icon: MessageCircle }, { id: 'alerts', label: 'Notificações', icon: Bell }, { id: 'messages', label: 'Mensagens', icon: MessageCircle }, { id: 'growth', label: 'Vendas e relacionamento', icon: Sparkles }] },
+    { label: 'Loja e atendimento', items: [{ id: 'identity', label: 'Dados e visual', icon: Store, terms: 'logo nome endereço funcionamento horário aparência cores' }, { id: 'service', label: 'Pedidos e entregas', icon: Truck, terms: 'retirada agendamento preparo delivery' }, { id: 'stock', label: 'Estoque', icon: Store, terms: 'locais depósitos' }] },
+    { label: 'Recebimento das vendas', items: [{ id: 'confirm', label: 'Confirmação manual', icon: Banknote, terms: 'pagamento' }, { id: 'pix', label: 'Pix e Mercado Pago', icon: QrCode, terms: 'pagamento chave copia e cola conta' }, { id: 'card', label: 'Cartão', icon: CreditCard, terms: 'pagamento maquininha' }, { id: 'cash', label: 'Dinheiro', icon: Banknote, terms: 'pagamento troco' }, { id: 'order', label: 'Ordem no checkout', icon: CreditCard, terms: 'sequência pagamento' }] },
+    { label: 'Comunicação e conta', items: [{ id: 'contacts', label: 'WhatsApp da loja', icon: MessageCircle, terms: 'telefone contato' }, { id: 'receipts', label: 'Destinos de comprovantes', icon: MessageCircle, terms: 'whatsapp telefone contato ponto retirada' }, { id: 'alerts', label: 'Notificações', icon: Bell, terms: 'alertas push' }, { id: 'messages', label: 'Mensagens', icon: MessageCircle, terms: 'modelos conversa' }, { id: 'growth', label: 'Vendas e relacionamento', icon: Sparkles, terms: 'marketing' }, { id: 'password', label: 'Senha da conta', icon: Store, terms: 'segurança alterar acesso' }] },
   ];
+  const normalizeSearch = (value: string) => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+  const searchTerms = normalizeSearch(settingsQuery).split(/\s+/).filter(Boolean);
+  const visibleGroups = settingsGroups.map(group => ({ ...group, items: group.items.filter(item =>
+    (item.id !== 'stock' || ['food','confectionery','retail','florist','rentals','printing3d'].includes(businessProfile.id)) &&
+    searchTerms.every(term => normalizeSearch(`${group.label} ${item.label} ${item.terms}`).includes(term))
+  ) })).filter(group => group.items.length > 0);
   const goToSection = (id: string) => {
+    setSelectedSection(id);
     setCollapsedSections(current => ({ ...current, [id]: false }));
-    window.requestAnimationFrame(() => document.getElementById(`settings-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+    window.requestAnimationFrame(() => document.getElementById(id === 'receipts' ? 'comprovantes' : `settings-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
   };
   const sectionToggle = (id: string, label: string) => <button type="button" className="settings-section-toggle" onClick={() => toggleSection(id)} aria-expanded={!collapsedSections[id]}><span>{label}</span><ChevronDown size={17} /></button>;
 
@@ -252,9 +266,15 @@ export default function SettingsAdmin() {
         )}
       </div>
 
-      <nav className="settings-index" aria-label="Ir para uma configuração">
-        {settingsGroups.map(group => <div className="settings-index__group" key={group.label}><strong>{group.label}</strong><div>{group.items.filter(item => item.id !== 'stock' || ['food','confectionery','retail','florist','rentals','printing3d'].includes(businessProfile.id)).map(({ id, label, icon: Icon }) => <button key={id} type="button" onClick={() => goToSection(id)}><Icon size={16}/>{label}</button>)}</div></div>)}
-      </nav>
+      <div className="settings-finder">
+        <label htmlFor="settings-search">Buscar nas configurações</label>
+        <input id="settings-search" type="search" value={settingsQuery} onChange={event => setSettingsQuery(event.target.value)} placeholder="Ex.: Pix, horários ou notificações" />
+        <small>Escolha um resultado para abrir a seção correspondente.</small>
+        <nav className="settings-index" aria-label="Ir para uma configuração">
+          {visibleGroups.map(group => <div className="settings-index__group" key={group.label}><strong>{group.label}</strong><div>{group.items.map(({ id, label, icon: Icon }) => <button key={id} type="button" aria-pressed={selectedSection === id} onClick={() => goToSection(id)}><Icon size={16}/>{label}</button>)}</div></div>)}
+        </nav>
+        {visibleGroups.length === 0 && <p role="status">Nenhuma seção encontrada. Tente outro termo.</p>}
+      </div>
       {['food','confectionery','retail','florist','rentals','printing3d'].includes(businessProfile.id)&&<section id="settings-stock" className="admin-card settings-stock-mode" aria-label="Preferência de estoque"><h2>Estoque</h2><p>{multiLocation === true ? 'Seu estoque está separado por local. Consulte cada ponto em Gerenciar locais; o saldo geral é a soma dos locais.' : 'Um único saldo é suficiente para começar. Seu estoque físico e reservado continuam disponíveis na tela Estoque.'}</p>{stockModeLoading?<p role="status">Consultando configuração...</p>:stockModeError?<p role="alert">Configuração de múltiplos locais indisponível neste ambiente. {stockModeError}</p>:<><label className="switch-row"><span><strong>Ativar múltiplos locais</strong><small>Para depósitos, pontos de retirada e transferências; dados existentes são preservados.</small></span><input type="checkbox" checked={multiLocation===true} disabled={changingStockMode} onChange={event=>void (async()=>{const target=event.target.checked;if(!target&&!window.confirm('Usar estoque simples? Saldos em locais secundários precisam ter sido transferidos para o principal.'))return;setChangingStockMode(true);try{await stockModeApi.set(settings.id,target);await reloadStockMode();showToast(target?'Múltiplos locais ativados.':'Estoque simples ativado.','success');}catch(cause){showToast(cause instanceof Error?cause.message:'Não foi possível alterar o modo.','error');}finally{setChangingStockMode(false);}})()}/></label>{multiLocation===true&&<a className="secondary-button" href="/admin/estoque-locais">Gerenciar locais</a>}</>}</section>}
       <section id="settings-contacts" className="admin-card form-section" aria-labelledby="payment-contacts-title">
         <div className="admin-card__header"><div><span className="eyebrow">ATENDIMENTO E PAGAMENTO</span><h2 id="payment-contacts-title">Telefones para contato e comprovantes</h2></div></div>
@@ -446,7 +466,7 @@ export default function SettingsAdmin() {
         </aside>
       </form>
       {hasUnsavedChanges && <FloatingSaveBar label="Salvar configurações" description="As configurações da loja foram alteradas." saving={saving} onSave={() => { const formElement = document.getElementById('settings-form'); if (formElement instanceof HTMLFormElement) formElement.requestSubmit(); }} onCancel={() => { setLogoFile(null); setCoverFile(null); setForm(cloneSettingsForForm(settings)); }} />}
-      <PasswordChangeCard />
+      <div id="settings-password"><PasswordChangeCard /></div>
     </>
   );
 }
