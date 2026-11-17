@@ -19,7 +19,7 @@ test('restricts diagnostics to authenticated MFA master and fails closed on rate
 });
 test('retries a temporary provider failure once',async()=>{const r=await run({statuses:[503,200]});assert.equal(r.status,200);assert.equal(r.calls,2)});
 test('sends only a fixed test and does not reveal key',async()=>{
- const r=await run();assert.equal(r.status,200);assert.equal(r.calls,1);assert.equal(r.payload.store,false);assert.equal(r.payload.generation_config.max_output_tokens,256);assert.equal(r.sentHeaders['x-goog-api-key'],'fake-key');assert.ok(!JSON.stringify(r.body).includes('fake-key'));
+ const r=await run();assert.equal(r.status,200);assert.equal(r.calls,1);assert.equal(r.payload.model,'gemini-3.5-flash-lite');assert.equal(r.payload.store,false);assert.equal(r.payload.generation_config.max_output_tokens,256);assert.equal(r.sentHeaders['x-goog-api-key'],'fake-key');assert.ok(!JSON.stringify(r.body).includes('fake-key'));
 });
 test('rejects incomplete and failed provider replies',async()=>{
  for(const opts of [{status:429},{status:500},{providerResponse:{status:'incomplete',steps:[]}}, {providerResponse:{status:'completed',steps:[]}}]) {const r=await run(opts);assert.notEqual(r.status,200);assert.ok(!JSON.stringify(r.body).includes('fake-key'))}
