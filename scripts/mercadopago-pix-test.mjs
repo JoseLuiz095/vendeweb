@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {createHmac} from 'node:crypto';
-import {verifyMercadoPagoOrderSignature,brlCents,decideMercadoPagoTestPix} from '../supabase/functions/_shared/mercadoPagoPixTest.ts';
+import {verifyMercadoPagoOrderSignature,brlCents,decideMercadoPagoTestPix,decideMercadoPagoTestCard} from '../supabase/functions/_shared/mercadoPagoPixTest.ts';
 
 test('webhook exige HMAC correto, normaliza id alfanumérico e rejeita ambiguidades',async()=>{
  const secret='only-synthetic-secret',resourceId='ORD123ABC',requestId='request-123',ts='1742505638683';
@@ -25,4 +25,13 @@ test('repetição, não creditados e reembolso não geram segundo crédito',()=>
  x=good();x.providerOrder.status='action_required';x.providerOrder.status_detail='waiting_transfer';assert.equal(decideMercadoPagoTestPix(x).action,'pending');
  x=good();x.providerOrder.status_detail='partially_refunded';assert.equal(decideMercadoPagoTestPix(x).action,'review');
  x=good();x.providerOrder.status='refunded';assert.equal(decideMercadoPagoTestPix(x).action,'review');
+});
+test('cartão exige mesma bandeira, tipo, valor e vínculo da tentativa de teste',()=>{
+ const card={id:'visa',type:'credit_card'};
+ const input=good();input.providerOrder.transactions.payments[0].payment_method=card;
+ assert.equal(decideMercadoPagoTestCard(input,card).action,'apply');
+ assert.equal(decideMercadoPagoTestCard(input,{id:'master',type:'credit_card'}).action,'review');
+ assert.equal(decideMercadoPagoTestCard(input,{id:'visa',type:'debit_card'}).action,'review');
+ input.providerOrder.transactions.payments[0].paid_amount='9.99';
+ assert.equal(decideMercadoPagoTestCard(input,card).action,'review');
 });
