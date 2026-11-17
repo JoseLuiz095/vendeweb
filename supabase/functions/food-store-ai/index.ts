@@ -30,7 +30,9 @@ Deno.serve(async (request: Request) => {
     if(limitError) return reply({error:'Limite atingido ou IA indisponível. Tente mais tarde.'},429);
     const {error:globalLimitError}=await admin.rpc('food_modules_rate_limit',{p_key:'store-ai-global'});
     if(globalLimitError) return reply({error:'Limite atingido ou IA indisponível. Tente mais tarde.'},429);
-    const response=await fetch('https://generativelanguage.googleapis.com/v1beta/interactions',{method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':key,'Api-Revision':'2026-05-20'},body:JSON.stringify({model:Deno.env.get('GEMINI_MODEL')||'gemini-3.8-flash',input:prompt,system_instruction:'Você auxilia lojistas do VendeWeb em português. Forneça sugestões concisas que o usuário deve revisar. Não execute ações, não peça dados pessoais, não ofereça diagnóstico ou prescrição de saúde.',store:false,generation_config:{max_output_tokens:450}}),signal:AbortSignal.timeout(25000)});
+    const send=()=>fetch('https://generativelanguage.googleapis.com/v1beta/interactions',{method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':key,'Api-Revision':'2026-05-20'},body:JSON.stringify({model:Deno.env.get('GEMINI_MODEL')||'gemini-3.8-flash',input:prompt,system_instruction:'Você auxilia lojistas do VendeWeb em português. Forneça sugestões concisas que o usuário deve revisar. Não execute ações, não peça dados pessoais, não ofereça diagnóstico ou prescrição de saúde.',store:false,generation_config:{max_output_tokens:450}}),signal:AbortSignal.timeout(12000)});
+    let response=await send();
+    if(response.status===503){await new Promise(resolve=>setTimeout(resolve,1000));response=await send();}
     if(!response.ok) return reply({error:response.status===429?'Limite da IA atingido. Tente mais tarde.':'IA indisponível no momento.'},response.status===429?429:502);
     const result=await response.json() as {status?:string;steps?:Array<{type?:string;content?:Array<{type?:string;text?:string}>}>};
     const text=result.steps?.filter(s=>s.type==='model_output').flatMap(s=>s.content||[]).find(c=>c.type==='text'&&typeof c.text==='string')?.text?.trim();
@@ -38,4 +40,5 @@ Deno.serve(async (request: Request) => {
     return reply({text:text.slice(0,6000)});
   } catch { return reply({error:'IA indisponível no momento.'},502); }
 });
+
 
