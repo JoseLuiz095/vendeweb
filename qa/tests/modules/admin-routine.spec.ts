@@ -5,6 +5,7 @@ for(const segment of ['food','confectionery','florist','retail','services','rent
  const codes=segment==='creator'?['creator']:['personal','fitness','nutrition','services'].includes(segment)?['clients','appointments']:[];
  await page.route('**/rpc/food_business_status',r=>r.fulfill({json:{profile:{store_id:STORE,primary_segment:segment},legacy:false,can_initialize:false,modules:codes.map(code=>({code,effective:true}))}}));
  await page.goto('/admin');if(segment==='fitness')await page.getByText('Mais ferramentas e informações da loja').click();const hub=page.getByRole('region',{name:'Rotinas e ferramentas'});
+ if(codes.includes('appointments'))await expect(hub.getByRole('link',{name:'Agenda Organizar atendimentos'})).toBeVisible();
  const expand=hub.getByRole('button',{name:/Ver todas as ferramentas/});if(await expand.count())await expand.click();
  await expect(hub.getByRole('link',{name:/Conferir pagamentos/})).toHaveAttribute('href','/admin/pedidos?queue=payment');
  if(codes.includes('appointments'))await expect(hub.getByRole('link',{name:'Agenda Organizar atendimentos'})).toHaveAttribute('href',segment==='fitness'?'/admin/fitness':'/admin/operacao?tab=appointments');
