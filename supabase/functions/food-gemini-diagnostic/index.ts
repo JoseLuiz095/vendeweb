@@ -27,7 +27,7 @@ Deno.serve(async (request: Request) => {
     const fingerprint = Array.from(new Uint8Array(digest), b => b.toString(16).padStart(2, '0')).join('');
     const { error: limitError } = await admin.rpc('food_modules_rate_limit', { p_key: fingerprint });
     if (limitError) return reply({ error: 'Limite atingido ou diagnóstico indisponível. Tente mais tarde.' }, 429);
-    const model = Deno.env.get('GEMINI_MODEL') || 'gemini-3.8-flash';
+    const model = Deno.env.get('GEMINI_MODEL') || 'gemini-3.5-flash-lite';
     const send = () => fetch('https://generativelanguage.googleapis.com/v1beta/interactions', {
       method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key, 'Api-Revision': '2026-05-20' },
       body: JSON.stringify({ model, input: 'Responda em português: conexão de teste concluída.', store: false, generation_config: { max_output_tokens: 256 } }),
