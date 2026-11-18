@@ -18,12 +18,40 @@
     <link rel="icon" type="image/svg+xml" href="/assets/vendeweb-mark.svg?v=20261022" />
     <meta name="description" content="Crie uma vitrine online com sua marca, apresente produtos e serviços, receba pedidos e organize a operação do seu negócio com a VendeWeb." />
     <title>VendeWeb — vitrine online e gestão para seu negócio</title>
+    <style>
+#foodweb-splash-screen{position:fixed;inset:0;z-index:9999;display:grid;place-items:center;box-sizing:border-box;padding:24px;background:#fffdfa;color:#123d28;font-family:system-ui,-apple-system,sans-serif;transition:opacity .2s ease,visibility .2s ease}
+#foodweb-splash-screen.is-ready{opacity:0;visibility:hidden;pointer-events:none}.opening-content{text-align:center;width:min(100%,320px)}
+.opening-scene{display:none;position:relative;width:224px;height:200px;margin:0 auto 4px}.opening-admin .opening-scene{display:block}.opening-admin .opening-indicator{display:none}
+.opening-orbit{position:absolute;inset:12px 28px 20px;border:1px solid #dce7dc;border-radius:50%;animation:orbit-breathe 3.6s ease-in-out infinite}
+.opening-orbit:after{content:'';position:absolute;inset:17px;border:1px solid #ebeee5;border-radius:50%}
+.opening-orbit--outer{inset:0 16px 8px;border-style:dashed;border-color:#dce7dc;animation:orbit-turn 18s linear infinite}.opening-orbit--outer:after{display:none}
+.opening-spark{position:absolute;color:#d66539;font-size:22px;font-weight:400;line-height:1;animation:spark-pulse 2.8s ease-in-out infinite}.opening-spark--one{left:58px;top:22px}.opening-spark--two{right:48px;bottom:36px;font-size:16px;animation-delay:-1.4s}
+.opening-mark{position:absolute;left:72px;top:48px;width:80px;height:80px;filter:drop-shadow(0 12px 14px rgba(18,61,40,.12));animation:mark-float 3.6s ease-in-out infinite}
+.opening-shape{position:absolute;display:block;animation:shape-float 3.6s ease-in-out infinite}.opening-shape--one{width:13px;height:13px;left:31px;top:54px;border-radius:4px;background:#d66539;transform:rotate(18deg)}.opening-shape--two{width:10px;height:10px;right:31px;top:49px;border-radius:50%;background:#d66539;animation-delay:-.8s}.opening-shape--three{width:17px;height:17px;right:39px;bottom:33px;border:2px solid #9ebaa5;border-radius:5px;transform:rotate(25deg);animation-delay:-1.5s}.opening-shape--five{width:9px;height:9px;left:66px;bottom:16px;border:2px solid #d66539;border-radius:50%;animation-delay:-.5s}.opening-shape--six{width:14px;height:5px;right:26px;top:92px;border-radius:4px;background:#bdd2bd;animation-delay:-2.6s}.opening-shape--four{width:7px;height:7px;left:46px;bottom:38px;border-radius:50%;background:#9ebaa5;animation-delay:-2.1s}
+.opening-brand{display:none;width:170px;height:auto;margin:0 auto 24px;animation:brand-arrive .7s ease both}.opening-admin .opening-brand{display:block}
+.opening-indicator{width:38px;height:38px;margin:0 auto 22px;border:2px solid #e0e8e1;border-top-color:#d66539;border-radius:50%;animation:opening-spin 1.1s linear infinite}
+.opening-caption{display:none;margin:0 0 13px;color:#8b9b8e;font-size:10px;letter-spacing:.17em;text-transform:uppercase;font-weight:700}.opening-admin .opening-caption{display:block}.opening-admin .opening-progress{display:block}.opening-progress{display:none;position:relative;overflow:hidden;width:104px;height:4px;background:#e5ebe3;border-radius:4px;margin:0 auto 18px}.opening-progress:after{content:'';position:absolute;inset:0;background:#d66539;border-radius:4px;transform:translateX(-110%);animation:progress-glide 2.2s ease-in-out infinite}
+.opening-label{margin:0;font-size:13px;font-weight:600;letter-spacing:.04em;color:#53675b}.opening-help{margin:16px 0 0;font-size:14px;line-height:1.5;color:#40564a}.opening-help button{display:block;margin:12px auto 0;padding:9px 15px;border:1px solid #123d28;border-radius:8px;background:transparent;color:#123d28;font:inherit;font-weight:600;cursor:pointer}.opening-help button:focus-visible{outline:3px solid #d66539;outline-offset:3px}
+@keyframes orbit-turn{to{transform:rotate(360deg)}}@keyframes spark-pulse{0%,100%{opacity:.3;transform:scale(.65) rotate(0deg)}50%{opacity:1;transform:scale(1) rotate(45deg)}}@keyframes opening-spin{to{transform:rotate(360deg)}}@keyframes mark-float{0%,100%{transform:translateY(0) scale(1)}50%{transform:translateY(-7px) scale(1.035)}}@keyframes orbit-breathe{0%,100%{transform:scale(.96);opacity:.65}50%{transform:scale(1.03);opacity:1}}@keyframes shape-float{0%,100%{translate:0 0}50%{translate:0 -10px}}@keyframes progress-glide{0%{transform:translateX(-110%)}55%,100%{transform:translateX(110%)}}@keyframes brand-arrive{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
+@media(prefers-reduced-motion:reduce){#foodweb-splash-screen{transition:none}.opening-indicator,.opening-scene *,.opening-brand,.opening-progress:after{animation:none}.opening-progress:after{transform:translateX(-40%)}}
+
+    </style>
   </head>
   <body>
-    <div id="foodweb-splash-screen" role="status" aria-label="Carregando VendeWeb">
-      <img src="/assets/vendeweb-mark.svg?v=20261022" alt="" width="184" height="184" loading="eager" decoding="sync" fetchpriority="high" />
-    </div>
+    <div id="foodweb-splash-screen"><div class="opening-content">
+      <div class="opening-scene" aria-hidden="true"><div class="opening-orbit opening-orbit--outer"></div><div class="opening-orbit"></div><span class="opening-spark opening-spark--one">✳</span><span class="opening-spark opening-spark--two">✳</span><span class="opening-shape opening-shape--one"></span><span class="opening-shape opening-shape--two"></span><span class="opening-shape opening-shape--three"></span><span class="opening-shape opening-shape--four"></span><span class="opening-shape opening-shape--five"></span><span class="opening-shape opening-shape--six"></span><img class="opening-mark" src="/assets/vendeweb-mark.svg?v=20261022" alt="" width="64" height="64" /></div>
+      <img class="opening-brand" src="/assets/vendeweb-logo.svg" alt="VendeWeb" width="300" height="72" />
+      <div class="opening-caption" aria-hidden="true">Preparando sua experiência</div><div class="opening-progress" aria-hidden="true"></div>
+      <div class="opening-indicator" aria-hidden="true"></div><p class="opening-label" role="status">Carregando…</p>
+      <div class="opening-help" hidden><p>Está demorando mais que o esperado. Confira sua conexão e tente novamente.</p><button type="button" onclick="window.location.reload()">Tentar novamente</button></div>
+      <noscript><p>Ative o JavaScript para abrir esta página.</p></noscript>
+    </div></div>
+    <script>
+      if (/^\/(admin|admin-master)(\/|$)/.test(location.pathname)) document.getElementById('foodweb-splash-screen').classList.add('opening-admin');
+      window.setTimeout(function () { var splash = document.getElementById('foodweb-splash-screen'); if (splash) splash.querySelector('.opening-help').hidden = false; }, 12000);
+    </script>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
+
