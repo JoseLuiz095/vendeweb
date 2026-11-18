@@ -33,6 +33,6 @@ ok('Admin Master preservado',master.includes('master-admin-mini')&&master.includ
 ok('Identidade Food preservada no admin',styles.includes('--admin-accent: #d4572b')||styles.includes('--food-red'));
 ok('Favicon v0.5.2 existe',exists('public/favicon-foodweb-v052.svg')&&read('index.html').includes('favicon-foodweb-v052.svg'));
 ok('Horario atravessa meia-noite preservado',storeHours.includes('previousDayNumber')&&storeHours.includes('previousDay'));
-ok('Suporte flutuante restrito ao Admin',helpButton.includes('loadAdminSupportContact')&&/<PlatformHelpButton\s*\/>/.test(adminLayout)&&/<PlatformHelpButton\s*\/>/.test(master)&&!home.includes('PlatformHelpButton'));
+ok('Suporte flutuante restrito ao Admin',helpButton.includes('loadAdminSupportContact')&&helpButton.includes('to="/admin/ia"')&&adminLayout.includes('<PlatformHelpButton assistant=')&&adminLayout.includes('membership?.limitedAccess')&&/<PlatformHelpButton\s*\/>/.test(master)&&!home.includes('PlatformHelpButton'));
 if(failures.length){console.error(`\nv0.5.2 com ${failures.length} falha(s).`);process.exit(1)}
 console.log('\nFoodWeb v0.5.2 pronto para validacao e publicacao.');

@@ -272,7 +272,7 @@ export default function AdminLayout() {
         {moduleIsActive(business,'appointments')&&<Link to="/admin/fitness#agenda-fitness" aria-current={location.pathname === '/admin/fitness' && (location.hash === '#agenda-fitness' || !location.hash) ? 'page' : undefined}><Clock3 size={20} aria-hidden="true"/><span>Agenda</span></Link>}
         <button type="button" onClick={()=>setOpen(true)} aria-label="Menu completo" aria-expanded={open} aria-controls="admin-sidebar"><Menu size={20} aria-hidden="true"/><span>Menu</span></button>
       </nav>}
-      <PlatformHelpButton />
+      {location.pathname!=='/admin/ia'&&<PlatformHelpButton assistant={!membership?.limitedAccess && !membership?.mustChangePassword} />}
     </div>
   );
 }
