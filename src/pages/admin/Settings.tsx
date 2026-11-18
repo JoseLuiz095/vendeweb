@@ -9,6 +9,7 @@ import { MercadoPagoTestConnection } from '../../components/admin/MercadoPagoTes
 import { clearMercadoPagoCallback, readMercadoPagoCallback, showMercadoPagoPilot } from '../../services/mercadoPagoTestApi';
 import { ArrowDown, ArrowUp, Banknote, ChevronDown, Clock3, CreditCard, ImagePlus, Info, QrCode, RotateCcw, Store, Truck, Bell, MessageCircle, Sparkles } from 'lucide-react';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+import { useLocation } from 'react-router-dom';
 import { ImageWithFallback } from '../../components/ui/ImageWithFallback';
 import { ErrorState, LoadingState } from '../../components/ui/AsyncState';
 import { useStore } from '../../contexts/StoreContext';
@@ -38,6 +39,7 @@ const cloneSettingsForForm = (settings: StoreSettings) => {
 };
 
 export default function SettingsAdmin() {
+  const location = useLocation();
   // The test UI is limited to the authorized DuoForma pilot. The server still
   // enforces the allowlist, permissions and its independent activation switch.
   const mercadoPagoUiEnabled = import.meta.env.VITE_MERCADO_PAGO_TEST_UI !== 'false';
@@ -84,6 +86,13 @@ export default function SettingsAdmin() {
     setCollapsedSections(current => ({ ...current, [id]: false }));
     window.requestAnimationFrame(() => document.getElementById(id === 'receipts' ? 'comprovantes' : `settings-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
   };
+  useEffect(() => {
+    if (loading || error || location.hash !== '#settings-pix') return;
+    setSelectedSection('pix');
+    setCollapsedSections(current => ({ ...current, pix: false }));
+    const frame = window.requestAnimationFrame(() => document.getElementById('settings-pix')?.scrollIntoView({ block: 'start' }));
+    return () => window.cancelAnimationFrame(frame);
+  }, [loading, error, location.hash, location.key]);
   const sectionToggle = (id: string, label: string) => <button type="button" className="settings-section-toggle" onClick={() => toggleSection(id)} aria-expanded={!collapsedSections[id]}><span>{label}</span><ChevronDown size={17} /></button>;
 
   const draftScope = useRef({storeId:form.id,dirty:hasUnsavedChanges});

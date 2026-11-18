@@ -22,3 +22,25 @@ for (const width of [320, 390, 768, 1366]) {
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
   });
 }
+
+for (const width of [390, 1366]) {
+  test(`menu separa recebimento e plano em ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 844 });
+    await mockBackend(page, { auth: true });
+    await page.goto('/admin');
+    if (width < 768) await page.getByRole('button', { name: 'Abrir menu' }).click();
+    const nav = page.getByRole('navigation', { name: 'Navegação do negócio' });
+    await expect(nav.getByRole('link', { name: 'Configurações da loja' })).toBeVisible();
+    await expect(nav.getByRole('link', { name: 'Plano e pagamentos VendeWeb' })).toBeVisible();
+    await nav.getByRole('link', { name: 'Recebimento das vendas' }).click();
+    await expect(page).toHaveURL(/\/admin\/configuracoes#settings-pix$/);
+    await expect(page.locator('#settings-pix')).not.toHaveClass(/is-collapsed/);
+    await expect(page.locator('#settings-pix')).toBeInViewport();
+    await page.locator('#settings-pix').getByRole('button', { name: 'PIX', exact: true }).click();
+    await expect(page.locator('#settings-pix')).toHaveClass(/is-collapsed/);
+    if (width < 768) await page.getByRole('button', { name: 'Abrir menu' }).click();
+    await nav.getByRole('link', { name: 'Recebimento das vendas' }).click();
+    await expect(page.locator('#settings-pix')).not.toHaveClass(/is-collapsed/);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+  });
+}

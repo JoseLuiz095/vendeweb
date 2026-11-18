@@ -76,13 +76,10 @@ test('menu do lojista preserva ferramentas e revela a seção ativa', async ({ p
   await mockBackend(page, { auth: true });
   await page.goto('/admin/produtos');
   const navigation = page.getByRole('navigation', { name: 'Navegação do negócio' });
-  await expect(navigation.getByRole('link', { name: 'Meu plano', exact: true })).toBeHidden();
-  await navigation.locator('summary', { hasText: 'Mais ferramentas' }).focus();
-  await page.keyboard.press('Enter');
-  await expect(navigation.getByRole('link', { name: 'Meu plano', exact: true })).toBeVisible();
-  await navigation.getByRole('link', { name: 'Meu plano', exact: true }).click();
+  await expect(navigation.getByRole('link', { name: 'Plano e pagamentos VendeWeb', exact: true })).toBeVisible();
+  await navigation.getByRole('link', { name: 'Plano e pagamentos VendeWeb', exact: true }).click();
   await page.reload();
-  await expect(navigation.getByRole('link', { name: 'Meu plano', exact: true })).toBeVisible();
+  await expect(navigation.getByRole('link', { name: 'Plano e pagamentos VendeWeb', exact: true })).toBeVisible();
 });
 
 

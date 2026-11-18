@@ -25,6 +25,7 @@ import {
   Truck,
   UtensilsCrossed,
   Users,
+  WalletCards,
   X,
   type LucideIcon,
 } from 'lucide-react';
@@ -83,7 +84,8 @@ const navSections: Array<{ label: string; items: Array<{ to: string; label: stri
     label: 'Loja e conta',
     items: [
       { to: '/admin/configuracoes', label: 'Configurações da loja', icon: Settings },
-      { to: '/admin/plano', label: 'Meu plano', icon: BadgeDollarSign },
+      { to: '/admin/configuracoes#settings-pix', label: 'Recebimento das vendas', icon: WalletCards },
+      { to: '/admin/plano', label: 'Plano e pagamentos VendeWeb', icon: BadgeDollarSign },
     ],
   },
   {
@@ -204,13 +206,14 @@ export default function AdminLayout() {
             const deliverySegments = ['food', 'confectionery', 'retail', 'printing3d', 'rentals', 'florist'];
             const items = section.items.filter((item) => (!item.requiresFeature || planHasFeature(planUsage.plan, item.requiresFeature))
               && (item.to !== '/admin/ia' || membership?.role === 'owner' || membership?.role === 'admin')
-              && (!membership?.limitedAccess || preparationNavAllowed.has(item.to))
+              && (!membership?.limitedAccess || preparationNavAllowed.has(item.to.split('#')[0]))
               && (item.to !== '/admin/entregas' || deliverySegments.includes(segment.id))
               && (item.to !== '/admin/estoque' || deliverySegments.includes(segment.id) || products.some((product) => product.trackStock)));
             if (!items.length) return null;
             const links = items.map(({ to, label, icon: Icon, end }) => {
               const itemLabel = to === '/admin/produtos' ? 'Catálogo' : label;
-              return <NavLink key={to} to={to} end={end} title={itemLabel} aria-label={itemLabel} onClick={() => setOpen(false)}><Icon size={18} /><span className="admin-nav-text">{itemLabel}</span></NavLink>;
+              const isSettingsLink = to.startsWith('/admin/configuracoes');
+              return <NavLink key={to} to={to} end={end} className={isSettingsLink ? () => location.pathname === '/admin/configuracoes' && (to.includes('#') ? location.hash === '#settings-pix' : location.hash !== '#settings-pix') ? 'active' : '' : undefined} title={itemLabel} aria-label={itemLabel} onClick={() => setOpen(false)}><Icon size={18} /><span className="admin-nav-text">{itemLabel}</span></NavLink>;
             });
             if (section.label === 'Mais ferramentas') return (
               <details className="admin-nav-more" key={section.label} open={sidebarCollapsed || items.some(item => location.pathname.startsWith(item.to))}>
