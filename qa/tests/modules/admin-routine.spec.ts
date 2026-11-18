@@ -21,7 +21,7 @@ for (const [name,codes] of [['com nutrição',['clients','appointments','trainin
  await page.route('**/rpc/food_business_status',r=>r.fulfill({json:{profile:{store_id:STORE,primary_segment:'fitness'},legacy:false,can_initialize:false,modules:codes.map(code=>({code,effective:true}))}}));
  await page.route('**/rpc/food_fitness_status',r=>r.fulfill({json:{appointments:[{id:'futuro',starts_at:'2099-01-01T17:00:00Z',status:'confirmed'},{id:'cancelado',starts_at:'2099-01-02T17:00:00Z',status:'cancelled'}]}}));
  await page.goto('/admin');const home=page.getByRole('region',{name:'Início Fitness'});
- await expect(home.getByRole('link',{name:/Fichas de treino/})).toBeVisible();
+ await expect(home.getByRole('link',{name:/Criar e atribuir treinos/})).toHaveAttribute('href','/admin/fitness#treinos');
  await expect(home.getByRole('link',{name:/Nutrição/})).toHaveCount(name==='com nutrição'?1:0);
  await expect(home.getByText('Confirmado')).toBeVisible();await expect(home.getByText('Cancelado')).toHaveCount(0);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
