@@ -21,14 +21,6 @@
 
 * { box-sizing: border-box; }
 body { margin: 0; min-width: 320px; background: #faf9f6; color: var(--ink); }
-#foodweb-splash-screen{position:fixed;inset:0;z-index:9999;display:grid;place-items:center;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);background:#fffdfa;transition:opacity .28s cubic-bezier(.22,1,.36,1),visibility .28s ease}
-#foodweb-splash-screen img{width:clamp(160px,46vw,220px);aspect-ratio:1;object-fit:cover;height:auto;display:block;border-radius:28px;box-shadow:0 20px 55px rgba(159,89,57,.12);animation:foodwebSplashIn .5s cubic-bezier(.22,1,.36,1) both}
-#foodweb-splash-screen.is-ready{opacity:0;visibility:hidden;pointer-events:none}
-#foodweb-splash-screen.is-ready img{animation:foodwebSplashOut .2s ease both}
-@keyframes foodwebSplashIn{from{opacity:0;transform:scale(.94)}to{opacity:1;transform:scale(1)}}
-@keyframes foodwebSplashOut{from{opacity:1;transform:scale(1)}to{opacity:0;transform:scale(.98)}}
-@media(max-width:420px){#foodweb-splash-screen img{border-radius:24px}}
-@media(prefers-reduced-motion:reduce){#foodweb-splash-screen,#foodweb-splash-screen img{transition:none;animation:none}}
 a { color: inherit; text-decoration: none; }
 button, input, textarea, select { font: inherit; }
 button { color: inherit; }
