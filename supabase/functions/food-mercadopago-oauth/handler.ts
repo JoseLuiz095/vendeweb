@@ -21,10 +21,20 @@ type Deps={
  commitConnection:(store:string,actor:string,claim:string,connection:{sellerId:string;sealedTokens:string;expiresAt:number})=>Promise<boolean>;
  disconnect:(store:string,actor:string)=>Promise<void>;
  exchange:(url:string,body:Record<string,unknown>)=>Promise<unknown>;
+ verifyTestSeller:(token:string,sellerId:string)=>Promise<boolean>;
  now?:()=>number;
 };
 const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const obj=(value:unknown):value is Record<string,unknown>=>Boolean(value)&&typeof value==='object'&&!Array.isArray(value);
+export function tokenResponseIssue(result:unknown):string|null {
+ if(!obj(result))return 'shape';
+ if(result.live_mode!==false)return result.live_mode===true?'environment_true':result.live_mode==null?'environment_missing':'environment_other';
+ if(typeof result.access_token!=='string'||!result.access_token||result.access_token.length>8192)return 'access_token';
+ if(typeof result.refresh_token!=='string'||!result.refresh_token||result.refresh_token.length>8192)return 'refresh_token';
+ if(!Number.isSafeInteger(result.expires_in)||Number(result.expires_in)<=0||Number(result.expires_in)>31536000)return 'expiry';
+ if(!(typeof result.user_id==='string'&&/^\d{1,32}$/.test(result.user_id)||typeof result.user_id==='number'&&Number.isSafeInteger(result.user_id)&&result.user_id>0))return 'seller';
+ return null;
+}
 
 export const createTestOAuthHandler=(deps:Deps)=>async(req:Request):Promise<Response>=>{
  const origin=req.headers.get('origin')||'';
@@ -34,7 +44,7 @@ export const createTestOAuthHandler=(deps:Deps)=>async(req:Request):Promise<Resp
  if(req.method==='OPTIONS')return new Response(null,{status:204,headers});
  if(req.method!=='POST')return reply(405,{error:'Método não permitido.'});
  if(!deps.enabled||!deps.clientId||!deps.clientSecret||!deps.redirectUri||deps.key.length!==32)return reply(503,{error:'Conexão de teste indisponível.'});
- let diagnosticStep: 'none'|'start_config'|'start_encryption'|'start_persistence' = 'none';
+ let diagnosticStep: 'none'|'start_config'|'start_encryption'|'start_persistence'|'complete_consume'|'complete_verifier'|'complete_exchange'|'complete_seller_verification'|'complete_seal'|'complete_commit' = 'none';
  try{
   const reader=req.body?.getReader(),decoder=new TextDecoder();let raw='',size=0;
   if(reader)for(;;){const {value,done}=await reader.read();if(done)break;size+=value.byteLength;if(size>8192){await reader.cancel();return reply(413,{error:'Solicitação muito grande.'});}raw+=decoder.decode(value,{stream:true});}raw+=decoder.decode();
@@ -68,15 +78,31 @@ export const createTestOAuthHandler=(deps:Deps)=>async(req:Request):Promise<Resp
   }
   if(body.action==='complete'){
    if(typeof body.state!=='string'||typeof body.code!=='string'||!body.code||body.code.length>2048)return reply(400,{error:'Autorização inválida ou expirada.'});
+   diagnosticStep='complete_consume';
    const hash=await hashTestOAuthState(body.state),now=(deps.now??Date.now)();
    const consumed=await deps.consumeState(hash,store,actor,now);
    if(!consumed)return reply(400,{error:'Autorização inválida ou expirada.'});
+   diagnosticStep='complete_verifier';
    const verifier=await openTestSecret(deps.key,store,'oauth-verifier',consumed.sealedVerifier);
    const request=buildTestTokenExchange({clientId:deps.clientId,clientSecret:deps.clientSecret,redirectUri:deps.redirectUri,code:body.code,verifier});
+   diagnosticStep='complete_exchange';
    const result=await deps.exchange(request.url,request.body);
-   if(!obj(result)||result.live_mode!==false||typeof result.access_token!=='string'||!result.access_token||result.access_token.length>8192||typeof result.refresh_token!=='string'||!result.refresh_token||result.refresh_token.length>8192||!Number.isSafeInteger(result.expires_in)||Number(result.expires_in)<=0||Number(result.expires_in)>31536000||!(typeof result.user_id==='string'&&/^\d{1,32}$/.test(result.user_id)||typeof result.user_id==='number'&&Number.isSafeInteger(result.user_id)&&result.user_id>0))return reply(502,{error:'Não foi possível concluir a conexão de teste.'});
-   const sealedTokens=await sealTestSecret(deps.key,store,'seller-token',JSON.stringify({accessToken:result.access_token,refreshToken:result.refresh_token}));
+   const missingEnvironment=obj(result)&&result.live_mode==null;
+   const issue=tokenResponseIssue(missingEnvironment?{...result,live_mode:false}:result);
+   if(issue){console.error('mp_test_oauth_response_invalid',issue);return reply(502,{error:'Não foi possível concluir a conexão de teste.'});}
+   if(!obj(result))return reply(502,{error:'Não foi possível concluir a conexão de teste.'});
+   if(missingEnvironment){
+    diagnosticStep='complete_seller_verification';
+    if(typeof result.access_token!=='string'||!await deps.verifyTestSeller(result.access_token,String(result.user_id))){
+     console.error('mp_test_oauth_response_invalid','seller_verification');
+     return reply(502,{error:'Não foi possível concluir a conexão de teste.'});
+    }
+   }
+   diagnosticStep='complete_seal';
+   if(result.public_key!==undefined&&(typeof result.public_key!=='string'||!/^[A-Za-z0-9_-]{1,256}$/.test(result.public_key)))return reply(502,{error:'Não foi possível concluir a conexão de teste.'});
+   const sealedTokens=await sealTestSecret(deps.key,store,'seller-token',JSON.stringify({accessToken:result.access_token,refreshToken:result.refresh_token,...(typeof result.public_key==='string'?{publicKey:result.public_key}:{})}));
    // Recheck membership after the external request; DB must also enforce the claim fence.
+   diagnosticStep='complete_commit';
    if(!await deps.authorize(actor,store)||!await deps.commitConnection(store,actor,consumed.claim,{sellerId:String(result.user_id),sealedTokens,expiresAt:now+Number(result.expires_in)*1000}))return reply(409,{error:'A conexão mudou ou o acesso foi revogado. Inicie novamente.'});
    return reply(200,{connected:true,environment:'test'});
   }
