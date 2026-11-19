@@ -20,6 +20,7 @@ for(const width of [320,390,1366])test(`WhatsApp único do ponto persiste e falh
  });
  const open=async()=>{
   await page.goto('/admin/configuracoes');
+  await page.locator('#settings-receipts').getByRole('button',{name:'Destinos dos comprovantes'}).click();
   await expect(page.getByRole('region',{name:'Destinos dos comprovantes'})).toBeVisible();
  };
  await open();const editor=page.locator('.point-contacts-editor');
