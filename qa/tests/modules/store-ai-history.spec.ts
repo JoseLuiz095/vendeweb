@@ -26,7 +26,7 @@ test('Admin Master ajusta prazo e vê a estimativa de armazenamento',async({page
   await page.route('**/rest/v1/rpc/food_ai_history_admin',route=>{const requested=route.request().postDataJSON().p_retention_days;if(requested!==null)current=requested;return route.fulfill({json:{retention_days:current,conversations:2,messages:8,expired_conversations:0,storage_bytes:16384,recent_text_bytes:3000}})});
   await page.goto('/admin-master/ia');
   await expect(page.getByRole('heading',{name:'Central de IA',exact:true})).toBeVisible();
-  await expect(page.getByText(/Uso atual:/)).toContainText('16.0 KB');
+  await expect(page.getByText(/Uso atual:/).locator('..')).toContainText('16.0 KB');
   await page.getByLabel('Guardar conversas por (dias)').fill('60');
   await expect(page.getByText(/Estimativa para 60 dias:/)).toBeVisible();
   await page.getByRole('button',{name:'Salvar prazo'}).click();

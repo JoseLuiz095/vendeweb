@@ -156,6 +156,9 @@ export default function SettingsAdmin() {
     if (loading || error || location.hash !== '#settings-pedidos-fora-horario') return;
     setSelectedSection('service');
     setCollapsedSections(current => ({ ...current, service: false }));
+  }, [loading, error, location.hash, location.key]);
+  useEffect(() => {
+    if (loading || error || location.hash !== '#settings-pedidos-fora-horario' || collapsedSections.service) return;
     const frame = window.requestAnimationFrame(() => {
       const field = document.getElementById('settings-pedidos-fora-horario');
       field?.classList.add('settings-field-highlight');
@@ -165,7 +168,7 @@ export default function SettingsAdmin() {
       highlightTimer.current = window.setTimeout(() => field?.classList.remove('settings-field-highlight'), 4000);
     });
     return () => window.cancelAnimationFrame(frame);
-  }, [loading, error, location.hash, location.key]);
+  }, [loading, error, location.hash, location.key, collapsedSections.service]);
   useEffect(() => {
     if (loading || error || location.hash !== '#settings-pix') return;
     setSelectedSection('pix');
