@@ -41,7 +41,7 @@ test('erro não encaminha ao contato errado; retry e ponto indisponível são ex
 test('configuração salva dois contatos e vínculo sem regravar configurações gerais',async({page})=>{
  const {external}=await setup(page,true);let saved:any;
  await page.route('**/rest/v1/food_receipt_contacts?**',(r:any)=>r.fulfill({json:contacts}));await page.route('**/rest/v1/food_pickup_receipt_contacts?**',(r:any)=>r.fulfill({json:[{pickup_location_id:point,contact_slot:2}]}));await page.route('**/rest/v1/food_pickup_locations?**',(r:any)=>r.fulfill({json:[{id:point,name:'Ponto sintético'}]}));await page.route('**/rest/v1/rpc/food_save_receipt_contacts_v1',(r:any)=>{saved=r.request().postDataJSON();return r.fulfill({json:null})});
- await page.goto('/admin/configuracoes');const section=page.getByRole('region',{name:'Destinos dos comprovantes'});await expect(section.getByRole('combobox')).toHaveCount(0);await expect(section.getByText('Contato 1')).toHaveCount(0);await section.getByRole('checkbox',{name:'Conferi os destinos de comprovantes cadastrados.'}).check();await section.getByRole('button',{name:'Salvar destinos dos comprovantes'}).click();await expect(section.getByRole('status')).toHaveText('Destinos dos comprovantes salvos.');expect(saved).toEqual({p_store_id:STORE,p_contacts:contacts,p_points:[{pickup_location_id:point,contact_slot:2}]});expect(external).toEqual([]);
+ await page.goto('/admin/configuracoes');await page.locator('#settings-receipts').getByRole('button',{name:'Destinos dos comprovantes'}).click();const section=page.getByRole('region',{name:'Destinos dos comprovantes'});await expect(section.getByRole('combobox')).toHaveCount(0);await expect(section.getByText('Contato 1')).toHaveCount(0);await section.getByRole('checkbox',{name:'Conferi os destinos de comprovantes cadastrados.'}).check();await section.getByRole('button',{name:'Salvar destinos dos comprovantes'}).click();await expect(section.getByRole('status')).toHaveText('Destinos dos comprovantes salvos.');expect(saved).toEqual({p_store_id:STORE,p_contacts:contacts,p_points:[{pickup_location_id:point,contact_slot:2}]});expect(external).toEqual([]);
 });
 test('ponto sem número exclusivo usa o WhatsApp cadastrado da loja',async({page})=>{
  await setup(page);await page.route('**/rest/v1/rpc/food_get_receipt_destinations_v2',r=>r.fulfill({json:{mode:'unassigned',contacts:[]}}));
@@ -61,7 +61,7 @@ test('WhatsApp exclusivo do ponto é cadastrado em Configurações',async({page}
  await page.route('**/rest/v1/food_pickup_locations?**',r=>r.fulfill({json:[{id:point,name:'Ponto sintético',auto_pickup_on_receipt:false}]}));
  await page.route('**/rest/v1/food_pickup_point_contacts?**',r=>r.fulfill({json:[]}));
  await page.route('**/rest/v1/rpc/food_save_pickup_point_contacts_v1',r=>{saved=r.request().postDataJSON();return r.fulfill({json:null})});
- await page.goto('/admin/configuracoes');const editor=page.locator('.point-contacts-editor');await expect(editor).toContainText('Comprovantes de Ponto sintético');
+ await page.goto('/admin/configuracoes');await page.locator('#settings-receipts').getByRole('button',{name:'Destinos dos comprovantes'}).click();const editor=page.locator('.point-contacts-editor');await expect(editor).toContainText('Comprovantes de Ponto sintético');
  await editor.getByRole('textbox',{name:'Nome para identificação'}).fill('Contato do ponto');await editor.getByRole('textbox',{name:'WhatsApp com código do país'}).fill('5511000000002');
  await editor.getByRole('button',{name:'Salvar WhatsApp do ponto'}).click();await expect(editor.getByRole('status')).toHaveText('WhatsApp para comprovantes salvo.');
  expect(saved).toEqual({p_store_id:STORE,p_point_id:point,p_contacts:[{slot:1,name:'Contato do ponto',phone:'5511000000002',purpose:'proof'}]});
@@ -79,7 +79,7 @@ test('falha ao carregar cadastro impede salvar configuração vazia',async({page
  await setup(page,true);let saves=0;
  await page.route('**/rest/v1/food_receipt_contacts?**',r=>r.fulfill({status:503,json:{message:'Erro sintético'}}));
  await page.route('**/rest/v1/rpc/food_save_receipt_contacts_v1',r=>{saves++;return r.fulfill({json:null})});
- await page.goto('/admin/configuracoes');const section=page.getByRole('region',{name:'Destinos dos comprovantes'});await expect(section.getByRole('alert')).toBeVisible();await expect(section.getByRole('button',{name:'Salvar destinos dos comprovantes'})).toBeDisabled();expect(saves).toBe(0);
+ await page.goto('/admin/configuracoes');await page.locator('#settings-receipts').getByRole('button',{name:'Destinos dos comprovantes'}).click();const section=page.getByRole('region',{name:'Destinos dos comprovantes'});await expect(section.getByRole('alert')).toBeVisible();await expect(section.getByRole('button',{name:'Salvar destinos dos comprovantes'})).toBeDisabled();expect(saves).toBe(0);
 });
 test('compra de entrega pelo link do ponto preserva origem sem mudar retirada/estoque',async({page})=>{
  await setup(page);let payload:any;
