@@ -1,6 +1,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.112.4';
 import { createTestOAuthHandler } from './handler.ts';
 import { isVerifiedTestSeller, providerErrorCategory } from './providerError.ts';
+import {testOrigins} from '../_shared/mpTestPreviewOrigin.ts';
 
 // Disabled unless explicitly enabled. This adapter also requires the service-only
 // RPCs described in README.md; missing RPCs fail closed. No secret is logged.
@@ -14,7 +15,7 @@ Deno.serve(async(req:Request)=>{
  const rpc=async(name:string,args:Record<string,unknown>)=>{const {data,error}=await admin.rpc(name,args);if(error)throw new Error('STORE_UNAVAILABLE');return data;};
  return createTestOAuthHandler({
   enabled:Deno.env.get('MP_TEST_OAUTH_ENABLED')==='true',
-  allowedOrigins:new Set((Deno.env.get('MP_TEST_ALLOWED_ORIGINS')||'').split(',').map(x=>x.trim()).filter(Boolean)),
+  allowedOrigins:testOrigins(Deno.env.get('MP_TEST_ALLOWED_ORIGINS')||'',Deno.env.get('MP_TEST_ISOLATED_PREVIEW_ORIGIN')||''),
   clientId:Deno.env.get('MP_TEST_CLIENT_ID')||'',clientSecret:Deno.env.get('MP_TEST_CLIENT_SECRET')||'',redirectUri:Deno.env.get('MP_TEST_REDIRECT_URI')||'',key,
   authenticate:async(jwt)=>{
    const {data:{user},error}=await admin.auth.getUser(jwt);if(error||!user||user.is_anonymous)return null;

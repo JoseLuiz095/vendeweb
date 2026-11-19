@@ -4,12 +4,13 @@ import {openTestSecret} from '../_shared/mercadoPagoOAuthTest.ts';
 import {DUOFORMA_PILOT_STORE} from '../_shared/mpTestWebhookAdapter.ts';
 import {reconcileIsolatedTestOrder} from '../_shared/mercadoPagoIsolatedReconcile.ts';
 import {isVerifiedTestSeller} from '../_shared/mercadoPagoTestSeller.ts';
+import {testOrigins} from '../_shared/mpTestPreviewOrigin.ts';
 
 // Disabled by default. Experimental local adapter: do not deploy until the
 // isolated schema, concurrency and provider verification have been reviewed.
 Deno.serve(async(req:Request)=>{
  const origin=req.headers.get('origin')||'';
- const allowed=new Set((Deno.env.get('MP_TEST_ALLOWED_ORIGINS')||'').split(',').map(x=>x.trim()).filter(Boolean));
+ const allowed=testOrigins(Deno.env.get('MP_TEST_ALLOWED_ORIGINS')||'',Deno.env.get('MP_TEST_ISOLATED_PREVIEW_ORIGIN')||'');
  const headers={'Content-Type':'application/json','Cache-Control':'no-store, private','Vary':'Origin','Access-Control-Allow-Origin':allowed.has(origin)?origin:'null','Access-Control-Allow-Headers':'authorization, apikey, content-type, x-client-info','Access-Control-Allow-Methods':'POST,OPTIONS'};
  const error=(status:number)=>new Response(JSON.stringify({error:'test_unavailable'}),{status,headers});
  if(!origin||!allowed.has(origin))return error(403);
