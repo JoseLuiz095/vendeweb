@@ -4,7 +4,7 @@ import { brlCents } from './mercadoPagoPixTest.ts';
 /** Server-only adapter. No endpoint, default credentials or default transport.
  * `mode` and credential provenance are assertions from the trusted repository,
  * not proof supplied by a browser or inferred from a token prefix. */
-export type SandboxConnection = { mode:'test'; provenance:'oauth_test_token'; sellerId:string; accessToken:string };
+export type SandboxConnection = { mode:'test'; provenance:'oauth_test_token'; sellerId:string; accessToken:string; publicKey?:string };
 export type PixSnapshot = { total:string; externalReference:string; idempotencyKey:string; payerEmail:string };
 export type ProviderTransport = (url:string, init:RequestInit) => Promise<Response>;
 export type SandboxOrder = { id:string; externalReference:string; sellerId:string; total:string; status:string; statusDetail:string; qrCode:string|null; qrCodeBase64:string|null; providerData:unknown };

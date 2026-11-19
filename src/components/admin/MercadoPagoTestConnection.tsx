@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { completeMercadoPagoTest, disconnectMercadoPagoTest, mercadoPagoTestStatus, startMercadoPagoTest, type MercadoPagoCallback } from '../../services/mercadoPagoTestApi';
+import { MercadoPagoIsolatedPixPilot } from './MercadoPagoIsolatedPixPilot';
+import { MercadoPagoIsolatedCardPilot } from './MercadoPagoIsolatedCardPilot';
 
 export function MercadoPagoTestConnection({ storeId, canManage, callback }: { storeId: string; canManage: boolean; callback: MercadoPagoCallback | null }) {
   const [status, setStatus] = useState<'loading' | 'connected' | 'disconnected' | 'unavailable'>('loading');
@@ -57,6 +59,8 @@ export function MercadoPagoTestConnection({ storeId, canManage, callback }: { st
       <span role="status">{status === 'loading' ? 'Consultando conexão…' : status === 'connected' ? 'Conta de teste conectada' : status === 'disconnected' ? 'Conta de teste não conectada' : 'Não foi possível verificar a conexão'}</span>
       {message && <small role="status">{message}</small>}
       {status !== 'loading' && <div>{status === 'connected' ? <button type="button" className="secondary-button" disabled={busy} onClick={() => void act('disconnect')}>Desconectar conta de teste</button> : status === 'disconnected' ? <button type="button" className="secondary-button" disabled={busy} onClick={() => void act('connect')}>Conectar conta de teste</button> : <button type="button" className="secondary-button" disabled={busy} onClick={() => void act('retry')}>Tentar novamente</button>}</div>}
+      {status === 'connected' && <MercadoPagoIsolatedPixPilot key={storeId} storeId={storeId}/>}
+      {status === 'connected' && <MercadoPagoIsolatedCardPilot key={storeId} storeId={storeId}/>}
     </>}
   </div>;
 }

@@ -36,7 +36,7 @@ export function brlCents(value: unknown): bigint | null {
 }
 
 type Payment = { id?:unknown; status?:unknown; status_detail?:unknown; amount?:unknown; paid_amount?:unknown; payment_method?:{id?:unknown;type?:unknown} };
-type ProviderOrder = { id?:unknown; external_reference?:unknown; currency_id?:unknown; status?:unknown; status_detail?:unknown; total_amount?:unknown; total_paid_amount?:unknown; transactions?:{payments?:Payment[]} };
+type ProviderOrder = { id?:unknown; external_reference?:unknown; currency?:unknown; currency_id?:unknown; status?:unknown; status_detail?:unknown; total_amount?:unknown; total_paid_amount?:unknown; transactions?:{payments?:Payment[]} };
 type BoundOrder = {
   storeId:string; localOrderId:string; providerOrderId:string; externalReference:string;
   sellerAccountId:string; expectedAmount:string; alreadyAppliedPaymentId?:string|null;
@@ -65,7 +65,7 @@ function decideTestPayment(input:DecisionInput, method:{id:string;type:string}):
   if(!binding.storeId || !binding.localOrderId || !binding.providerOrderId || !binding.externalReference ||
      !binding.sellerAccountId || binding.sellerAccountId!==authenticatedSellerId ||
      binding.providerOrderId!==signedResourceId || o.id!==binding.providerOrderId ||
-     o.external_reference!==binding.externalReference || o.currency_id!=='BRL') return {action:'review',reason:'binding_mismatch'};
+     o.external_reference!==binding.externalReference || (o.currency??o.currency_id)!=='BRL' || (o.currency!==undefined&&o.currency_id!==undefined&&o.currency!==o.currency_id)) return {action:'review',reason:'binding_mismatch'};
   const amount=brlCents(binding.expectedAmount), total=brlCents(o.total_amount);
   if(amount===null || amount<=0n || total!==amount) return {action:'review',reason:'amount_mismatch'};
   if(o.status==='processed' && o.status_detail==='partially_refunded' || ['refunded','charged_back'].includes(String(o.status))) return {action:'review',reason:'refund_or_chargeback'};
