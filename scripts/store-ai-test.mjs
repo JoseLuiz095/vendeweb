@@ -35,3 +35,10 @@ test('shares only the generic segment and never store records with the provider'
 
 
 
+
+
+test('direciona pedidos fora do horário ao campo sem alterar configurações',async()=>{const r=await run({prompt:'como faço para ajustar para o cliente consiga fazer um pedido fora do horário de funcionamento da loja?'});assert.equal(r.status,200);assert.equal(r.body.action.href,'/admin/configuracoes#settings-pedidos-fora-horario');assert.match(r.body.text,/Aceitar pedidos fora do horário/);assert.match(r.body.text,/Não alterei/);assert.equal(r.calls,0);});
+
+test('entende variações de pedido com a loja fechada',async()=>{for(const prompt of ['Como aceitar pedidos com a loja fechada?', 'Como permitir pedidos quando a loja estiver fechada?']){const r=await run({prompt});assert.equal(r.body.action?.href,'/admin/configuracoes#settings-pedidos-fora-horario');}});
+
+test('ferramenta de orientação específica retorna o campo correto',async()=>{const r=await run({prompt:'Como configuro para receber encomendas quando estiver fechado?',answer:{status:'requires_action',steps:[{type:'function_call',name:'orientar_tela',arguments:{area:'pedidos_fora_horario'}}]}});assert.equal(r.body.action.href,'/admin/configuracoes#settings-pedidos-fora-horario');assert.match(r.body.text,/salve as configurações/i);});

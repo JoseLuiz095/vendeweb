@@ -1,4 +1,4 @@
-import { Activity, Building2, ExternalLink, LayoutDashboard, LogOut, Menu, PanelLeftClose, PanelLeftOpen, ShieldCheck, SlidersHorizontal, UserPlus, WalletCards, type LucideIcon, X } from 'lucide-react';
+import { Activity, Building2, ExternalLink, LayoutDashboard, LogOut, Menu, PanelLeftClose, PanelLeftOpen, ShieldCheck, SlidersHorizontal, Sparkles, UserPlus, WalletCards, type LucideIcon, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { PlatformHelpButton } from '../components/PlatformHelpButton';
@@ -24,6 +24,7 @@ const navSections: Array<{ label: string; items: MasterNavItem[] }> = [
   ] },
   { label: 'Configuração', items: [
     { to: '/admin-master/planos', label: 'Planos', icon: SlidersHorizontal },
+    { to: '/admin-master/ia', label: 'Central de IA', icon: Sparkles },
     { to: '/admin-master/modulos', label: 'Módulos opcionais', icon: Building2 },
     { to: '/admin-master/segmentos', label: 'Segmentos e permissões', icon: SlidersHorizontal },
   ] },
