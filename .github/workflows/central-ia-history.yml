@@ -1,0 +1,34 @@
+name: Central de IA e histórico
+on:
+  pull_request:
+    paths:
+      - 'src/App.tsx'
+      - 'src/layouts/MasterLayout.tsx'
+      - 'src/pages/admin/StoreAI.tsx'
+      - 'src/pages/admin/Settings.tsx'
+      - 'src/pages/admin/store-ai.css'
+      - 'src/pages/master/AIHistorySettings.tsx'
+      - 'supabase/functions/food-store-ai/**'
+      - 'supabase/migrations/*food_ai_history_retention.sql'
+      - 'scripts/ai-history-db-test.mjs'
+      - 'scripts/store-ai-test.mjs'
+      - 'qa/tests/modules/store-ai*.spec.ts'
+      - '.github/workflows/central-ia-history.yml'
+  workflow_dispatch:
+jobs:
+  checks:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.18.0'
+          cache: npm
+      - run: npm ci
+      - run: npm ci --prefix qa
+      - run: npm run typecheck
+      - run: node --test scripts/store-ai-test.mjs
+      - run: node scripts/ai-history-db-test.mjs
+      - run: npm --prefix qa run test:modules -- store-ai.spec.ts store-ai-history.spec.ts

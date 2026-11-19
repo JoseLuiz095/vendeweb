@@ -153,6 +153,23 @@ export default function SettingsAdmin() {
     });
   };
   useEffect(() => {
+    if (loading || error || location.hash !== '#settings-pedidos-fora-horario') return;
+    setSelectedSection('service');
+    setCollapsedSections(current => ({ ...current, service: false }));
+  }, [loading, error, location.hash, location.key]);
+  useEffect(() => {
+    if (loading || error || location.hash !== '#settings-pedidos-fora-horario' || collapsedSections.service) return;
+    const frame = window.requestAnimationFrame(() => {
+      const field = document.getElementById('settings-pedidos-fora-horario');
+      field?.classList.add('settings-field-highlight');
+      field?.scrollIntoView({ behavior: 'auto', block: 'center' });
+      field?.querySelector<HTMLInputElement>('input')?.focus({ preventScroll: true });
+      window.clearTimeout(highlightTimer.current);
+      highlightTimer.current = window.setTimeout(() => field?.classList.remove('settings-field-highlight'), 4000);
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [loading, error, location.hash, location.key, collapsedSections.service]);
+  useEffect(() => {
     if (loading || error || location.hash !== '#settings-pix') return;
     setSelectedSection('pix');
     setCollapsedSections(current => ({ ...current, pix: false }));
@@ -424,7 +441,7 @@ export default function SettingsAdmin() {
             {form.deliveryEnabled && <label><span>Início das entregas <small className="muted">opcional</small></span><input type="time" value={form.deliveryStartTime || ''} onChange={(e) => update('deliveryStartTime', e.target.value || undefined)} /><small>Antes deste horário, o delivery fica bloqueado. A retirada continua disponível.</small></label>}
             {form.pickupEnabled && <div className="form-grid"><label><span>Início da retirada</span><input type="time" value={form.pickupStartTime || '07:00'} onChange={(e) => update('pickupStartTime', e.target.value || undefined)} /></label><label><span>Fim da retirada</span><input type="time" value={form.pickupEndTime || '22:00'} onChange={(e) => update('pickupEndTime', e.target.value || undefined)} /></label><small className="muted full">A retirada usa esta janela própria, sem herdar o horário inicial do delivery.</small></div>}
             <div className="form-grid preparation-config"><label>Preparo mínimo (min)<input type="number" min="0" max="600" value={form.averagePreparationMin} onChange={(e)=>update('averagePreparationMin',Math.max(0,Number(e.target.value)))} /></label><label>Preparo máximo (min)<input type="number" min="0" max="600" value={form.averagePreparationMax} onChange={(e)=>update('averagePreparationMax',Math.max(0,Number(e.target.value)))} /></label></div>
-            <label className="switch-row"><span><strong>Aceitar pedidos fora do horário</strong><small>Quando ativado, o cliente pode pedir com a loja fechada e confirmar a próxima janela; também pode escolher um horário futuro.</small></span><input type="checkbox" checked={form.allowScheduledOrders} onChange={(e)=>update('allowScheduledOrders',e.target.checked)} /></label>
+            <label id="settings-pedidos-fora-horario" className="switch-row"><span><strong>Aceitar pedidos fora do horário</strong><small>Quando ativado, o cliente pode pedir com a loja fechada e confirmar a próxima janela; também pode escolher um horário futuro.</small></span><input type="checkbox" checked={form.allowScheduledOrders} onChange={(e)=>update('allowScheduledOrders',e.target.checked)} /></label>
             <label className="switch-row"><span><strong>Modo cozinha / KDS</strong><small>Exibe um quadro operacional dentro de Pedidos e libera mensagens prontas de atualização para o cliente.</small></span><input type="checkbox" checked={form.kdsEnabled} onChange={(e)=>update('kdsEnabled',e.target.checked)} /></label>
             {form.kdsEnabled && <label className="switch-row"><span><strong>Preparar mensagem ao mudar status</strong><small>Ao avançar o pedido, abre o WhatsApp com uma mensagem pronta para o lojista apenas confirmar o envio.</small></span><input type="checkbox" checked={form.kdsNotifyCustomer} onChange={(e)=>update('kdsNotifyCustomer',e.target.checked)} /></label>}
           </section>
