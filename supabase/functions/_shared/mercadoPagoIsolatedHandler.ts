@@ -1,4 +1,4 @@
-import {createSandboxPixOrder,getSandboxPixOrder,type ProviderTransport,type SandboxConnection,type PixSnapshot} from './mercadoPagoOrdersSandbox.ts';
+import {createSandboxPixOrder,getSandboxPixOrder,SandboxOrdersError,type ProviderTransport,type SandboxConnection,type PixSnapshot} from './mercadoPagoOrdersSandbox.ts';
 import {createSandboxCardOrder} from './mercadoPagoCardSandbox.ts';
 
 type Attempt={connection:SandboxConnection;snapshot:PixSnapshot;method:'pix'|'card';cardMethodId?:string;cardType?:'credit_card'|'debit_card';providerOrderId:string|null};
@@ -50,5 +50,10 @@ export function makeIsolatedTestHandler(deps:Dependencies){return async(req:Requ
   if(!await deps.authorize(actor,store))return reply(409,{error:'test_changed'});
   if(!await deps.bind(store,actor,orderId,order.id))return reply(409,{error:'test_changed'});
   return reply(200,{id:order.id,status:order.status,statusDetail:order.statusDetail});
- }catch{return reply(502,{error:'test_unavailable'});}
+ }catch(error){
+  // Only controlled categories and HTTP status are logged; provider bodies and credentials are never logged.
+  if(error instanceof SandboxOrdersError)console.error('mp_isolated_provider_failure',error.code,error.status ?? 'none');
+  else console.error('mp_isolated_unexpected_failure');
+  return reply(502,{error:'test_unavailable'});
+ }
 };}

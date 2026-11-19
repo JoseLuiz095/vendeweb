@@ -40,6 +40,12 @@ async function request(transport:ProviderTransport,url:string,init:RequestInit):
   let response:Response;
   try { response=await transport(url,init); } catch { throw new SandboxOrdersError('provider_unavailable'); }
   if (!response.ok) {
+    // Log only a small allowlist of provider error categories, never its response body.
+    if(response.status===401){
+      try{const body=await response.clone().json();const value=asObject(body);const category=value?.error??value?.code;
+        console.error('mp_isolated_auth_category',category==='invalid_credentials'?'invalid_credentials':category==='invalid_token'?'invalid_token':category===401||category==='401'?'401':'other');
+      }catch{console.error('mp_isolated_auth_category','unreadable');}
+    }
     const raw=response.headers.get('retry-after');
     throw new SandboxOrdersError('provider_request_failed',response.status,raw && /^\d{1,6}$/.test(raw)?raw:undefined);
   }
