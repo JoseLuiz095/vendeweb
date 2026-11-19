@@ -31,5 +31,4 @@ jobs:
       - run: npm run typecheck
       - run: node --test scripts/store-ai-test.mjs
       - run: node scripts/ai-history-db-test.mjs
-      - run: npm exec --prefix qa -- playwright install --with-deps chromium
       - run: npm --prefix qa run test:modules -- store-ai.spec.ts store-ai-history.spec.ts
