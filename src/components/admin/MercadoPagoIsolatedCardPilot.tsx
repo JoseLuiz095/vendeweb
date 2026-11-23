@@ -47,7 +47,7 @@ export function MercadoPagoIsolatedCardPilot({storeId}:{storeId:string}){
       const value=form as Record<string,unknown>,extra=additional as Record<string,unknown>;
       if(typeof value.token!=='string'||typeof value.payment_method_id!=='string'||(extra.paymentTypeId!=='credit_card'&&extra.paymentTypeId!=='debit_card')||typeof value.installments!=='number')throw new Error('Cartão de teste inválido.');
       try{await payIsolatedCard(storeId,orderId,{cardToken:value.token,paymentMethodId:value.payment_method_id,paymentType:extra.paymentTypeId,installments:value.installments});if(!canceled){setSent(true);setError('');}}
-      catch{if(!canceled)setError('Não foi possível enviar o cartão de teste.');throw new Error('Pagamento de teste indisponível.');}
+      catch{if(!canceled)setError('Não foi possível confirmar o resultado. Confira a tentativa antes de repetir.');throw new Error('Pagamento de teste indisponível.');}
      }},
    });
    if(canceled)await created.unmount();else controller=created;

@@ -13,6 +13,10 @@ test('Pix aceita resposta válida e trata erros sem expor detalhes',async()=>{
  let result;globalThis.mockClient={functions:{invoke:async()=>({data:result,error:null})}};
  try{result={id:'ORD123',status:'action_required',statusDetail:'waiting_transfer',qrCode:'000201-example'};assert.equal((await api.payIsolatedPix('store','order')).id,'ORD123');result={id:'<script>',status:'x',qrCode:'bad'};await assert.rejects(api.payIsolatedPix('store','order'));}finally{delete globalThis.mockClient}
 });
+test('falha no envio orienta a conferir a tentativa antes de repetir',async()=>{
+ globalThis.mockClient={functions:{invoke:async()=>({data:null,error:{message:'detalhe privado'}})}};
+ try{await assert.rejects(api.payIsolatedPix('store','order'),error=>error.message.includes('Confira a tentativa')&&!error.message.includes('privado'));}finally{delete globalThis.mockClient}
+});
 test('confirmação aceita apenas resultado conhecido',async()=>{
  let result;globalThis.mockClient={functions:{invoke:async()=>({data:result,error:null})}};
  try{result={result:'applied'};assert.equal(await api.checkIsolatedPayment('store','order'),'applied');result={result:'secret'};await assert.rejects(api.checkIsolatedPayment('store','order'));}finally{delete globalThis.mockClient}

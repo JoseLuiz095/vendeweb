@@ -3,9 +3,9 @@ import {getSupabaseClient} from '../lib/supabase';
 type Method='pix'|'card';
 type PixResult={id:string;status:string;statusDetail:string;qrCode:string|null};
 export type TestCardToken={cardToken:string;paymentMethodId:string;paymentType:'credit_card'|'debit_card';installments:number};
-async function invoke(body:object):Promise<unknown>{
+async function invoke(body:{action:string;[key:string]:unknown}):Promise<unknown>{
  const {data,error}=await getSupabaseClient().functions.invoke('food-mercadopago-isolated-test',{body,timeout:20000});
- if(error)throw new Error('Não foi possível concluir o teste. Tente novamente.');
+ if(error)throw new Error(body.action==='pay'?'Não foi possível confirmar o resultado. Confira a tentativa antes de repetir.':'Não foi possível concluir a consulta de teste.');
  return data;
 }
 function object(v:unknown):v is Record<string,unknown>{return !!v&&typeof v==='object'&&!Array.isArray(v)}
