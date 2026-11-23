@@ -64,6 +64,7 @@ async function concurrentCases({db,session,cmd,userB,b,rentInput}) {
  const setup=async c=>{await c.query("select set_config('request.jwt.claims',$1,false)",[jwt]);};
  await setup(c1);await setup(c2);await session(userB);
  const offer=(await cmd(b,'offer_save',{name:'Unidade concorrente',kind:'rental',price_cents:10000,published:true})).id;
+ await db.exec('reset role');
  const input={...rentInput,items:[{offer_id:offer,quantity:1}],request_id:randomUUID()};
  const create=(c,data)=>c.query("select public.food_modules_customer('create',$1) result",[JSON.stringify(data)]);
  const command=(c,action,data)=>c.query('select public.food_rental_command_v1($1,$2,$3) result',[b,action,JSON.stringify(data)]);
