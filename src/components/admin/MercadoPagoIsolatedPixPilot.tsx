@@ -14,7 +14,7 @@ export function MercadoPagoIsolatedPixPilot({storeId}:{storeId:string}){
  };
  const run=async()=>{
   if(running.current)return;running.current=true;setBusy(true);setError('');
-  try{const order=await createIsolatedTestOrder(storeId,getRequestId(),'pix');const payment=await payIsolatedPix(storeId,order);setOrderId(order);setConfirmation('waiting');setResult({id:payment.id,status:payment.status,qrCode:payment.qrCode});}
+  try{const order=await createIsolatedTestOrder(storeId,getRequestId(),'pix');const payment=await payIsolatedPix(storeId,order);setOrderId(order);setConfirmation(payment.status==='failed'?'review':'waiting');setResult({id:payment.id,status:payment.status,qrCode:payment.qrCode});}
   catch(e){setError(e instanceof Error?e.message:'Não foi possível realizar o teste.');}
   finally{running.current=false;setBusy(false);}
  };
@@ -30,6 +30,6 @@ export function MercadoPagoIsolatedPixPilot({storeId}:{storeId:string}){
   <span>Simulação de R$ 50,00. Não pague o código com dinheiro real. Este teste não cria pedido de cliente nem altera o estoque da loja.</span>
   <div><button type="button" className="secondary-button" disabled={busy} onClick={()=>void run()}>{busy?'Consultando…':result?'Consultar teste novamente':'Criar Pix de teste'}</button>{result&&<button type="button" className="secondary-button" disabled={busy} onClick={reset}>Preparar outro teste</button>}</div>
   {error&&<small role="alert">{error}</small>}
-  {result&&<><small role="status">{confirmation==='paid'?'Pagamento de teste confirmado. Entrega permanece em aberto.':confirmation==='review'?'Teste em análise. Nenhum pagamento foi confirmado no pedido.':'Aguardando confirmação do pagamento de teste.'}</small>{result.qrCode&&<PixCopyButton value={result.qrCode} label="Pix de teste" compact/>}</>}
+  {result&&<><small role="status">{confirmation==='paid'?'Pagamento de teste confirmado. Entrega permanece em aberto.':result.status==='failed'?'O Mercado Pago recusou o pagamento de teste. Nenhum pagamento foi confirmado.':confirmation==='review'?'Teste em análise. Nenhum pagamento foi confirmado no pedido.':'Aguardando confirmação do pagamento de teste.'}</small>{result.qrCode&&<PixCopyButton value={result.qrCode} label="Pix de teste" compact/>}</>}
  </section>;
 }

@@ -18,8 +18,11 @@ export async function createSandboxCardOrder(connection:SandboxConnection,snapsh
  const request=buildTestCardOrder({...snapshot,...card});
  let response:Response;
  try{response=await transport(request.url,{method:'POST',redirect:'error',headers:{Authorization:`Bearer ${connection.accessToken}`,'Content-Type':'application/json',Accept:'application/json','X-Idempotency-Key':request.idempotencyKey},body:JSON.stringify(request.body)});}catch{throw new SandboxOrdersError('provider_unavailable');}
- if(!response.ok)throw new SandboxOrdersError('provider_request_failed',response.status);
- let raw:unknown;try{raw=await response.json();}catch{throw new SandboxOrdersError('invalid_provider_response');}
+ let raw:unknown;
+ if(!response.ok){
+  if(response.status!==402)throw new SandboxOrdersError('provider_request_failed',response.status);
+  try{const body=obj(await response.json()),failed=obj(body?.data);if(failed?.status!=='failed')throw new Error();raw=failed;}catch{throw new SandboxOrdersError('provider_request_failed',response.status);}
+ }else{try{raw=await response.json();}catch{throw new SandboxOrdersError('invalid_provider_response');}}
  const order=obj(raw),transactions=obj(order?.transactions),payments=Array.isArray(transactions?.payments)?transactions.payments:[];
  const payment=payments.length===1?obj(payments[0]):null,method=obj(payment?.payment_method);
  const amount=brlCents(snapshot.total);
