@@ -34,11 +34,17 @@ test('sem autenticação ou permissão não consulta provedor',async()=>{
 test('cartão aceita somente token do componente e não expõe dados sensíveis',async()=>{
  const f=fixture();f.deps.reserve=async()=>({connection,snapshot,method:'card',providerOrderId:null});
  f.deps.transport=async()=>Response.json({...provider,status:'processed',status_detail:'accredited',transactions:{payments:[{id:'PAY123',amount:'50.00',payment_method:{id:'visa',type:'credit_card',token:'card-secret'}}]}});
- const card={cardToken:'card-secret',paymentMethodId:'visa',paymentType:'credit_card',installments:1};
+ const card={cardToken:'card-secret',paymentMethodId:'visa',paymentType:'credit_card',installments:1,buyerEmail:'test_payer@example.com'};
  const h=makeIsolatedTestHandler(f.deps);
  assert.equal((await h(req({action:'pay',storeId:store,orderId:order,card:{...card,number:'4111111111111111'}}))).status,400);
  const result=await h(req({action:'pay',storeId:store,orderId:order,card}));assert.equal(result.status,200);
  assert.equal(JSON.stringify(await result.json()).includes('card-secret'),false);
+});
+test('não envia cartão quando o comprador informado difere do comprador de teste configurado',async()=>{
+ const f=fixture();f.deps.reserve=async()=>({connection,snapshot,method:'card',providerOrderId:null});
+ const card={cardToken:'card-secret',paymentMethodId:'visa',paymentType:'credit_card',installments:1,buyerEmail:'other@example.com'};
+ const response=await makeIsolatedTestHandler(f.deps)(req({action:'pay',storeId:store,orderId:order,card}));
+ assert.equal(response.status,400);assert.equal((await response.json()).error,'test_buyer_mismatch');assert.equal(f.calls(),0);
 });
 test('revogação durante chamada externa impede vínculo',async()=>{
  const f=fixture();let allowed=true,bindCalls=0;
@@ -51,7 +57,7 @@ test('revogação durante chamada externa impede vínculo',async()=>{
 test('cartão inválido não reserva bandeira nem chama provedor',async()=>{
  const f=fixture();let prepares=0;f.deps.reserve=async()=>({connection,snapshot,method:'card',providerOrderId:null});
  f.deps.prepareCard=async()=>{prepares++;return true};
- const invalid={cardToken:'',paymentMethodId:'visa',paymentType:'credit_card',installments:1};
+ const invalid={cardToken:'',paymentMethodId:'visa',paymentType:'credit_card',installments:1,buyerEmail:'test_payer@example.com'};
  const response=await makeIsolatedTestHandler(f.deps)(req({action:'pay',storeId:store,orderId:order,card:invalid}));
  assert.equal(response.status,400);assert.equal(prepares,0);assert.equal(f.calls(),0);
 });

@@ -23,5 +23,9 @@ test('confirmação aceita apenas resultado conhecido',async()=>{
 });
 test('cartão envia somente token e informações de método',async()=>{
  let sent;globalThis.mockClient={functions:{invoke:async(_name,options)=>{sent=options.body;return{data:{id:'ORD123',status:'processing',statusDetail:'in_process'},error:null}}}};
- try{await api.payIsolatedCard('store','order',{cardToken:'token',paymentMethodId:'visa',paymentType:'credit_card',installments:1});assert.deepEqual(Object.keys(sent.card).sort(),['cardToken','installments','paymentMethodId','paymentType']);}finally{delete globalThis.mockClient}
+ try{await api.payIsolatedCard('store','order',{cardToken:'token',paymentMethodId:'visa',paymentType:'credit_card',installments:1,buyerEmail:'buyer@testuser.com'});assert.deepEqual(Object.keys(sent.card).sort(),['buyerEmail','cardToken','installments','paymentMethodId','paymentType']);}finally{delete globalThis.mockClient}
+});
+test('orienta comprador incorreto sem expor resposta privada',async()=>{
+ globalThis.mockClient={functions:{invoke:async()=>({data:null,error:{context:Response.json({error:'test_buyer_mismatch',private:'sensitive'})}})}};
+ try{await assert.rejects(api.payIsolatedCard('store','order',{cardToken:'token',paymentMethodId:'visa',paymentType:'credit_card',installments:1,buyerEmail:'other@testuser.com'}),error=>error.message.includes('conta compradora de teste')&&!error.message.includes('sensitive'));}finally{delete globalThis.mockClient}
 });

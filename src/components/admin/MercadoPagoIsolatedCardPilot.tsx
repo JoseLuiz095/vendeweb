@@ -45,9 +45,10 @@ export function MercadoPagoIsolatedCardPilot({storeId}:{storeId:string}){
      onSubmit:async(form:unknown,additional:unknown)=>{
       if(!form||typeof form!=='object'||!additional||typeof additional!=='object')throw new Error('Cartão de teste inválido.');
       const value=form as Record<string,unknown>,extra=additional as Record<string,unknown>;
-      if(typeof value.token!=='string'||typeof value.payment_method_id!=='string'||(extra.paymentTypeId!=='credit_card'&&extra.paymentTypeId!=='debit_card')||typeof value.installments!=='number')throw new Error('Cartão de teste inválido.');
-      try{await payIsolatedCard(storeId,orderId,{cardToken:value.token,paymentMethodId:value.payment_method_id,paymentType:extra.paymentTypeId,installments:value.installments});if(!canceled){setSent(true);setError('');}}
-      catch{if(!canceled)setError('Não foi possível confirmar o resultado. Confira a tentativa antes de repetir.');throw new Error('Pagamento de teste indisponível.');}
+      const payer=value.payer&&typeof value.payer==='object'&&!Array.isArray(value.payer)?value.payer as Record<string,unknown>:{};
+      if(typeof value.token!=='string'||typeof value.payment_method_id!=='string'||typeof payer.email!=='string'||(extra.paymentTypeId!=='credit_card'&&extra.paymentTypeId!=='debit_card')||typeof value.installments!=='number'){if(!canceled)setError('Confira os dados do cartão e do comprador de teste.');throw new Error('Cartão de teste inválido.');}
+      try{await payIsolatedCard(storeId,orderId,{cardToken:value.token,paymentMethodId:value.payment_method_id,paymentType:extra.paymentTypeId,installments:value.installments,buyerEmail:payer.email});if(!canceled){setSent(true);setError('');}}
+      catch(cause){if(!canceled)setError(cause instanceof Error&&cause.message==='Use o e-mail da conta compradora de teste configurada para o piloto.'?cause.message:'Não foi possível confirmar o resultado. Confira a tentativa antes de repetir.');throw new Error('Pagamento de teste indisponível.');}
      }},
    });
    if(canceled)await created.unmount();else controller=created;

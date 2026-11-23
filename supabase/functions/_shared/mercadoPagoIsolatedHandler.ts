@@ -44,8 +44,9 @@ export function makeIsolatedTestHandler(deps:Dependencies){return async(req:Requ
    return reply(200,{id:order.id,status:order.status,statusDetail:order.statusDetail,qrCode:order.qrCode});
   }
   if(attempt.method!=='card'||attempt.providerOrderId)return reply(409,{error:'test_already_submitted'});
-  const card=input.card;if(!object(card)||Object.keys(card).some(k=>!['cardToken','paymentMethodId','paymentType','installments'].includes(k))||typeof card.cardToken!=='string'||typeof card.paymentMethodId!=='string'||(card.paymentType!=='credit_card'&&card.paymentType!=='debit_card')||typeof card.installments!=='number')return reply(400,{error:'invalid_request'});
+  const card=input.card;if(!object(card)||Object.keys(card).some(k=>!['cardToken','paymentMethodId','paymentType','installments','buyerEmail'].includes(k))||typeof card.cardToken!=='string'||typeof card.paymentMethodId!=='string'||typeof card.buyerEmail!=='string'||(card.paymentType!=='credit_card'&&card.paymentType!=='debit_card')||typeof card.installments!=='number')return reply(400,{error:'invalid_request'});
   if(!/^[A-Za-z0-9_-]{1,512}$/.test(card.cardToken)||!/^[A-Za-z0-9_-]{1,64}$/.test(card.paymentMethodId)||!Number.isSafeInteger(card.installments)||card.installments<1||card.installments>99||(card.paymentType==='debit_card'&&card.installments!==1))return reply(400,{error:'invalid_request'});
+  if(card.buyerEmail.length>254||card.buyerEmail.trim().toLowerCase()!==attempt.snapshot.payerEmail.trim().toLowerCase())return reply(400,{error:'test_buyer_mismatch'});
   if(!await deps.prepareCard(store,actor,orderId,card.paymentMethodId,card.paymentType))return reply(409,{error:'test_changed'});
   const order=await createSandboxCardOrder(attempt.connection,attempt.snapshot,{cardToken:card.cardToken,paymentMethodId:card.paymentMethodId,paymentType:card.paymentType,installments:card.installments},deps.transport);
   if(!await deps.authorize(actor,store))return reply(409,{error:'test_changed'});

@@ -2,10 +2,13 @@ import {getSupabaseClient} from '../lib/supabase';
 
 type Method='pix'|'card';
 type PixResult={id:string;status:string;statusDetail:string;qrCode:string|null};
-export type TestCardToken={cardToken:string;paymentMethodId:string;paymentType:'credit_card'|'debit_card';installments:number};
+export type TestCardToken={cardToken:string;paymentMethodId:string;paymentType:'credit_card'|'debit_card';installments:number;buyerEmail:string};
 async function invoke(body:{action:string;[key:string]:unknown}):Promise<unknown>{
  const {data,error}=await getSupabaseClient().functions.invoke('food-mercadopago-isolated-test',{body,timeout:20000});
- if(error)throw new Error(body.action==='pay'?'Não foi possível confirmar o resultado. Confira a tentativa antes de repetir.':'Não foi possível concluir a consulta de teste.');
+ if(error){
+  if(error.context instanceof Response){try{const detail:unknown=await error.context.clone().json();if(object(detail)&&detail.error==='test_buyer_mismatch')throw new Error('Use o e-mail da conta compradora de teste configurada para o piloto.');}catch(cause){if(cause instanceof Error&&cause.message==='Use o e-mail da conta compradora de teste configurada para o piloto.')throw cause;}}
+  throw new Error(body.action==='pay'?'Não foi possível confirmar o resultado. Confira a tentativa antes de repetir.':'Não foi possível concluir a consulta de teste.');
+ }
  return data;
 }
 function object(v:unknown):v is Record<string,unknown>{return !!v&&typeof v==='object'&&!Array.isArray(v)}
@@ -30,6 +33,6 @@ export async function getIsolatedCardConfig(storeId:string,orderId:string):Promi
  return {publicKey:data.publicKey,amount:50};
 }
 export async function payIsolatedCard(storeId:string,orderId:string,card:TestCardToken):Promise<void>{
- const data=await invoke({action:'pay',storeId,orderId,card:{cardToken:card.cardToken,paymentMethodId:card.paymentMethodId,paymentType:card.paymentType,installments:card.installments}});
+ const data=await invoke({action:'pay',storeId,orderId,card:{cardToken:card.cardToken,paymentMethodId:card.paymentMethodId,paymentType:card.paymentType,installments:card.installments,buyerEmail:card.buyerEmail}});
  if(!object(data)||typeof data.id!=='string'||!/^[A-Za-z0-9_-]{1,128}$/.test(data.id))throw new Error('Não foi possível enviar o cartão de teste.');
 }
