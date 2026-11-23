@@ -58,3 +58,19 @@
 .custom-details { margin-top:.8rem; color:#46566e; }.custom-details p { margin:.5rem 0; }
 .custom-files { margin-top:1rem; padding:1rem; background:#f8faff; border:1px solid #dce4f2; border-radius:12px; }
 .custom-files h4 { display:flex; align-items:center; gap:.45rem; margin:0; }.custom-files p { margin:.4rem 0; }.custom-file-empty { color:#627087; font-size:.85rem; }
+
+/* Operação de aluguel: alterações restritas a este painel. */
+.rental-workspace .rental-summary { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,145px),1fr)); gap:.75rem; margin:1rem 0; }
+.rental-summary>div { display:grid; gap:.3rem; padding:1rem; background:#f5f6fa; border:1px solid #dedee4; border-radius:10px; }
+.rental-summary strong { font-size:1.8rem; }.rental-summary span { color:#4b4e5c; font-size:.9rem; }
+.rental-period { padding:1rem; background:#fafbff; border:1px solid #dedee4; border-radius:10px; margin:1rem 0; }
+.rental-reservations { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr)); gap:.75rem; }
+.rental-reservation { display:flex; flex-direction:column; justify-content:space-between; gap:.7rem; border:1px solid #dedee4; border-radius:10px; padding:1rem; min-width:0; }
+.rental-reservation h4 { margin:.7rem 0; }.rental-reservation p { font-size:.9rem; margin:.4rem 0; }
+.rental-status { display:inline-block; background:#edf0f7; color:#303d5c; padding:.3rem .6rem; border-radius:999px; font-size:.8rem; font-weight:700; }
+.rental-overdue { border-color:#b0353c; }.rental-overdue .rental-status { background:#fff0ef; color:#982830; }
+.rental-detail fieldset { margin:.75rem 0; }.rental-values { padding:1rem; background:#f5f6fa; border-radius:10px; }
+.rental-workspace summary { min-height:44px; cursor:pointer; padding:.75rem 0; font-weight:650; }
+.rental-asset { border-top:1px solid #dedee4; padding:.5rem 0; }.rental-maintenance { margin-top:1.5rem; }
+.rental-history { padding-left:1.3rem; }.rental-history li { padding:.6rem 0; border-bottom:1px solid #dedee4; }.rental-history p { font-size:.85rem; margin:.3rem 0; }
+@media(max-width:600px) { .rental-workspace .rental-summary { grid-template-columns:repeat(2,minmax(0,1fr)); }.rental-workspace .module-card { padding:.8rem; }.rental-period { padding:.8rem; }.rental-workspace { padding:.8rem; } }

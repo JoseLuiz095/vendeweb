@@ -17,10 +17,10 @@ import './modules.css';
 import { useBusinessStatus } from '../platform/useBusinessStatus';
 
 type PanelData = { settings: ModuleSettings; offers: Offer[]; directory: Offer[]; versions: ComboVersion[]; approvals: ComboItem[];
-  orders: ModuleOrder[]; parts: OrderPart[]; items: ModuleOrderItem[]; receivables: Receivable[]; refunds: Refund[];
+  orders: ModuleOrder[]; rentalOrders: ModuleOrder[]; parts: OrderPart[]; items: ModuleOrderItem[]; receivables: Receivable[]; refunds: Refund[];
   customs: CustomRequest[]; files: CustomFile[]; assets: RentalAsset[]; reservations: RentalReservation[] };
 const empty = (store: string): PanelData => ({ settings: disabledModules(store), offers: [], directory: [], versions: [], approvals: [],
-  orders: [], parts: [], items: [], receivables: [], refunds: [], customs: [], files: [], assets: [], reservations: [] });
+  orders: [], rentalOrders: [], parts: [], items: [], receivables: [], refunds: [], customs: [], files: [], assets: [], reservations: [] });
 
 export default function ModulesPage({ master = false }: { master?: boolean }) {
   const location = useLocation();
@@ -39,26 +39,31 @@ export default function ModulesPage({ master = false }: { master?: boolean }) {
   const [tab, setTab] = useState('settings');
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
-  useEffect(() => { if (!master && new URLSearchParams(location.search).get('tab') === 'custom' && data.settings.custom_enabled) setTab('custom'); }, [master, location.search, data.settings.custom_enabled]);
+  useEffect(() => {
+    if (master) return;
+    const requested = new URLSearchParams(location.search).get('tab');
+    if (requested === 'custom' && data.settings.custom_enabled) setTab('custom');
+    if (requested === 'rentals' && data.settings.rentals_enabled) setTab('rentals');
+  }, [master, location.search, data.settings.custom_enabled, data.settings.rentals_enabled]);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const canManage = master || ['owner','admin','manager'].includes(membership?.role || '');
   const load = useCallback(async (): Promise<PanelData> => {
     const settings = await modulesApi.settings(store);
     if (!settings.organization_id) return { ...empty(store), settings };
-    const [offers,directory,versions,approvals,orders,parts,items,receivables,refunds,customs,files,assets,reservations] = await Promise.all([
+    const [offers,directory,versions,approvals,orders,parts,items,receivables,refunds,customs,files,assets,reservations,rentalOrders] = await Promise.all([
       modulesApi.offers(store), settings.combos_enabled ? modulesApi.directory() : Promise.resolve([]), modulesApi.versions(store), modulesApi.approvals(store),
       modulesApi.orders(store), modulesApi.parts(store), modulesApi.orderItems(store), modulesApi.receivables(store), modulesApi.refunds(store),
-      modulesApi.customs(store), modulesApi.files(store), modulesApi.assets(store), modulesApi.reservations(store),
+      modulesApi.customs(store), modulesApi.files(store), settings.rentals_enabled ? modulesApi.assets(store) : Promise.resolve([]), settings.rentals_enabled ? modulesApi.reservations(store) : Promise.resolve([]), settings.rentals_enabled ? modulesApi.rentalOrders(store) : Promise.resolve([]),
     ]);
     if (master) {
       const orderIds = [...new Set([...orders.map(o => o.id),...parts.map(p => p.order_id)])];
       if (orderIds.length) {
         const allOrders = await modulesApi.masterParents(orderIds);
-        return { settings, offers, directory, versions, approvals, orders: allOrders, parts, items, receivables, refunds, customs, files, assets, reservations };
+        return { settings, offers, directory, versions, approvals, orders: allOrders, rentalOrders: allOrders, parts, items, receivables, refunds, customs, files, assets, reservations };
       }
     }
-    return { settings, offers, directory, versions, approvals, orders, parts, items, receivables, refunds, customs, files, assets, reservations };
+    return { settings, offers, directory, versions, approvals, orders, rentalOrders, parts, items, receivables, refunds, customs, files, assets, reservations };
   }, [store, master]);
   useEffect(() => {
     let active = true; setError(''); setNotice(''); setData(empty(store)); setTab('settings');
@@ -100,9 +105,9 @@ export default function ModulesPage({ master = false }: { master?: boolean }) {
       {tab === 'custom' && canManage && (businessLoading ? <p role="status">Carregando recursos da loja...</p> : businessError ? <p role="alert">{businessError}</p> : business?.profile?.primary_segment === 'printing3d'
         ? <PrintingWorkspace key={store} store={store} requests={data.customs} files={data.files} command={command} busy={busy} urgencyBps={data.settings.urgency_bps} reload={reload} onError={setError}/>
         : <CustomPanel key={store} requests={data.customs} files={data.files} command={command} busy={busy} urgencyBps={data.settings.urgency_bps} reload={reload} onError={setError} />)}
-      {tab === 'rentals' && canManage && <RentalsPanel offers={data.offers} assets={data.assets} reservations={data.reservations} command={command} busy={busy} />}
+      {tab === 'rentals' && canManage && <RentalsPanel key={store} orders={data.rentalOrders} storeId={store} refresh={reload} onOrder={() => setTab('orders')} offers={data.offers} assets={data.assets} reservations={data.reservations} command={command} busy={busy} />}
       {hasModule && <p><a href={`/modulos/eventos/${store}`} target="_blank" rel="noreferrer">Abrir catálogo de eventos desta loja</a></p>}
-      <p className="module-caption">Exibição limitada aos primeiros 200 registros por seção. Todas as consultas permanecem sujeitas às permissões da loja.</p>
+      <p className="module-caption">As seções gerais exibem até 200 registros; equipamentos e reservas de aluguel são paginados integralmente. Todas as consultas permanecem sujeitas às permissões da loja.</p>
     </>}
   </div>;
 }
