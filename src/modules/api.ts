@@ -3,17 +3,28 @@ import { getSupabaseClient } from '../lib/supabase';
 import { appConfig } from '../lib/config';
 import { disabledModules } from './types';
 import type { ModuleSettings, Offer, ComboItem, ComboVersion, ModuleOrder, ModuleOrderItem, OrderPart,
-  Receivable, Refund, CustomRequest, CustomFile, RentalAsset, RentalReservation, PublicCatalog, CustomerOrder } from './types';
+  Receivable, Refund, CustomRequest, CustomFile, RentalAsset, RentalReservation, RentalEvent, RentalAvailability, PublicCatalog, CustomerOrder } from './types';
 
 const rows = <T,>(table: string, storeId: string, column = 'store_id') =>
   restFetch<T[]>(`${table}?select=*&${column}=eq.${encodeURIComponent(storeId)}&limit=200`);
+
+// Paginação estável: reservas ativas não desaparecem após 200 registros históricos.
+async function rentalRows<T>(table: string, storeId: string, key: string, storeColumn = 'store_id'): Promise<T[]> {
+  const result: T[] = []; let after = '';
+  for (;;) {
+    const page = await restFetch<(T & Record<string, unknown>)[]>(`${table}?select=*&${storeColumn}=eq.${encodeURIComponent(storeId)}&order=${key}.asc&limit=200${after ? `&${key}=gt.${encodeURIComponent(after)}` : ''}`);
+    result.push(...page);
+    if (page.length < 200) return result;
+    after = String(page[page.length - 1][key]);
+  }
+}
 
 export const modulesApi = {
   async settings(storeId: string): Promise<ModuleSettings> {
     const data = await rows<ModuleSettings>('food_module_settings', storeId);
     return data[0] || disabledModules(storeId);
   },
-  command: (storeId: string, action: string, data: unknown) => restFetch<{ id: string; already_paid?: boolean }>('rpc/food_modules_command',
+  command: (storeId: string, action: string, data: unknown) => restFetch<{ id: string; already_paid?: boolean }>(action.startsWith('rental_') ? 'rpc/food_rental_command_v1' : 'rpc/food_modules_command',
     { method: 'POST', body: { p_store: storeId, p_action: action, p_data: data } }),
   offers: (storeId: string) => rows<Offer>('food_module_offers', storeId),
   versions: (storeId: string) => rows<ComboVersion>('food_combo_versions', storeId, 'seller_store_id'),
@@ -26,8 +37,12 @@ export const modulesApi = {
   refunds: (storeId: string) => rows<Refund>('food_module_refunds', storeId),
   customs: (storeId: string) => rows<CustomRequest>('food_custom_requests', storeId),
   files: (storeId: string) => rows<CustomFile>('food_custom_files', storeId),
-  assets: (storeId: string) => rows<RentalAsset>('food_rental_assets', storeId),
-  reservations: (storeId: string) => rows<RentalReservation>('food_rental_reservations', storeId),
+  assets: (storeId: string) => rentalRows<RentalAsset>('food_rental_asset_rows', storeId, 'offer_id'),
+  reservations: (storeId: string) => rentalRows<RentalReservation>('food_rental_operation_rows', storeId, 'id'),
+  rentalOrders: (storeId: string) => rentalRows<ModuleOrder>('food_module_orders', storeId, 'id', 'seller_store_id'),
+  rentalAvailability: (storeId: string, starts: string, ends: string) => restFetch<RentalAvailability>('rpc/food_rental_availability_v1',
+    { method: 'POST', body: { p_store: storeId, p_starts: starts, p_ends: ends } }),
+  rentalHistory: (storeId: string, offerId: string, before?: number) => restFetch<RentalEvent[]>(`food_rental_events?select=*&store_id=eq.${encodeURIComponent(storeId)}&offer_id=eq.${encodeURIComponent(offerId)}&order=id.desc&limit=50${before ? `&id=lt.${before}` : ''}`),
   async masterParents(ids: string[]) {
     const batches: string[][] = [];
     for (let offset = 0; offset < ids.length; offset += 50) batches.push(ids.slice(offset, offset + 50));

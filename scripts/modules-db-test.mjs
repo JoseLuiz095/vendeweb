@@ -2,9 +2,10 @@ import { PGlite } from '@electric-sql/pglite';
 import { readFileSync, readdirSync } from 'node:fs';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
+import { pathToFileURL } from 'node:url';
 
 // PostgreSQL descartável. Apenas contratos mínimos do legado; nenhum acesso à produção.
-const db = new PGlite();
+export async function runModulesDbTests({ db = new PGlite(), concurrentCases } = {}) {
 await db.exec(`
  create role anon; create role authenticated; create role service_role bypassrls;
  create schema auth; create schema storage;
@@ -24,6 +25,7 @@ await db.exec(`
 for (const file of readdirSync('supabase/migrations').filter(f => /optional_modules/.test(f)).sort()) {
  await db.exec(readFileSync(`supabase/migrations/${file}`, 'utf8'));
 }
+await db.exec(readFileSync('supabase/migrations/20261123162215_food_rental_operations.sql', 'utf8'));
 let checks = 0;
 const query = async (sql, args=[]) => (await db.query(sql,args)).rows;
 const one = async (sql,args=[]) => (await query(sql,args))[0];
@@ -149,6 +151,64 @@ await session(userB); await cmd(b,'cancel',{order_id:rent.id});
 await customer('create',{...rentInput,request_id:randomUUID(),token:'f'.repeat(64)});
 await session(userB); await cmd(b,'rental_asset',{offer_id:rental,maintenance:true,notes:'Revisão'});
 await rejects(()=>customer('create',{...rentInput,request_id:randomUUID(),scheduled_for:new Date(Date.now()+200*3600000).toISOString(),ends_at:new Date(Date.now()+204*3600000).toISOString()}),'manutenção bloqueia novas reservas');
+// Eventos operacionais reais, valores manuais e disponibilidade (sem inferir eventos).
+const rentCmd = async(store,action,data) => (await one('select public.food_rental_command_v1($1,$2,$3) result',[store,action,JSON.stringify(data)])).result;
+const availability = async(store,starts=future,ends=end) => (await one('select public.food_rental_availability_v1($1,$2,$3) result',[store,starts,ends])).result;
+await session(userB);
+await cmd(b,'rental_asset',{offer_id:rental,maintenance:false});
+let rr=await one("select * from public.food_rental_reservations where offer_id=$1 and status='reserved'",[rental]);
+expect(rr.checked_out_at===null && rr.returned_at===null,'reserva e checklists não presumem saída ou devolução');
+await cmd(b,'rental_update',{id:rr.id,deposit_cents:5000,deposit_reference:'sinal-manual-001',contract:'Condições preservadas',assembly_checklist:[{label:'Fixação',checked:true}]});
+await cmd(b,'rental_update',{id:rr.id,return_checklist:[{label:'Limpeza',checked:false}]});
+rr=await one('select * from public.food_rental_reservations where id=$1',[rr.id]);
+expect(rr.deposit_cents===5000 && rr.contract==='Condições preservadas' && rr.deposit_reference==='sinal-manual-001','atualização parcial preserva sinal, referência e contrato');
+await rejects(()=>cmd(b,'rental_update',{id:rr.id,assembly_checklist:[{label:'Inválido',checked:'true'}]}),'servidor valida estrutura dos checklists');
+await rejects(()=>cmd(b,'rental_update',{id:rr.id,deposit_cents:10,deposit_reference:''}),'sinal positivo exige referência manual');
+expect((await availability(b)).assets.find(a=>a.offer_id===rental).status==='reserved','consulta no servidor encontra reserva conflitante');
+expect((await availability(b,end,new Date(Date.parse(end)+3600000).toISOString())).assets.find(a=>a.offer_id===rental).status==='available','períodos adjacentes não ganham intervalo extra');
+await rejects(()=>rentCmd(b,'rental_return',{id:rr.id,notes:'Bom estado'}),'devolução sem saída rejeitada');
+await cmd(b,'rental_asset',{offer_id:rental,maintenance:true});
+await rejects(()=>rentCmd(b,'rental_checkout',{id:rr.id,method:'pickup'}),'manutenção bloqueia saída');
+await cmd(b,'rental_asset',{offer_id:rental,maintenance:false});
+await rentCmd(b,'rental_checkout',{id:rr.id,method:'delivery',assembly_checklist:[{label:'Energia',checked:true}]});
+expect((await rentCmd(b,'rental_checkout',{id:rr.id,method:'delivery'})).already_recorded,'repetir saída não duplica evento');
+rr=await one('select * from public.food_rental_reservations where id=$1',[rr.id]);
+expect(rr.checked_out_by===userB && rr.handover_method==='delivery' && rr.returned_at===null,'saída guarda responsável, data e forma sem devolver');
+expect(rr.deposit_cents===5000 && rr.assembly_checklist[0].label==='Energia','saída salva checklist uma vez e preserva sinal');
+await cmd(b,'cancel',{order_id:(await one('select order_id from public.food_module_order_items where id=$1',[rr.item_id])).order_id});
+expect((await availability(b)).assets.find(a=>a.offer_id===rental).in_use,'cancelamento não esconde equipamento em uso');
+await rejects(()=>customer('create',{...rentInput,request_id:randomUUID()}),'cancelar pedido não libera intervalo de equipamento ainda fora da loja');
+await session(userB);
+await rejects(()=>rentCmd(b,'rental_return',{id:rr.id,notes:''}),'devolução exige condições observadas');
+await rentCmd(b,'rental_return',{id:rr.id,notes:'Cabo danificado',maintenance:true,return_checklist:[{label:'Danos',checked:true}]});
+expect((await rentCmd(b,'rental_return',{id:rr.id,notes:'Não sobrescrever'})).already_recorded,'repetir devolução não sobrescreve condição');
+rr=await one('select * from public.food_rental_reservations where id=$1',[rr.id]);
+expect(rr.returned_at && rr.returned_by===userB && rr.return_notes==='Cabo danificado' && rr.status==='cancelled','devolução preserva cancelamento e registra responsável/condição');
+expect(rr.deposit_cents===5000 && rr.deposit_reference==='sinal-manual-001','devolução e cancelamento preservam sinal registrado');
+expect((await availability(b)).assets.find(a=>a.offer_id===rental).status==='maintenance','devolução não libera equipamento encaminhado à manutenção');
+await cmd(b,'rental_asset',{offer_id:rental,maintenance:false,notes:'Reparado'});
+expect((await availability(b)).assets.find(a=>a.offer_id===rental).status==='available','concluir manutenção mantém cálculo de disponibilidade');
+const nextRent=await customer('create',{...rentInput,request_id:randomUUID()});
+await session(userB);
+const nr=await one('select * from public.food_rental_reservations where item_id=$1',[nextRent.items[0].id]);
+await rentCmd(b,'rental_followup',{id:nr.id,notes:'Cliente contatado manualmente'});
+expect((await query('select * from public.food_rental_events where offer_id=$1',[rental])).length>=10,'histórico guarda manutenção, valores, eventos e acompanhamento');
+expect((await one('select * from public.food_rental_operation_rows where id=$1',[nr.id])).total_cents===20000,'visão operacional reaproveita preço reservado do pedido');
+await session(userC);
+expect((await query('select * from public.food_rental_events')).length===0,'histórico não vaza para outra loja da mesma organização');
+expect((await query('select * from public.food_rental_operation_rows')).length===0,'visão operacional respeita RLS');
+await rejects(()=>rentCmd(c,'rental_checkout',{id:nr.id,method:'pickup'}),'outra loja não movimenta reserva');
+await rejects(()=>availability(b),'consulta de disponibilidade exige vínculo com a loja alvo');
+await session(userB);
+await db.exec('reset role');
+await db.query("update public.food_store_users set role='finance' where user_id=$1",[userB]);
+await session(userB);
+expect((await availability(b)).assets.length>0,'financeiro conserva permissão de leitura');
+await rejects(()=>rentCmd(b,'rental_checkout',{id:nr.id,method:'pickup'}),'financeiro não registra saída');
+await db.exec('reset role');await db.query("update public.food_store_users set role='owner' where user_id=$1",[userB]);await session(userB);
+await cmd(b,'cancel',{order_id:nextRent.id});
+await rejects(()=>rentCmd(b,'rental_checkout',{id:nr.id,method:'pickup'}),'reserva cancelada não permite saída');
+
 // Calculadora no servidor e bucket privado.
 await session(userA);
 const custom=(await cmd(a,'custom_save',{customer_name:'Doce Lua empresa',customer_phone:'11999999999',quantity:3,size:'5 cm',material:'PLA',color:'Azul',due_at:future,final_cents:4250,
@@ -200,5 +260,11 @@ await rejects(()=>db.query('select public.food_modules_command($1,$2,$3)',[a,'se
 await rejects(()=>db.query('select public.food_modules_customer($1,$2)',['get',JSON.stringify({order_id:order.id,token})]),'anônimo não chama RPC interna de checkout');
 const hidden=(await one('select public.food_modules_catalog($1) result',[a])).result;
 expect(hidden.offers.length===0 && hidden.combos.length===0,'catálogo não expõe eventos/combos desativados');
+await concurrentCases?.({ db, session, cmd, customer, userB, b, rental, rentInput });
 await db.close();
 console.log(`${checks} verificações PostgreSQL aprovadas.`);
+
+}
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+ try { await runModulesDbTests(); } catch (e) { console.error(e.message, e.where || ''); process.exitCode=1; }
+}
