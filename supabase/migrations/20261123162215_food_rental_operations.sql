@@ -198,6 +198,8 @@ begin
    else raise exception 'Comando de aluguel desconhecido.';
    end if;
  end if;
+ perform food_modules_private.food_modules_audit(p_store,p_action,coalesce(r.id,offer),
+   case when p_action='rental_update' then (select jsonb_build_object('deposit_cents',deposit_cents) from public.food_rental_reservations where id=r.id) else '{}'::jsonb end);
  return jsonb_build_object('id',coalesce(r.id,offer));
 end $$;
 revoke all on function public.food_rental_command_v1(uuid,text,jsonb) from public,anon;

@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import AxeBuilder from '@axe-core/playwright';
 import { mockBackend, STORE, ORG, PRODUCT, ORDER, USER } from './fixtures';
 
 async function rentals(page: import('@playwright/test').Page) {
@@ -69,6 +70,7 @@ for (const width of [320, 390, 768, 1366]) test(`operação de aluguel em ${widt
   await page.getByLabel('Buscar equipamento ou reserva').fill('');
   await expect(cards).toHaveCount(1);
   expect(await page.locator('.rental-workspace').evaluate(el => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
+  if (width === 390) { const audit = await new AxeBuilder({ page }).include('.rental-workspace').withTags(['wcag2a', 'wcag2aa', 'wcag21aa']).analyze(); expect(audit.violations).toEqual([]); }
   await page.screenshot({ path: `test-results/rental-${width}.png`, fullPage: true });
 });
 

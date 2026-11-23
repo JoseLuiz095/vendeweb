@@ -14,6 +14,8 @@ assert.ok(process.env.FOOD_DB_TEST_RUNTIME, 'Defina FOOD_DB_TEST_RUNTIME para as
 const requireRuntime = createRequire(path.join(path.resolve(process.env.FOOD_DB_TEST_RUNTIME), 'food-db-test.cjs'));
 const { default: EmbeddedPostgres } = await import(pathToFileURL(requireRuntime.resolve('embedded-postgres')));
 const pg = requireRuntime('pg');
+// Mesma representação do PGlite para os valores pequenos da fixture.
+pg.types.setTypeParser(20, Number);
 const password = randomBytes(24).toString('hex');
 class LocalPostgres {
   constructor() { this.ready = this.start(); this.clients = new Set(); }
