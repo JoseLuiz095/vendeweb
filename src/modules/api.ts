@@ -9,10 +9,10 @@ const rows = <T,>(table: string, storeId: string, column = 'store_id') =>
   restFetch<T[]>(`${table}?select=*&${column}=eq.${encodeURIComponent(storeId)}&limit=200`);
 
 // Paginação estável: reservas ativas não desaparecem após 200 registros históricos.
-async function rentalRows<T>(table: string, storeId: string, key: string): Promise<T[]> {
+async function rentalRows<T>(table: string, storeId: string, key: string, storeColumn = 'store_id'): Promise<T[]> {
   const result: T[] = []; let after = '';
   for (;;) {
-    const page = await restFetch<(T & Record<string, unknown>)[]>(`${table}?select=*&store_id=eq.${encodeURIComponent(storeId)}&order=${key}.asc&limit=200${after ? `&${key}=gt.${encodeURIComponent(after)}` : ''}`);
+    const page = await restFetch<(T & Record<string, unknown>)[]>(`${table}?select=*&${storeColumn}=eq.${encodeURIComponent(storeId)}&order=${key}.asc&limit=200${after ? `&${key}=gt.${encodeURIComponent(after)}` : ''}`);
     result.push(...page);
     if (page.length < 200) return result;
     after = String(page[page.length - 1][key]);
@@ -39,6 +39,7 @@ export const modulesApi = {
   files: (storeId: string) => rows<CustomFile>('food_custom_files', storeId),
   assets: (storeId: string) => rentalRows<RentalAsset>('food_rental_asset_rows', storeId, 'offer_id'),
   reservations: (storeId: string) => rentalRows<RentalReservation>('food_rental_operation_rows', storeId, 'id'),
+  rentalOrders: (storeId: string) => rentalRows<ModuleOrder>('food_module_orders', storeId, 'id', 'seller_store_id'),
   rentalAvailability: (storeId: string, starts: string, ends: string) => restFetch<RentalAvailability>('rpc/food_rental_availability_v1',
     { method: 'POST', body: { p_store: storeId, p_starts: starts, p_ends: ends } }),
   rentalHistory: (storeId: string, offerId: string, before?: number) => restFetch<RentalEvent[]>(`food_rental_events?select=*&store_id=eq.${encodeURIComponent(storeId)}&offer_id=eq.${encodeURIComponent(offerId)}&order=id.desc&limit=50${before ? `&id=lt.${before}` : ''}`),
