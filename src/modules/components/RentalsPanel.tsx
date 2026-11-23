@@ -4,7 +4,7 @@ import { moduleMoney } from '../calculator';
 import { modulesApi } from '../api';
 import { rentalInPeriod, rentalSituation, rentalSituationLabels } from '../rentals';
 import type { RentalSituation } from '../rentals';
-import type { Offer, RentalAsset, RentalAvailability, RentalEvent, RentalReservation } from '../types';
+import type { ModuleOrder, Offer, RentalAsset, RentalAvailability, RentalEvent, RentalReservation } from '../types';
 import type { ModuleCommand } from './OffersPanel';
 
 const date = (value: string) => new Date(value).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
@@ -101,7 +101,7 @@ function AssetForm({ asset: a, name, storeId, command, busy }: { asset: RentalAs
   </details>;
 }
 
-export default function RentalsPanel({ assets, offers, reservations, command, busy, storeId, refresh, onOrder }: { assets: RentalAsset[]; offers: Offer[]; reservations: RentalReservation[]; command: ModuleCommand; busy: boolean; storeId: string; refresh: () => Promise<void>; onOrder: () => void }) {
+export default function RentalsPanel({ assets, offers, orders, reservations, command, busy, storeId, refresh, onOrder }: { orders: ModuleOrder[]; assets: RentalAsset[]; offers: Offer[]; reservations: RentalReservation[]; command: ModuleCommand; busy: boolean; storeId: string; refresh: () => Promise<void>; onOrder: () => void }) {
   const [search, setSearch] = useState(''); const [equipment, setEquipment] = useState(''); const [situation, setSituation] = useState('');
   const [period, setPeriod] = useState({ starts: '', ends: '' });
   const [availability, setAvailability] = useState<RentalAvailability>();
@@ -115,7 +115,7 @@ export default function RentalsPanel({ assets, offers, reservations, command, bu
   const validPeriod = !!period.starts && !!period.ends && Date.parse(period.ends) > Date.parse(period.starts);
   const periodError = (!!period.starts || !!period.ends) && !validPeriod;
   const filtered = reservations.filter(r => (!equipment || r.offer_id === equipment) && (!situation || (situation === 'maintenance' ? assets.find(a => a.offer_id === r.offer_id)?.maintenance : situation === 'in_use' ? !!r.checked_out_at && !r.returned_at : rentalSituation(r, now) === situation))
-    && (!search || `${name(r.offer_id)} ${r.order_code || ''} ${r.id}`.toLocaleLowerCase('pt-BR').includes(search.toLocaleLowerCase('pt-BR')))
+    && (!search || `${name(r.offer_id)} ${r.order_code || ''} ${r.id} ${orders.find(o => o.id === r.order_id)?.customer_name || ''} ${orders.find(o => o.id === r.order_id)?.customer_phone || ''}`.toLocaleLowerCase('pt-BR').includes(search.toLocaleLowerCase('pt-BR')))
     && (!validPeriod || rentalInPeriod(r, Date.parse(period.starts), Date.parse(period.ends), now.getTime())))
     .sort((a, b) => { const rank = (r: RentalReservation) => r.checked_out_at && !r.returned_at ? 0 : r.status === 'reserved' ? 1 : 2; return rank(a) - rank(b) || Date.parse(a.starts_at) - Date.parse(b.starts_at); });
   const current = reservations.find(r => r.id === selected);
@@ -133,7 +133,7 @@ export default function RentalsPanel({ assets, offers, reservations, command, bu
       <div><strong>{upcoming}</strong><span>Saídas nos próximos 7 dias</span></div><div><strong>{reservations.filter(r => ['in_use', 'return_due', 'overdue'].includes(rentalSituation(r, now))).length}</strong><span>Equipamentos em uso</span></div>
       <div><strong>{reservations.filter(r => rentalSituation(r, now) === 'overdue').length}</strong><span>Devoluções atrasadas</span></div><div><strong>{assets.filter(a => a.maintenance).length}</strong><span>Em manutenção</span></div>
     </div>
-    <div className="module-grid"><label>Buscar equipamento ou reserva<input type="search" value={search} onChange={e => setSearch(e.target.value)} /></label>
+    <div className="module-grid"><label>Buscar cliente, equipamento ou reserva<input type="search" value={search} onChange={e => setSearch(e.target.value)} /></label>
       <label>Equipamento<select value={equipment} onChange={e => setEquipment(e.target.value)}><option value="">Todos os equipamentos</option>{assets.map(a => <option key={a.offer_id} value={a.offer_id}>{name(a.offer_id)}</option>)}</select></label>
       <label>Situação operacional<select value={situation} onChange={e => setSituation(e.target.value)}><option value="">Todas as situações</option><option value="maintenance">Equipamento em manutenção</option>{Object.entries(rentalSituationLabels).map(([id, label]) => <option key={id} value={id}>{label}</option>)}</select></label>
     </div>
@@ -149,7 +149,7 @@ export default function RentalsPanel({ assets, offers, reservations, command, bu
     <h3>Reservas e pendências <span className="module-caption">({filtered.length})</span></h3>
     {!filtered.length && <p>Nenhuma reserva para estes filtros. Reservas começam pelo catálogo da loja.</p>}
     <div className="rental-reservations">{filtered.map(r => { const state: RentalSituation = rentalSituation(r, now); return <article key={r.id} className={`rental-reservation ${state === 'overdue' ? 'rental-overdue' : ''}`}>
-      <div><span className="rental-status">{rentalSituationLabels[state]}</span><h4>{name(r.offer_id)}</h4><p>Início: {date(r.starts_at)}<br />Término: {date(r.ends_at)}</p><p>Pedido FW-E{r.order_code || '—'} · Reserva {r.id.slice(0, 8)}</p></div>
+      <div><span className="rental-status">{rentalSituationLabels[state]}</span><h4>{name(r.offer_id)}</h4><p>Início: {date(r.starts_at)}<br />Término: {date(r.ends_at)}</p><p>Pedido FW-E{r.order_code || '—'} · Reserva {r.id.slice(0, 8)}</p>{orders.find(o => o.id === r.order_id) && <p>Cliente: {orders.find(o => o.id === r.order_id)?.customer_name} · {orders.find(o => o.id === r.order_id)?.customer_phone}</p>}</div>
       <button type="button" className="button" aria-expanded={selected === r.id} aria-controls="rental-reservation-detail" onClick={() => openReservation(r.id)}>Abrir reserva</button>
     </article>; })}</div>
     {current && <div id="rental-reservation-detail" className="module-card" ref={detailRef} tabIndex={-1}><div className="module-row"><div><h3>{name(current.offer_id)} · Reserva {current.id.slice(0, 8)}</h3><p>{date(current.starts_at)} até {date(current.ends_at)} · {rentalSituationLabels[rentalSituation(current, now)]}</p></div><button type="button" className="button" onClick={() => setSelected('')}>Fechar detalhes</button></div>

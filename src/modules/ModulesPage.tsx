@@ -102,7 +102,7 @@ export default function ModulesPage({ master = false }: { master?: boolean }) {
       {tab === 'combos' && canManage && <CombosPanel directory={data.directory} approvals={data.approvals} versions={data.versions} command={command} busy={busy} canApprove={!master || membership?.storeId === store} />}
       {(tab === 'orders' || !canManage) && <ModuleOrdersPanel orders={data.orders} parts={data.parts} items={data.items} receivables={data.receivables} refunds={data.refunds} command={command} busy={busy || !canManage} master={master} storeId={store} onDetail={loadDetail} />}
       {tab === 'custom' && canManage && <CustomPanel requests={data.customs} files={data.files} command={command} busy={busy} urgencyBps={data.settings.urgency_bps} reload={reload} onError={setError} />}
-      {tab === 'rentals' && canManage && <RentalsPanel key={store} storeId={store} refresh={reload} onOrder={() => setTab('orders')} offers={data.offers} assets={data.assets} reservations={data.reservations} command={command} busy={busy} />}
+      {tab === 'rentals' && canManage && <RentalsPanel key={store} orders={data.orders} storeId={store} refresh={reload} onOrder={() => setTab('orders')} offers={data.offers} assets={data.assets} reservations={data.reservations} command={command} busy={busy} />}
       {hasModule && <p><a href={`/modulos/eventos/${store}`} target="_blank" rel="noreferrer">Abrir catálogo de eventos desta loja</a></p>}
       <p className="module-caption">As seções gerais exibem até 200 registros; equipamentos e reservas de aluguel são paginados integralmente. Todas as consultas permanecem sujeitas às permissões da loja.</p>
     </>}

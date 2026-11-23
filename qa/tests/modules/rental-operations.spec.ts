@@ -65,9 +65,9 @@ for (const width of [320, 390, 768, 1366]) test(`operação de aluguel em ${widt
   const availability = page.getByRole('region', { name: 'Disponibilidade consultada' });
   await expect(availability).toContainText('Em manutenção');
   await page.getByRole('button', { name: 'Limpar filtros' }).click();
-  await page.getByLabel('Buscar equipamento ou reserva').fill('inexistente');
+  await page.getByLabel('Buscar cliente, equipamento ou reserva').fill('inexistente');
   await expect(cards).toHaveCount(0);
-  await page.getByLabel('Buscar equipamento ou reserva').fill('');
+  await page.getByLabel('Buscar cliente, equipamento ou reserva').fill('');
   await expect(cards).toHaveCount(1);
   expect(await page.locator('.rental-workspace').evaluate(el => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
   if (width === 390) { const audit = await new AxeBuilder({ page }).include('.rental-workspace').withTags(['wcag2a', 'wcag2aa', 'wcag21aa']).analyze(); expect(audit.violations).toEqual([]); }
