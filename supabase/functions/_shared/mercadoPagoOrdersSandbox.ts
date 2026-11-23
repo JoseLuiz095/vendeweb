@@ -42,8 +42,8 @@ async function request(transport:ProviderTransport,url:string,init:RequestInit):
   if (!response.ok) {
     // Log only a small allowlist of provider error categories, never its response body.
     if(response.status===401){
-      try{const body=await response.clone().json();const value=asObject(body);const category=value?.error??value?.code;
-        console.error('mp_isolated_auth_category',category==='invalid_credentials'?'invalid_credentials':category==='invalid_token'?'invalid_token':category===401||category==='401'?'401':'other');
+      try{const body=await response.clone().json();const serialized=JSON.stringify(body).toLowerCase();
+        console.error('mp_isolated_auth_category',serialized.includes('invalid_credentials')?'invalid_credentials':serialized.includes('invalid_token')?'invalid_token':serialized.includes('invalid access token')?'invalid_access_token':serialized.includes('unauthorized')?'unauthorized':'other');
       }catch{console.error('mp_isolated_auth_category','unreadable');}
     }
     const raw=response.headers.get('retry-after');
