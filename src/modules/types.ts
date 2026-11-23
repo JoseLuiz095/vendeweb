@@ -21,10 +21,15 @@ export type Refund = { id: string; order_id: string; part_id: string; amount_cen
 export type CustomRequest = { id: string; organization_id: string; store_id: string; customer_name: string; customer_phone: string;
   quantity: number; size: string; material: string; color: string; due_at: string; notes: string; status: string; final_cents: number | null; quote: PrintCosts | null };
 export type CustomFile = { id: string; request_id: string; name: string; storage_path: string; size_bytes: number };
-export type RentalAsset = { offer_id: string; maintenance: boolean; maintenance_notes: string };
+export type RentalAsset = { offer_id: string; maintenance: boolean; maintenance_notes: string; equipment_name?: string; active?: boolean };
 export type ChecklistItem = { label: string; checked: boolean };
 export type RentalReservation = { id: string; item_id: string; offer_id: string; starts_at: string; ends_at: string; status: string;
-  deposit_cents: number; deposit_reference: string | null; contract: string; assembly_checklist: ChecklistItem[]; return_checklist: ChecklistItem[] };
+  deposit_cents: number; deposit_reference: string | null; contract: string; assembly_checklist: ChecklistItem[]; return_checklist: ChecklistItem[];
+  checked_out_at?: string | null; checked_out_by?: string | null; handover_method?: 'pickup' | 'delivery' | null;
+  returned_at?: string | null; returned_by?: string | null; return_notes?: string; equipment_name?: string;
+  order_id?: string; order_code?: number; total_cents?: number; billing_status?: string | null; order_paid_cents?: number | null };
+export type RentalEvent = { id: number; offer_id: string; reservation_id: string | null; actor_id: string | null; occurred_at: string; action: string; details: { notes?: string; before?: Record<string, unknown>; after?: Record<string, unknown> } };
+export type RentalAvailability = { checked_at: string; assets: { offer_id: string; equipment_name: string; maintenance: boolean; in_use: boolean; status: 'maintenance' | 'reserved' | 'available'; reservation_ids: string[] }[] };
 export type PrintCosts = { grams: number; cents_per_gram: number; watts: number; energy_cents_kwh: number; hours: number;
   machine_cents_hour: number; labor_cents: number; finishing_cents: number; margin_bps: number };
 export type PublicCatalog = { store?: { name: string; logo_url: string | null }; offers: Pick<Offer, 'id' | 'name' | 'kind' | 'price_cents' | 'store_id' | 'max_quantity' | 'lead_hours' | 'ready_now'>[];

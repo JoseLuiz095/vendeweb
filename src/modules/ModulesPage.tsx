@@ -38,7 +38,12 @@ export default function ModulesPage({ master = false }: { master?: boolean }) {
   const [tab, setTab] = useState('settings');
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
-  useEffect(() => { if (!master && new URLSearchParams(location.search).get('tab') === 'custom' && data.settings.custom_enabled) setTab('custom'); }, [master, location.search, data.settings.custom_enabled]);
+  useEffect(() => {
+    if (master) return;
+    const requested = new URLSearchParams(location.search).get('tab');
+    if (requested === 'custom' && data.settings.custom_enabled) setTab('custom');
+    if (requested === 'rentals' && data.settings.rentals_enabled) setTab('rentals');
+  }, [master, location.search, data.settings.custom_enabled, data.settings.rentals_enabled]);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const canManage = master || ['owner','admin','manager'].includes(membership?.role || '');
@@ -48,7 +53,7 @@ export default function ModulesPage({ master = false }: { master?: boolean }) {
     const [offers,directory,versions,approvals,orders,parts,items,receivables,refunds,customs,files,assets,reservations] = await Promise.all([
       modulesApi.offers(store), settings.combos_enabled ? modulesApi.directory() : Promise.resolve([]), modulesApi.versions(store), modulesApi.approvals(store),
       modulesApi.orders(store), modulesApi.parts(store), modulesApi.orderItems(store), modulesApi.receivables(store), modulesApi.refunds(store),
-      modulesApi.customs(store), modulesApi.files(store), modulesApi.assets(store), modulesApi.reservations(store),
+      modulesApi.customs(store), modulesApi.files(store), settings.rentals_enabled ? modulesApi.assets(store) : Promise.resolve([]), settings.rentals_enabled ? modulesApi.reservations(store) : Promise.resolve([]),
     ]);
     if (master) {
       const orderIds = [...new Set([...orders.map(o => o.id),...parts.map(p => p.order_id)])];
@@ -97,9 +102,9 @@ export default function ModulesPage({ master = false }: { master?: boolean }) {
       {tab === 'combos' && canManage && <CombosPanel directory={data.directory} approvals={data.approvals} versions={data.versions} command={command} busy={busy} canApprove={!master || membership?.storeId === store} />}
       {(tab === 'orders' || !canManage) && <ModuleOrdersPanel orders={data.orders} parts={data.parts} items={data.items} receivables={data.receivables} refunds={data.refunds} command={command} busy={busy || !canManage} master={master} storeId={store} onDetail={loadDetail} />}
       {tab === 'custom' && canManage && <CustomPanel requests={data.customs} files={data.files} command={command} busy={busy} urgencyBps={data.settings.urgency_bps} reload={reload} onError={setError} />}
-      {tab === 'rentals' && canManage && <RentalsPanel offers={data.offers} assets={data.assets} reservations={data.reservations} command={command} busy={busy} />}
+      {tab === 'rentals' && canManage && <RentalsPanel key={store} storeId={store} refresh={reload} onOrder={() => setTab('orders')} offers={data.offers} assets={data.assets} reservations={data.reservations} command={command} busy={busy} />}
       {hasModule && <p><a href={`/modulos/eventos/${store}`} target="_blank" rel="noreferrer">Abrir catálogo de eventos desta loja</a></p>}
-      <p className="module-caption">Exibição limitada aos primeiros 200 registros por seção. Todas as consultas permanecem sujeitas às permissões da loja.</p>
+      <p className="module-caption">As seções gerais exibem até 200 registros; equipamentos e reservas de aluguel são paginados integralmente. Todas as consultas permanecem sujeitas às permissões da loja.</p>
     </>}
   </div>;
 }
