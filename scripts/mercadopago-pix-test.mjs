@@ -26,6 +26,12 @@ test('repetição, não creditados e reembolso não geram segundo crédito',()=>
  x=good();x.providerOrder.status_detail='partially_refunded';assert.equal(decideMercadoPagoTestPix(x).action,'review');
  x=good();x.providerOrder.status='refunded';assert.equal(decideMercadoPagoTestPix(x).action,'review');
 });
+test('Orders aceita moeda currency documentada e recusa divergências ou ausência',()=>{
+ const x=good();delete x.providerOrder.currency_id;x.providerOrder.currency='BRL';
+ assert.equal(decideMercadoPagoTestPix(x).action,'apply');
+ x.providerOrder.currency_id='USD';assert.equal(decideMercadoPagoTestPix(x).action,'review');
+ delete x.providerOrder.currency_id;delete x.providerOrder.currency;assert.equal(decideMercadoPagoTestPix(x).action,'review');
+});
 test('cartão exige mesma bandeira, tipo, valor e vínculo da tentativa de teste',()=>{
  const card={id:'visa',type:'credit_card'};
  const input=good();input.providerOrder.transactions.payments[0].payment_method=card;

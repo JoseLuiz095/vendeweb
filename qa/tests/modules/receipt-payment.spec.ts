@@ -58,7 +58,7 @@ for(const configured of [false,true])test(`configuração de comprovantes não o
  await page.route('**/rest/v1/food_pickup_receipt_contacts?**',r=>r.fulfill({json:[]}));
  await page.route('**/rest/v1/food_pickup_locations?**',r=>r.fulfill({json:[]}));
  await page.route('**/rest/v1/rpc/food_save_receipt_contacts_v1',r=>{saved=r.request().postDataJSON();return r.fulfill({json:null})});
- await page.goto('/admin/configuracoes');const card=page.getByRole('region',{name:'Destinos dos comprovantes'});
+ await page.goto('/admin/configuracoes');await page.locator('#settings-receipts').getByRole('button',{name:'Destinos dos comprovantes'}).click();const card=page.getByRole('region',{name:'Destinos dos comprovantes'});
  await expect(card).toContainText('A loja deve conferir o recebimento e confirmar o pagamento');
  await expect(card.getByRole('checkbox',{name:/Permitir que o cliente informe o pagamento/})).toHaveCount(0);
  await expect(card.getByRole('checkbox',{name:/Concluir e baixar a retirada imediata/})).toHaveCount(0);

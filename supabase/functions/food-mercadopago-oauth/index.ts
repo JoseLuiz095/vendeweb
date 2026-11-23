@@ -1,5 +1,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.112.4';
 import { createTestOAuthHandler } from './handler.ts';
+import { isVerifiedTestSeller, providerErrorCategory } from './providerError.ts';
+import {testOrigins} from '../_shared/mpTestPreviewOrigin.ts';
 
 // Disabled unless explicitly enabled. This adapter also requires the service-only
 // RPCs described in README.md; missing RPCs fail closed. No secret is logged.
@@ -13,7 +15,7 @@ Deno.serve(async(req:Request)=>{
  const rpc=async(name:string,args:Record<string,unknown>)=>{const {data,error}=await admin.rpc(name,args);if(error)throw new Error('STORE_UNAVAILABLE');return data;};
  return createTestOAuthHandler({
   enabled:Deno.env.get('MP_TEST_OAUTH_ENABLED')==='true',
-  allowedOrigins:new Set((Deno.env.get('MP_TEST_ALLOWED_ORIGINS')||'').split(',').map(x=>x.trim()).filter(Boolean)),
+  allowedOrigins:testOrigins(Deno.env.get('MP_TEST_ALLOWED_ORIGINS')||'',Deno.env.get('MP_TEST_ISOLATED_PREVIEW_ORIGIN')||''),
   clientId:Deno.env.get('MP_TEST_CLIENT_ID')||'',clientSecret:Deno.env.get('MP_TEST_CLIENT_SECRET')||'',redirectUri:Deno.env.get('MP_TEST_REDIRECT_URI')||'',key,
   authenticate:async(jwt)=>{
    const {data:{user},error}=await admin.auth.getUser(jwt);if(error||!user||user.is_anonymous)return null;
@@ -37,15 +39,35 @@ Deno.serve(async(req:Request)=>{
   },
   commitConnection:async(store,actor,claim,connection)=>await rpc('food_mp_test_oauth_commit_v1',{p_store:store,p_actor:actor,p_claim:claim,p_seller_id:connection.sellerId,p_sealed_tokens:connection.sealedTokens,p_expires_at:new Date(connection.expiresAt).toISOString()})===true,
   disconnect:async(store,actor)=>{if(await rpc('food_mp_test_oauth_disconnect_v1',{p_store:store,p_actor:actor})!==true)throw new Error('DISCONNECT_DENIED');},
+  verifyTestSeller:async(token,sellerId)=>{
+   const response=await fetch('https://api.mercadolibre.com/users/me',{headers:{Authorization:`Bearer ${token}`,Accept:'application/json'},redirect:'error',signal:AbortSignal.timeout(10000)});
+   if(!response.ok){console.error('mp_test_seller_check_http',response.status===401?'401':response.status===403?'403':response.status===429?'429':response.status>=500?'5xx':'other');return false;}
+   const length=Number(response.headers.get('content-length')||0);if(length>32768)return false;
+   const reader=response.body?.getReader();if(!reader)return false;
+   let total=0,text='';const decoder=new TextDecoder();
+   for(;;){const {done,value}=await reader.read();if(done)break;total+=value.byteLength;if(total>32768){await reader.cancel();return false;}text+=decoder.decode(value,{stream:true});}
+   const user=JSON.parse(text+decoder.decode());
+   const verified=isVerifiedTestSeller(user,sellerId);
+   if(!verified){
+    const record=user&&typeof user==='object'&&!Array.isArray(user)?user as Record<string,unknown>:{};
+    console.error('mp_test_seller_check_fields',String(record.id)===sellerId?'id_match':'id_mismatch',record.site_id==='MLB'?'site_match':'site_mismatch',Array.isArray(record.tags)&&record.tags.includes('test_user')?'test_tag':'no_test_tag');
+   }
+   return verified;
+  },
   exchange:async(endpoint,body)=>{
    if(endpoint!=='https://api.mercadopago.com/oauth/token')throw new Error('INVALID_DESTINATION');
    const response=await fetch(endpoint,{method:'POST',redirect:'error',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify(body),signal:AbortSignal.timeout(10000)});
-   if(!response.ok)throw new Error('OAUTH_FAILED');
    const length=Number(response.headers.get('content-length')||0);if(length>32768)throw new Error('OAUTH_INVALID');
    const reader=response.body?.getReader();if(!reader)throw new Error('OAUTH_INVALID');
    let total=0,text='';const decoder=new TextDecoder();
    for(;;){const {done,value}=await reader.read();if(done)break;total+=value.byteLength;if(total>32768){await reader.cancel();throw new Error('OAUTH_INVALID');}text+=decoder.decode(value,{stream:true});}
-   return JSON.parse(text+decoder.decode());
+   text+=decoder.decode();
+   if(!response.ok){
+    console.error('mp_test_oauth_provider_status',response.status===400?'400':response.status===401?'401':response.status===403?'403':response.status===429?'429':response.status>=500?'5xx':'other');
+    console.error('mp_test_oauth_provider_error',providerErrorCategory(text));
+    throw new Error('OAUTH_FAILED');
+   }
+   return JSON.parse(text);
   },
  })(req);
 });

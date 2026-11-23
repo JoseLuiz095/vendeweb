@@ -59,10 +59,10 @@ export async function consumeTestOAuthState(input:{state:string;storeId:string;a
  return result.verifier;
 }
 
-/** Build ONLY a sandbox token exchange request. Calling it is a separate server action. */
+/** Orders requires credentials issued to a test seller; identity must be verified independently. */
 export function buildTestTokenExchange(input:{clientId:string;clientSecret:string;redirectUri:string;code:string;verifier:string}){
  if(!/^\d{1,32}$/.test(input.clientId)||!input.clientSecret||!input.code||input.code.length>2048||!/^[A-Za-z0-9_-]{43}$/.test(input.verifier))throw new Error('Solicitação inválida.');
  let redirect:URL;try{redirect=new URL(input.redirectUri);}catch{throw new Error('Solicitação inválida.');}
  if(redirect.protocol!=='https:'||redirect.username||redirect.password||redirect.hash||redirect.search)throw new Error('Solicitação inválida.');
- return {url:'https://api.mercadopago.com/oauth/token',body:{client_id:input.clientId,client_secret:input.clientSecret,grant_type:'authorization_code',code:input.code,redirect_uri:input.redirectUri,code_verifier:input.verifier,test_token:true}};
+ return {url:'https://api.mercadopago.com/oauth/token',body:{client_id:input.clientId,client_secret:input.clientSecret,grant_type:'authorization_code',code:input.code,redirect_uri:input.redirectUri,code_verifier:input.verifier,test_token:false}};
 }
