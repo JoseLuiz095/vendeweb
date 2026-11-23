@@ -40,6 +40,11 @@ async function request(transport:ProviderTransport,url:string,init:RequestInit):
   let response:Response;
   try { response=await transport(url,init); } catch { throw new SandboxOrdersError('provider_unavailable'); }
   if (!response.ok) {
+    // A failed order can be returned in a 402 response; preserve its ID only
+    // after the same binding checks used for a successful response.
+    if(response.status===402&&init.method==='POST'){
+      try{const body=asObject(await response.clone().json()),order=asObject(body?.data);if(order?.status==='failed')return order;}catch{/* treat as an uncertain failure */}
+    }
     // Log only a small allowlist of provider error categories, never its response body.
     if(response.status===401){
       try{const body=await response.clone().json();const serialized=JSON.stringify(body).toLowerCase();

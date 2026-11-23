@@ -27,6 +27,13 @@ test('rejeita divergência de loja, pedido, valor, produção e dados de pagamen
 test('erro externo não expõe corpo, token ou e-mail',async()=>{
   await assert.rejects(createSandboxPixOrder(connection,snapshot,async()=>new Response('secret '+connection.accessToken,{status:429,headers:{'retry-after':'3'}})),error=>error.code==='provider_request_failed'&&error.status===429&&error.retryAfter==='3'&&!error.message.includes('secret'));
 });
+test('order recusada em 402 é vinculável apenas após conferir recebedor e valores',async()=>{
+ const failed={...provider,status:'failed',status_detail:'failed'};
+ const response=data=>new Response(JSON.stringify({data}),{status:402});
+ assert.equal((await createSandboxPixOrder(connection,snapshot,async()=>response(failed))).status,'failed');
+ await assert.rejects(createSandboxPixOrder(connection,snapshot,async()=>response({...failed,user_id:'456'})));
+ await assert.rejects(createSandboxPixOrder(connection,snapshot,async()=>response({...failed,status:'processed'})));
+});
 test('handler exige autorização, usa snapshot do servidor e não devolve dados internos',async()=>{
   let reserve=0,bind=0,remote=0;
   const deps={authorize:async()=>true,reserve:async()=>{reserve++;return {connection,snapshot,providerOrderId:null}},find:async()=>null,bind:async()=>{bind++},transport:async()=>{remote++;return ok()}};

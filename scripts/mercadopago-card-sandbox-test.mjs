@@ -27,6 +27,14 @@ test('rejeita divergência de ambiente, recebedor, pedido, valor e cartão',asyn
 test('erro do provedor não revela token ou corpo',async()=>{
  await assert.rejects(createSandboxCardOrder(connection,snapshot,card,async()=>new Response('sensitive-token',{status:400})),e=>!e.message.includes('sensitive-token'));
 });
+test('order de cartão recusada em 402 permite vínculo sem expor dados',async()=>{
+ const failed={...result,status:'failed',status_detail:'failed'};
+ const response=data=>new Response(JSON.stringify({data}),{status:402});
+ const output=await createSandboxCardOrder(connection,snapshot,card,async()=>response(failed));
+ assert.equal(output.status,'failed');assert.equal(JSON.stringify(output).includes('sensitive-token'),false);
+ await assert.rejects(createSandboxCardOrder(connection,snapshot,card,async()=>response({...failed,user_id:'456'})));
+ await assert.rejects(createSandboxCardOrder(connection,snapshot,card,async()=>response({...failed,status:'processed'})));
+});
 test('status inesperado não expõe informação não confiável do provedor',async()=>{
  const out=await createSandboxCardOrder(connection,snapshot,card,async()=>Response.json({...result,status:'sensitive-token',status_detail:'sensitive-token'}));
  assert.equal(out.status,'unknown');assert.equal(out.statusDetail,'unknown');
