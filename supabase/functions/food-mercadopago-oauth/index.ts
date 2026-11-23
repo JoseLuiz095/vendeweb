@@ -41,13 +41,18 @@ Deno.serve(async(req:Request)=>{
   disconnect:async(store,actor)=>{if(await rpc('food_mp_test_oauth_disconnect_v1',{p_store:store,p_actor:actor})!==true)throw new Error('DISCONNECT_DENIED');},
   verifyTestSeller:async(token,sellerId)=>{
    const response=await fetch('https://api.mercadolibre.com/users/me',{headers:{Authorization:`Bearer ${token}`,Accept:'application/json'},redirect:'error',signal:AbortSignal.timeout(10000)});
-   if(!response.ok)return false;
+   if(!response.ok){console.error('mp_test_seller_check_http',response.status===401?'401':response.status===403?'403':response.status===429?'429':response.status>=500?'5xx':'other');return false;}
    const length=Number(response.headers.get('content-length')||0);if(length>32768)return false;
    const reader=response.body?.getReader();if(!reader)return false;
    let total=0,text='';const decoder=new TextDecoder();
    for(;;){const {done,value}=await reader.read();if(done)break;total+=value.byteLength;if(total>32768){await reader.cancel();return false;}text+=decoder.decode(value,{stream:true});}
    const user=JSON.parse(text+decoder.decode());
-   return isVerifiedTestSeller(user,sellerId);
+   const verified=isVerifiedTestSeller(user,sellerId);
+   if(!verified){
+    const record=user&&typeof user==='object'&&!Array.isArray(user)?user as Record<string,unknown>:{};
+    console.error('mp_test_seller_check_fields',String(record.id)===sellerId?'id_match':'id_mismatch',record.site_id==='MLB'?'site_match':'site_mismatch',Array.isArray(record.tags)&&record.tags.includes('test_user')?'test_tag':'no_test_tag');
+   }
+   return verified;
   },
   exchange:async(endpoint,body)=>{
    if(endpoint!=='https://api.mercadopago.com/oauth/token')throw new Error('INVALID_DESTINATION');
