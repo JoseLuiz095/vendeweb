@@ -28,7 +28,7 @@ const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const obj=(value:unknown):value is Record<string,unknown>=>Boolean(value)&&typeof value==='object'&&!Array.isArray(value);
 export function tokenResponseIssue(result:unknown):string|null {
  if(!obj(result))return 'shape';
- if(result.live_mode!==false)return result.live_mode===true?'environment_true':result.live_mode==null?'environment_missing':'environment_other';
+ if(result.live_mode!=null&&typeof result.live_mode!=='boolean')return 'environment_other';
  if(typeof result.access_token!=='string'||!result.access_token||result.access_token.length>8192)return 'access_token';
  if(typeof result.refresh_token!=='string'||!result.refresh_token||result.refresh_token.length>8192)return 'refresh_token';
  if(!Number.isSafeInteger(result.expires_in)||Number(result.expires_in)<=0||Number(result.expires_in)>31536000)return 'expiry';
@@ -87,16 +87,13 @@ export const createTestOAuthHandler=(deps:Deps)=>async(req:Request):Promise<Resp
    const request=buildTestTokenExchange({clientId:deps.clientId,clientSecret:deps.clientSecret,redirectUri:deps.redirectUri,code:body.code,verifier});
    diagnosticStep='complete_exchange';
    const result=await deps.exchange(request.url,request.body);
-   const missingEnvironment=obj(result)&&result.live_mode==null;
-   const issue=tokenResponseIssue(missingEnvironment?{...result,live_mode:false}:result);
+   const issue=tokenResponseIssue(result);
    if(issue){console.error('mp_test_oauth_response_invalid',issue);return reply(502,{error:'Não foi possível concluir a conexão de teste.'});}
    if(!obj(result))return reply(502,{error:'Não foi possível concluir a conexão de teste.'});
-   if(missingEnvironment){
-    diagnosticStep='complete_seller_verification';
-    if(typeof result.access_token!=='string'||!await deps.verifyTestSeller(result.access_token,String(result.user_id))){
-     console.error('mp_test_oauth_response_invalid','seller_verification');
-     return reply(502,{error:'Não foi possível concluir a conexão de teste.'});
-    }
+   diagnosticStep='complete_seller_verification';
+   if(typeof result.access_token!=='string'||!await deps.verifyTestSeller(result.access_token,String(result.user_id))){
+    console.error('mp_test_oauth_response_invalid','seller_verification');
+    return reply(502,{error:'Não foi possível concluir a conexão de teste.'});
    }
    diagnosticStep='complete_seal';
    if(result.public_key!==undefined&&(typeof result.public_key!=='string'||!/^[A-Za-z0-9_-]{1,256}$/.test(result.public_key)))return reply(502,{error:'Não foi possível concluir a conexão de teste.'});

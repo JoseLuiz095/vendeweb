@@ -33,10 +33,10 @@ test('consumo único exige estado, mesma loja e mesmo usuário, sem usar fluxo e
  await assert.rejects(consumeTestOAuthState({state,storeId:'s',actorId:'u',now:2000},consume));
 });
 
-test('troca aponta endpoint fixo e solicita somente token de teste',()=>{
+test('troca aponta endpoint fixo e solicita credencial para conta de teste compatível com Orders',()=>{
  const config={clientId:'123',clientSecret:'synthetic',redirectUri:'https://example.test/callback',code:'synthetic',verifier:'a'.repeat(43)};
  const request=buildTestTokenExchange(config);
- assert.equal(request.url,'https://api.mercadopago.com/oauth/token');assert.equal(request.body.test_token,true);assert.equal(request.body.code_verifier,config.verifier);
+ assert.equal(request.url,'https://api.mercadopago.com/oauth/token');assert.equal(request.body.test_token,false);assert.equal(request.body.code_verifier,config.verifier);
  assert.throws(()=>buildTestTokenExchange({...config,redirectUri:'http://example.test'}));
  assert.throws(()=>buildTestTokenExchange({...config,verifier:'bad'}));
 });

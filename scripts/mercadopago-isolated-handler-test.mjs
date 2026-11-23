@@ -6,7 +6,13 @@ const connection={mode:'test',provenance:'oauth_test_token',sellerId:'123',acces
 const snapshot={total:'50.00',externalReference:'isolated1',idempotencyKey:'c53c79c6-0453-48bb-85e9-024c5bb26463',payerEmail:'test_payer@example.com'};
 const provider={id:'ORD123',user_id:'123',country_code:'BRA',external_reference:'isolated1',total_amount:'50.00',status:'action_required',status_detail:'waiting_transfer',transactions:{payments:[{id:'PAY123',amount:'50.00',payment_method:{id:'pix',type:'bank_transfer',qr_code:'000201-test'}}]}};
 const req=body=>new Request('https://test.example',{method:'POST',headers:{authorization:'Bearer example'},body:JSON.stringify(body)});
-function fixture(){let bound=null,calls=0;const deps={authenticate:async()=> 'actor',authorize:async(_actor,id)=>id===store,create:async()=>({orderId:order}),reserve:async()=>({connection,snapshot,method:'pix',providerOrderId:bound}),prepareCard:async()=>true,bind:async(_s,_actor,_o,id)=>{bound=id;return true;},reconcile:async()=> 'applied',transport:async()=>{calls++;return Response.json(provider)}};return{deps,calls:()=>calls};}
+function fixture(){let bound=null,calls=0;const deps={authenticate:async()=> 'actor',authorize:async(_actor,id)=>id===store,create:async()=>({orderId:order}),reserve:async()=>({connection,snapshot,method:'pix',providerOrderId:bound}),verifyTestSeller:async()=>true,prepareCard:async()=>true,bind:async(_s,_actor,_o,id)=>{bound=id;return true;},reconcile:async()=> 'applied',transport:async()=>{calls++;return Response.json(provider)}};return{deps,calls:()=>calls};}
+test('conta não comprovadamente de teste nunca cria cobrança ou carrega cartão',async()=>{
+ const f=fixture();f.deps.verifyTestSeller=async()=>false;
+ const h=makeIsolatedTestHandler(f.deps);
+ assert.equal((await h(req({action:'pay',storeId:store,orderId:order}))).status,409);
+ assert.equal(f.calls(),0);
+});
 test('somente administrador autorizado inicia pedido isolado e forma válida',async()=>{
  const f=fixture(),handler=makeIsolatedTestHandler(f.deps);
  assert.equal((await handler(req({action:'create',storeId:store,requestId,method:'pix'}))).status,200);

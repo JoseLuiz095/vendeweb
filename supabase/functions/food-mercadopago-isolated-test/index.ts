@@ -30,7 +30,15 @@ Deno.serve(async(req:Request)=>{
   const all=new Uint8Array(size);let at=0;for(const part of chunks){all.set(part,at);at+=part.length;}
   return new Response(all,{status:response.status,headers:response.headers});
  };
+ const verifyTestSeller=async(token:string,seller:string)=>{
+  const response=await fetch('https://api.mercadolibre.com/users/me',{headers:{Authorization:`Bearer ${token}`,Accept:'application/json'},redirect:'error',signal:AbortSignal.timeout(10000)});
+  if(!response.ok||Number(response.headers.get('content-length')||0)>32768)return false;
+  const reader=response.body?.getReader();if(!reader)return false;let size=0,text='';const decoder=new TextDecoder();
+  for(;;){const {done,value}=await reader.read();if(done)break;size+=value.byteLength;if(size>32768){await reader.cancel();return false;}text+=decoder.decode(value,{stream:true});}
+  return isVerifiedTestSeller(JSON.parse(text+decoder.decode()),seller);
+ };
  const handler=makeIsolatedTestHandler({
+  verifyTestSeller,
   authenticate:async request=>{
    const jwt=request.headers.get('authorization')?.match(/^Bearer (.+)$/i)?.[1];if(!jwt)return null;
    const {data:{user},error}=await admin.auth.getUser(jwt);if(error||!user||user.is_anonymous)return null;
@@ -56,13 +64,7 @@ Deno.serve(async(req:Request)=>{
   reconcile:async(store,actor,order,attempt)=>{
    if(!attempt.providerOrderId)return 'review';
    return await reconcileIsolatedTestOrder({storeId:store,localOrderId:order,providerOrderId:attempt.providerOrderId,externalReference:attempt.snapshot.externalReference,sellerAccountId:attempt.connection.sellerId,expectedAmount:attempt.snapshot.total,method:attempt.method,cardMethodId:attempt.cardMethodId,cardType:attempt.cardType,connection:attempt.connection},{
-    verifyTestSeller:async(token,seller)=>{
-     const response=await fetch('https://api.mercadolibre.com/users/me',{headers:{Authorization:`Bearer ${token}`,Accept:'application/json'},redirect:'error',signal:AbortSignal.timeout(10000)});
-     if(!response.ok||Number(response.headers.get('content-length')||0)>32768)return false;
-     const reader=response.body?.getReader();if(!reader)return false;let size=0,text='';const decoder=new TextDecoder();
-     for(;;){const {done,value}=await reader.read();if(done)break;size+=value.byteLength;if(size>32768){await reader.cancel();return false;}text+=decoder.decode(value,{stream:true});}
-     return isVerifiedTestSeller(JSON.parse(text+decoder.decode()),seller);
-    },transport,
+    verifyTestSeller,transport,
     apply:async(binding,paymentId)=>await rpc('food_mp_isolated_apply_admin_v1',{p_store:binding.storeId,p_actor:actor,p_order:binding.localOrderId,p_seller:binding.sellerAccountId,p_provider:binding.providerOrderId,p_payment:paymentId,p_amount:binding.expectedAmount,p_status:'processed',p_detail:'accredited'}),
    });
   },

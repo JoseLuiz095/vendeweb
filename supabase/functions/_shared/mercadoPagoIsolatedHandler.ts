@@ -2,7 +2,7 @@ import {createSandboxPixOrder,getSandboxPixOrder,SandboxOrdersError,type Provide
 import {createSandboxCardOrder} from './mercadoPagoCardSandbox.ts';
 
 type Attempt={connection:SandboxConnection;snapshot:PixSnapshot;method:'pix'|'card';cardMethodId?:string;cardType?:'credit_card'|'debit_card';providerOrderId:string|null};
-type Dependencies={authenticate:(request:Request)=>Promise<string|null>;authorize:(actor:string,store:string)=>Promise<boolean>;create:(store:string,actor:string,requestId:string,method:'pix'|'card')=>Promise<{orderId:string}|null>;reserve:(store:string,actor:string,order:string)=>Promise<Attempt|null>;prepareCard:(store:string,actor:string,order:string,methodId:string,type:'credit_card'|'debit_card')=>Promise<boolean>;bind:(store:string,actor:string,order:string,providerId:string)=>Promise<boolean>;reconcile:(store:string,actor:string,order:string,attempt:Attempt)=>Promise<'applied'|'duplicate'|'pending'|'review'>;transport:ProviderTransport};
+type Dependencies={authenticate:(request:Request)=>Promise<string|null>;authorize:(actor:string,store:string)=>Promise<boolean>;create:(store:string,actor:string,requestId:string,method:'pix'|'card')=>Promise<{orderId:string}|null>;reserve:(store:string,actor:string,order:string)=>Promise<Attempt|null>;verifyTestSeller:(token:string,seller:string)=>Promise<boolean>;prepareCard:(store:string,actor:string,order:string,methodId:string,type:'credit_card'|'debit_card')=>Promise<boolean>;bind:(store:string,actor:string,order:string,providerId:string)=>Promise<boolean>;reconcile:(store:string,actor:string,order:string,attempt:Attempt)=>Promise<'applied'|'duplicate'|'pending'|'review'>;transport:ProviderTransport};
 const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const object=(v:unknown):v is Record<string,unknown>=>!!v&&typeof v==='object'&&!Array.isArray(v);
 const reply=(status:number,value:unknown)=>new Response(JSON.stringify(value),{status,headers:{'Content-Type':'application/json','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}});
@@ -27,6 +27,7 @@ export function makeIsolatedTestHandler(deps:Dependencies){return async(req:Requ
   }
   if((input.action!=='pay'&&input.action!=='check'&&input.action!=='card_config')||Object.keys(input).some(k=>!['action','storeId','orderId','card'].includes(k))||typeof input.orderId!=='string'||!uuid.test(input.orderId))return reply(400,{error:'invalid_request'});
   const orderId=input.orderId,attempt=await deps.reserve(store,actor,orderId);if(!attempt)return reply(409,{error:'test_unavailable'});
+  if(!await deps.verifyTestSeller(attempt.connection.accessToken,attempt.connection.sellerId))return reply(409,{error:'test_unavailable'});
   if(input.action==='card_config'){
    if(input.card!==undefined||attempt.method!=='card'||attempt.providerOrderId||typeof attempt.connection.publicKey!=='string'||!/^[A-Za-z0-9_-]{1,256}$/.test(attempt.connection.publicKey))return reply(409,{error:'test_unavailable'});
    return reply(200,{publicKey:attempt.connection.publicKey,amount:attempt.snapshot.total});

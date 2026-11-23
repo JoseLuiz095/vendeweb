@@ -16,11 +16,11 @@ test('confirma usuário brasileiro de teste com a identidade recebida',()=>{
  assert.equal(isVerifiedTestSeller({...user,site_id:'MLA'},'123'),false);
  assert.equal(isVerifiedTestSeller({...user,tags:[]},'123'),false);
 });
-test('diagnóstico da resposta não revela conteúdo e não aceita ambiente real',()=>{
+test('diagnóstico valida formato da resposta sem revelar conteúdo',()=>{
  const valid={live_mode:false,access_token:'secret',refresh_token:'secret',expires_in:3600,user_id:123};
  assert.equal(tokenResponseIssue(valid),null);
- assert.equal(tokenResponseIssue({...valid,live_mode:true}),'environment_true');
- assert.equal(tokenResponseIssue({...valid,live_mode:undefined}),'environment_missing');
+ assert.equal(tokenResponseIssue({...valid,live_mode:true}),null);
+ assert.equal(tokenResponseIssue({...valid,live_mode:undefined}),null);
  assert.equal(tokenResponseIssue({...valid,live_mode:'secret'}),'environment_other');
  assert.equal(tokenResponseIssue({...valid,refresh_token:'secret'.repeat(2000)}),'refresh_token');
 });
@@ -33,7 +33,7 @@ function fixture(){
   consumeState:async(hash,id,actor,now)=>{const s=states.get(hash);if(!s||s.storeId!==id||s.actorId!==actor||s.expiresAt<=now)return null;states.delete(hash);return{sealedVerifier:s.sealedVerifier,claim:String(s.generation)};},
   commitConnection:async(id,actor,claim,c)=>{if(claim!==String(generation))return false;connection=c;return true;},
   disconnect:async()=>{generation++;states.clear();connection=null;},
-  exchange:async(url,body)=>{calls++;assert.equal(url,'https://api.mercadopago.com/oauth/token');assert.equal(body.test_token,true);return {live_mode:false,access_token:'synthetic-access',refresh_token:'synthetic-refresh',user_id:123,expires_in:3600};},
+  exchange:async(url,body)=>{calls++;assert.equal(url,'https://api.mercadopago.com/oauth/token');assert.equal(body.test_token,false);return {live_mode:false,access_token:'synthetic-access',refresh_token:'synthetic-refresh',user_id:123,expires_in:3600};},
   verifyTestSeller:async(token,id)=>token==='synthetic-access'&&id==='123',
  };
  const call=async(body,{token='valid',requestOrigin=origin}={})=>{const r=await createTestOAuthHandler(deps)(new Request('https://app.example.test/function',{method:'POST',headers:{origin:requestOrigin,authorization:`Bearer ${token}`,'content-type':'application/json'},body:JSON.stringify(body)}));return {status:r.status,body:await r.json()};};
@@ -71,8 +71,18 @@ test('resposta sem ambiente exige conta de teste verificada e identidade corresp
  assert.equal((await g.call({action:'complete',storeId:store,state:state2,code:'code'})).status,502);
  assert.equal(g.getConnection(),null);
 });
+test('credencial de conta não verificada nunca é vinculada mesmo com live_mode false',async()=>{
+ const f=fixture(),state=await start(f);f.deps.verifyTestSeller=async()=>false;
+ assert.equal((await f.call({action:'complete',storeId:store,state,code:'code'})).status,502);
+ assert.equal(f.getConnection(),null);
+});
+test('credencial compatível com Orders só é vinculada após confirmação da conta de teste',async()=>{
+ const f=fixture(),state=await start(f);f.deps.exchange=async()=>({live_mode:true,access_token:'synthetic-access',refresh_token:'synthetic-refresh',user_id:123,expires_in:3600});
+ assert.equal((await f.call({action:'complete',storeId:store,state,code:'code'})).status,200);
+});
 test('desconexão concorrente impede callback tardio de reconectar',async()=>{
  const f=fixture(),state=await start(f);let resolve,startExchange;const started=new Promise(r=>startExchange=r);
+ f.deps.verifyTestSeller=async()=>true;
  f.deps.exchange=async()=>{startExchange();return await new Promise(r=>resolve=r);};
  const completion=f.call({action:'complete',storeId:store,state,code:'x'});await started;
  await f.call({action:'disconnect',storeId:store});resolve({live_mode:false,access_token:'test',refresh_token:'test',expires_in:100,user_id:5});
