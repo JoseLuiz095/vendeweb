@@ -32,7 +32,7 @@ for(const paymentType of ['pix','card']) test(`pedido ${paymentType} isolado: cr
    bind:async(s,a,id,p)=>q(db,'select public.food_mp_isolated_bind_v1($1,$2,$3,$4) v',[s,a,id,p]),transport,
    reconcile:async(s,a,id,attempt)=>reconcileIsolatedTestOrder({storeId:s,localOrderId:id,providerOrderId:attempt.providerOrderId,externalReference:attempt.snapshot.externalReference,sellerAccountId:attempt.connection.sellerId,expectedAmount:attempt.snapshot.total,method:attempt.method,cardMethodId:attempt.cardMethodId,cardType:attempt.cardType,connection:attempt.connection},{verifyTestSeller:async()=>true,transport,apply:async(b,p)=>q(db,"select public.food_mp_isolated_apply_admin_v1($1,$2,$3,$4,$5,$6,$7,'processed','accredited') v",[s,a,id,b.sellerAccountId,b.providerOrderId,p,b.expectedAmount])})};
   const h=makeIsolatedTestHandler(deps);const created=await (await h(call({action:'create',storeId:store,requestId:request,method:paymentType}))).json();
-  assert.ok(created.orderId);const payload={action:'pay',storeId:store,orderId:created.orderId,...(paymentType==='card'?{card:{cardToken:'synthetic-card-token',paymentMethodId:'visa',paymentType:'credit_card',installments:1}}:{})};
+  assert.ok(created.orderId);const payload={action:'pay',storeId:store,orderId:created.orderId,...(paymentType==='card'?{card:{cardToken:'synthetic-card-token',paymentMethodId:'visa',paymentType:'credit_card',installments:1,buyerEmail:'test_payer@example.com'}}:{})};
   if(paymentType==='card')assert.equal((await h(call({action:'card_config',storeId:store,orderId:created.orderId}))).status,200);
   assert.equal((await h(call(payload))).status,200);
   assert.deepEqual(await (await h(call({action:'check',storeId:store,orderId:created.orderId}))).json(),{result:'applied'});
