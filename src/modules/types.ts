@@ -19,7 +19,8 @@ export type ModuleOrderItem = { id: string; order_id: string; part_id: string; s
 export type Receivable = { part_id: string; store_id: string; amount_cents: number; settled_cents: number; status: string };
 export type Refund = { id: string; order_id: string; part_id: string; amount_cents: number; status: string };
 export type CustomRequest = { id: string; organization_id: string; store_id: string; customer_name: string; customer_phone: string;
-  quantity: number; size: string; material: string; color: string; due_at: string; notes: string; status: string; final_cents: number | null; quote: PrintCosts | null };
+  quantity: number; size: string; material: string; color: string; due_at: string; notes: string; status: string; final_cents: number | null; quote: PrintCosts | null;
+  print_plan?: import('./printing3d').PrintPlan | null };
 export type CustomFile = { id: string; request_id: string; name: string; storage_path: string; size_bytes: number };
 export type RentalAsset = { offer_id: string; maintenance: boolean; maintenance_notes: string; equipment_name?: string; active?: boolean };
 export type ChecklistItem = { label: string; checked: boolean };

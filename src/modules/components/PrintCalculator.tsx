@@ -11,8 +11,8 @@ const fields: { key: keyof PrintCosts; label: string; factor?: number }[] = [
   { key: 'margin_bps', label: 'Margem sobre venda (%)', factor: 100 },
 ];
 
-export default function PrintCalculator({ urgencyBps, onApply }: { urgencyBps: number; onApply: (costs: PrintCosts, finalCents: number, urgent: boolean) => void }) {
-  const [costs, setCosts] = useState(defaultPrintCosts);
+export default function PrintCalculator({ urgencyBps, onApply, initialCosts }: { urgencyBps: number; initialCosts?: PrintCosts; onApply: (costs: PrintCosts, finalCents: number, urgent: boolean) => void }) {
+  const [costs, setCosts] = useState(initialCosts || defaultPrintCosts);
   const [urgent, setUrgent] = useState(false);
   const [final, setFinal] = useState('');
   const result = useMemo(() => {
