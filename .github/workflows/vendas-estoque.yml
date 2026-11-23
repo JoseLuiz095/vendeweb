@@ -52,6 +52,7 @@ jobs:
       - run: npm exec --prefix qa -- playwright install --with-deps chromium
       - run: npm exec --prefix qa -- playwright test --config qa/admin-clarity.config.ts
       - run: npm exec --prefix qa -- playwright test --config qa/admin-routine.config.ts
+      - run: npm exec --prefix qa -- playwright test --config qa/printing3d.config.ts
       - run: npm exec --prefix qa -- playwright test --config qa/storefront-conversion.config.ts
       - run: npm exec --prefix qa -- playwright test --config qa/receipt-contacts.config.ts --max-failures=1
       - uses: actions/upload-artifact@v4
@@ -86,6 +87,7 @@ jobs:
       - run: npm run smoke
       - run: npm run test:critical
       - run: npm run test:integrations
+      - run: node scripts/printing3d-db-test.mjs
       - run: node scripts/sales-stock-db-test.mjs
       - run: node scripts/order-item-location-db-test.mjs
       - run: node scripts/dashboard-metrics-db-test.mjs
@@ -99,6 +101,10 @@ jobs:
         env:
           FOOD_DB_TEST_RUNTIME: ${{ runner.temp }}/food-db-runtime/node_modules
         run: node scripts/receipt-payment-postgres-test.mjs
+      - name: Produção 3D e recebimento concorrentes
+        env:
+          FOOD_DB_TEST_RUNTIME: ${{ runner.temp }}/food-db-runtime/node_modules
+        run: node scripts/printing3d-postgres-test.mjs
       - name: Nomes de loja únicos em duas sessões
         env:
           FOOD_DB_TEST_RUNTIME: ${{ runner.temp }}/food-db-runtime/node_modules

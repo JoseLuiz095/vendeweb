@@ -26,6 +26,17 @@
 .module-public { max-width: 1000px; margin: auto; padding: 1.25rem; }
 .module-pix { width: 100%; max-width: 240px; height: auto; }
 .food-modules textarea { min-height: 90px; }
+.print-summary { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,170px),1fr)); gap:.75rem; margin:1rem 0; }
+.print-summary > div { display:grid; gap:.4rem; padding:1rem; border-radius:12px; background:#f4f6ff; }
+.print-summary strong { font-size:1.8rem; color:#344caa; }
+.print-summary span { font-size:.9rem; }
+.print-alert { padding:.8rem; border:1px solid #bf9130; background:#fff9e9; border-radius:8px; color:#6c4b12; margin:1rem 0; }
+.print-material,.print-record { padding:.8rem; margin:.75rem 0; border:1px solid #dce2ef; border-radius:8px; }
+.print-workspace fieldset { margin:1rem 0; }
+.print-workspace summary { cursor:pointer; min-height:44px; padding:.5rem 0; }
+.print-consumption { border:2px solid #52639b; }
+.print-job h3 { margin:.5rem 0; }
+.print-workspace .module-grid { column-gap:.8rem; row-gap:.25rem; }
 .food-modules fieldset { min-width: 0; border: 1px solid #bbbcc5; border-radius: 8px; }
 @media (max-width: 600px) { .module-row { align-items: flex-start; } .module-actions { width: 100%; } .module-actions .button { flex: 1 1 140px; } .module-inline { width: 100%; } .module-inline label { flex: 1; } }
 

@@ -10,6 +10,7 @@ import OffersPanel from './components/OffersPanel';
 import CombosPanel from './components/CombosPanel';
 import ModuleOrdersPanel from './components/ModuleOrdersPanel';
 import CustomPanel from './components/CustomPanel';
+import PrintingWorkspace from './components/PrintingWorkspace';
 import RentalsPanel from './components/RentalsPanel';
 import type { ComboItem, ComboVersion, CustomFile, CustomRequest, ModuleOrder, ModuleOrderItem, ModuleSettings, Offer, OrderPart, Receivable, Refund, RentalAsset, RentalReservation } from './types';
 import './modules.css';
@@ -27,7 +28,7 @@ export default function ModulesPage({ master = false }: { master?: boolean }) {
   const [stores, setStores] = useState<{ id: string; name: string }[]>([]);
   const [selected, setSelected] = useState('');
   const store = master ? selected : membership?.storeId || '';
-  const {state:business}=useBusinessStatus(store);
+  const {state:business,loading:businessLoading,error:businessError}=useBusinessStatus(store);
   useEffect(() => {
     if (!master) return;
     let active = true;
@@ -96,7 +97,9 @@ export default function ModulesPage({ master = false }: { master?: boolean }) {
       {tab === 'offers' && canManage && <OffersPanel key={store} settings={data.settings} offers={data.offers} command={command} busy={busy} />}
       {tab === 'combos' && canManage && <CombosPanel directory={data.directory} approvals={data.approvals} versions={data.versions} command={command} busy={busy} canApprove={!master || membership?.storeId === store} />}
       {(tab === 'orders' || !canManage) && <ModuleOrdersPanel orders={data.orders} parts={data.parts} items={data.items} receivables={data.receivables} refunds={data.refunds} command={command} busy={busy || !canManage} master={master} storeId={store} onDetail={loadDetail} />}
-      {tab === 'custom' && canManage && <CustomPanel requests={data.customs} files={data.files} command={command} busy={busy} urgencyBps={data.settings.urgency_bps} reload={reload} onError={setError} />}
+      {tab === 'custom' && canManage && (businessLoading ? <p role="status">Carregando recursos da loja...</p> : businessError ? <p role="alert">{businessError}</p> : business?.profile?.primary_segment === 'printing3d'
+        ? <PrintingWorkspace key={store} store={store} requests={data.customs} files={data.files} command={command} busy={busy} urgencyBps={data.settings.urgency_bps} reload={reload} onError={setError}/>
+        : <CustomPanel key={store} requests={data.customs} files={data.files} command={command} busy={busy} urgencyBps={data.settings.urgency_bps} reload={reload} onError={setError} />)}
       {tab === 'rentals' && canManage && <RentalsPanel offers={data.offers} assets={data.assets} reservations={data.reservations} command={command} busy={busy} />}
       {hasModule && <p><a href={`/modulos/eventos/${store}`} target="_blank" rel="noreferrer">Abrir catálogo de eventos desta loja</a></p>}
       <p className="module-caption">Exibição limitada aos primeiros 200 registros por seção. Todas as consultas permanecem sujeitas às permissões da loja.</p>
