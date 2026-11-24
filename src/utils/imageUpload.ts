@@ -13,9 +13,9 @@ type ImageUploadProfile = {
 };
 
 const profiles: Record<ImageUploadPurpose, ImageUploadProfile> = {
-  product: { maxSide: 1600, targetBytes: 1_800_000, quality: 0.84 },
-  storeAsset: { maxSide: 2000, targetBytes: 2_200_000, quality: 0.86 },
-  addon: { maxSide: 1400, targetBytes: 1_500_000, quality: 0.84 },
+  product: { maxSide: 1600, targetBytes: 350_000, quality: 0.84 },
+  storeAsset: { maxSide: 2000, targetBytes: 500_000, quality: 0.86 },
+  addon: { maxSide: 1400, targetBytes: 250_000, quality: 0.84 },
 };
 
 const imageMimeTypes = new Set(['image/jpeg', 'image/png', 'image/webp']);
@@ -106,16 +106,15 @@ export const optimizeImageForUpload = async (
   context.drawImage(image, 0, 0, width, height);
   source?.close();
 
-  // WebP mantém transparência e costuma ser menor que JPEG/PNG. O fallback
-  // para JPEG atende navegadores antigos que não suportam WebP no canvas.
+  // WebP preserva transparência. Navegadores sem suporte podem retornar PNG
+  // mesmo quando WebP é solicitado; nesse caso, preservamos o arquivo original.
   const webp = await canvasToBlob(canvas, 'image/webp', profile.quality);
-  const jpeg = webp ? null : await canvasToBlob(canvas, 'image/jpeg', profile.quality);
-  const blob = webp || jpeg;
+  const blob = webp?.type === 'image/webp' ? webp : null;
   if (!blob || blob.size >= file.size) return file;
 
-  const extension = blob.type === 'image/webp' ? 'webp' : 'jpg';
-  return new File([blob], `${fileStem(file.name)}.${extension}`, {
+  return new File([blob], `${fileStem(file.name)}.webp`, {
     type: blob.type,
     lastModified: file.lastModified,
   });
 };
+
