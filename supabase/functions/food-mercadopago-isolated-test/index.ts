@@ -6,6 +6,7 @@ import {reconcileIsolatedTestOrder} from '../_shared/mercadoPagoIsolatedReconcil
 import {isVerifiedTestSeller} from '../_shared/mercadoPagoTestSeller.ts';
 import {testOrigins} from '../_shared/mpTestPreviewOrigin.ts';
 import {testBuyerEmail} from '../_shared/mercadoPagoTestBuyer.ts';
+import {inspectComparisonCredential} from '../_shared/mercadoPagoCredentialComparison.ts';
 
 // Disabled by default. Experimental local adapter: do not deploy until the
 // isolated schema, concurrency and provider verification have been reviewed.
@@ -65,6 +66,13 @@ Deno.serve(async(req:Request)=>{
   bind:async(store,actor,order,id)=>await rpc('food_mp_isolated_bind_v1',{p_store:store,p_actor:actor,p_order:order,p_provider:id})===true,
   reconcile:async(store,actor,order,attempt)=>{
    if(!attempt.providerOrderId)return 'review';
+   // Runs only after the pilot's authentication, authorization and reservation.
+   // Diagnostic only: comparison credentials never replace the bound OAuth token.
+   const comparisonToken=Deno.env.get('MP_TEST_COMPARISON_ACCESS_TOKEN')||'';
+   const comparisonKey=Deno.env.get('MP_TEST_COMPARISON_PUBLIC_KEY')||'';
+   if(comparisonToken||comparisonKey)console.info('mp_test_credential_comparison',JSON.stringify(await inspectComparisonCredential({
+    accessToken:comparisonToken,publicKey:comparisonKey,oauthPublicKey:attempt.connection.publicKey,sellerId:attempt.connection.sellerId,
+   },fetch)));
    return await reconcileIsolatedTestOrder({storeId:store,localOrderId:order,providerOrderId:attempt.providerOrderId,externalReference:attempt.snapshot.externalReference,sellerAccountId:attempt.connection.sellerId,expectedAmount:attempt.snapshot.total,method:attempt.method,cardMethodId:attempt.cardMethodId,cardType:attempt.cardType,connection:attempt.connection},{
     verifyTestSeller,transport,
     recordFailure:async binding=>await rpc('food_mp_isolated_record_failure_v1',{p_store:binding.storeId,p_actor:actor,p_order:binding.localOrderId,p_seller:binding.sellerAccountId,p_provider:binding.providerOrderId,p_reference:binding.externalReference,p_amount:binding.expectedAmount}),
