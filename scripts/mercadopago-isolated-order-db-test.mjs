@@ -34,6 +34,8 @@ test('registra apenas recusa vinculada à loja, sem marcar pago ou mexer no esto
   assert.equal(await fail(store,'123',snapshot.external_reference,50),'duplicate');
   const saved=await q(db,"select jsonb_build_object('payment',payment_status,'stock',stock_remaining,'fulfillment',fulfillment_status) v from public.food_mp_isolated_test_orders where id=$1",[o.order_id]);
   assert.deepEqual(saved,{payment:'failed',stock:10,fulfillment:'open'});
+  assert.equal(await q(db,"select public.food_mp_isolated_apply_admin_v1($1,$2,$3,'123','ORD123','PAY1',50,'processed','accredited') v",[store,actor,o.order_id]),'applied');
+  assert.equal(await q(db,"select public.food_mp_isolated_apply_admin_v1($1,$2,$3,'123','ORD123','PAY1',50,'processed','accredited') v",[store,actor,o.order_id]),'duplicate');
   await db.exec('reset role;set role anon');
   await assert.rejects(db.query("select public.food_mp_isolated_record_failure_v1($1,$2,$3,'123','ORD123',$4,50)",[store,actor,o.order_id,snapshot.external_reference]));
  }finally{await db.close()}
