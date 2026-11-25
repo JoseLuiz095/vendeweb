@@ -58,7 +58,8 @@
     "test:cart": "node scripts/cart-availability-test.mjs",
     "qa:quick-purchase": "npm --prefix qa run test:quick-purchase",
     "test:payment-links": "node --test scripts/order-payment-handler-test.mjs",
-    "qa:payment-links": "npm --prefix qa run test:payment-links"
+    "qa:payment-links": "npm --prefix qa run test:payment-links",
+    "test:fitness-reconcile": "FITNESS_RECONCILE=1 node scripts/fitness-db-test.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "2.112.4",
