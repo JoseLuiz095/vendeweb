@@ -68,6 +68,7 @@ function decideTestPayment(input:DecisionInput, method:{id:string;type:string}):
      o.external_reference!==binding.externalReference || (o.currency??o.currency_id)!=='BRL' || (o.currency!==undefined&&o.currency_id!==undefined&&o.currency!==o.currency_id)) return {action:'review',reason:'binding_mismatch'};
   const amount=brlCents(binding.expectedAmount), total=brlCents(o.total_amount);
   if(amount===null || amount<=0n || total!==amount) return {action:'review',reason:'amount_mismatch'};
+  if(o.status==='failed') return {action:'review',reason:'provider_order_failed'};
   if(o.status==='processed' && o.status_detail==='partially_refunded' || ['refunded','charged_back'].includes(String(o.status))) return {action:'review',reason:'refund_or_chargeback'};
   if(o.status!=='processed' || o.status_detail!=='accredited') return {action:'pending'};
   const payments=o.transactions?.payments;
