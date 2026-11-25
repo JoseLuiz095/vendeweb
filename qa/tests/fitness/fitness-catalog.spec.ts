@@ -13,6 +13,8 @@ for (const width of [320, 390, 768, 1280]) test(`Fitness examples separate ficti
   await page.setViewportSize({width,height:900});
   await mockStore(page, []);
   await page.goto('/fabriciofitness');
+  await expect(page.getByRole('heading',{name:'Ofertas publicadas'})).toBeVisible();
+  await page.getByText('Conheça os exemplos',{exact:true}).click();
   await expect(page.getByRole('heading',{name:'Exemplos de treinos e atendimentos'})).toBeVisible();
   await expect(page.getByRole('heading',{name:'Como seria a leitura de um plano alimentar'})).toBeVisible();
   await expect(page.getByText('Exemplo fictício',{exact:true})).toHaveCount(3);
@@ -37,6 +39,7 @@ test('public Fitness examples offer selectable looping movements',async({page})=
   await mockStore(page,[]);
   await page.route('https://cdn.jsdelivr.net/npm/@google/model-viewer@4.4.0/dist/model-viewer.min.js',route=>route.fulfill({status:200,contentType:'text/javascript',headers:{'access-control-allow-origin':'*'},body:`customElements.define('model-viewer',class extends HTMLElement{connectedCallback(){setTimeout(()=>this.dispatchEvent(new Event('load')),20)}play(){return Promise.resolve()}pause(){}});`}));
   await page.goto('/fabriciofitness');
+  await page.getByText('Conheça os exemplos',{exact:true}).click();
   await page.getByRole('button',{name:'Abrir galeria 2D e 3D de exercícios'}).click();
   const chooser=page.getByLabel('Escolha uma demonstração de exercício');
   await expect(chooser).toBeVisible();

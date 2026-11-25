@@ -41,7 +41,6 @@ export function FitnessCatalog({ products, categories, query = '', visible: show
   if (!showProducts) return null;
   return <section className="fitness-catalog" aria-labelledby="fitness-catalog-title">
     <div className="food-section-title"><div><span>CATÁLOGO</span><h2 id="fitness-catalog-title">Treinos, serviços e produtos</h2><InfoHint>Veja os exemplos de treino e as ofertas efetivamente publicadas pela loja.</InfoHint></div></div>
-    <FitnessPilotExamples query={query}/>
     <section aria-label="Ofertas da loja"><h3>Ofertas publicadas</h3>
       {offersLoading ? <p role="status">Consultando ofertas da loja…</p>
         : offersError ? <div role="alert" className="business-message business-message--error">As ofertas não puderam ser consultadas neste ambiente. <button type="button" onClick={() => setRetry(value => value + 1)}>Tentar novamente</button></div>
@@ -53,6 +52,10 @@ export function FitnessCatalog({ products, categories, query = '', visible: show
       <div className="fitness-catalog-filters" role="group" aria-label="Categorias de produtos"><button type="button" aria-pressed={categoryId === 'all'} onClick={() => setCategoryId('all')}>Todos</button>{visibleCategories.map(category => <button type="button" key={category.id} aria-pressed={categoryId === category.id} onClick={() => setCategoryId(category.id)}>{category.name}</button>)}</div>
       {visible.length ? <div className="fitness-catalog-grid">{visible.map(product => <Link className="fitness-catalog-card" key={product.id} to={storefrontPath(storeBasePath, `/produto/${product.slug}`)}><ProductMedia src={product.imageUrl} imageCount={product.images.length} alt={product.name}/><span>{visibleCategories.find(category => category.id === product.categoryId)?.name}</span><h3>{product.name}</h3><p>{product.description}</p><strong>{product.price > 0 ? currency.format(product.promotionalPrice ?? product.price) : 'Preço não informado'}</strong><small>Ver detalhes</small></Link>)}</div> : <p role="status" className="business-muted">Nenhum produto corresponde à busca. Tente outro termo ou categoria.</p>}
     </> : <p role="status" className="business-muted">Produtos físicos ainda não publicados nesta loja.</p>}
+    <details className="fitness-examples-disclosure" open={query ? true : undefined}>
+      <summary><span>Conheça os exemplos</span><small>Veja como são as fichas e demonstrações de exercícios</small></summary>
+      <FitnessPilotExamples query={query}/>
+    </details>
   </section>;
 }
 
