@@ -15,9 +15,41 @@ async function setup(){
  insert into public.food_mp_test_oauth_slots values ('${store}','123',now()+interval '1 hour',1,'sealed-test');
  grant usage on schema public to service_role; grant select,update on public.food_stores,public.food_store_users to service_role;grant select on public.food_mp_test_oauth_allowed_stores to service_role; grant select,update on public.food_mp_test_oauth_slots to service_role;`);
  await db.exec(await readFile(new URL('../supabase/migrations/20261119190946_food_mp_isolated_test_orders.sql',import.meta.url),'utf8'));
+ await db.exec(await readFile(new URL('../supabase/migrations/20261125172859_food_mp_isolated_record_failure.sql',import.meta.url),'utf8'));
  return db;
 }
 const q=async(db,sql,params=[]) => (await db.query(sql,params)).rows[0].v;
+test('registra apenas recusa vinculada à loja, sem marcar pago ou mexer no estoque',async()=>{
+ const db=await setup();try{
+  await db.exec('set role service_role');const actor='44444444-4444-4444-8444-444444444444';
+  const o=await q(db,"select public.food_mp_isolated_create_v1($1,$2,'pix',gen_random_uuid()) v",[store,actor]);
+  const snapshot=await q(db,'select public.food_mp_isolated_reserve_v1($1,$2,$3) v',[store,actor,o.order_id]);
+  assert.equal(await q(db,"select public.food_mp_isolated_bind_v1($1,$2,$3,'ORD123') v",[store,actor,o.order_id]),true);
+  const fail=(s,seller,ref,amount)=>q(db,"select public.food_mp_isolated_record_failure_v1($1,$2,$3,$4,'ORD123',$5,$6) v",[s,actor,o.order_id,seller,ref,amount]);
+  assert.equal(await fail(other,'123',snapshot.external_reference,50),'conflict');
+  assert.equal(await fail(store,'999',snapshot.external_reference,50),'conflict');
+  assert.equal(await fail(store,'123','other',50),'conflict');
+  assert.equal(await fail(store,'123',snapshot.external_reference,51),'conflict');
+  assert.equal(await fail(store,'123',snapshot.external_reference,50),'recorded');
+  assert.equal(await fail(store,'123',snapshot.external_reference,50),'duplicate');
+  const saved=await q(db,"select jsonb_build_object('payment',payment_status,'stock',stock_remaining,'fulfillment',fulfillment_status) v from public.food_mp_isolated_test_orders where id=$1",[o.order_id]);
+  assert.deepEqual(saved,{payment:'failed',stock:10,fulfillment:'open'});
+  assert.equal(await q(db,"select public.food_mp_isolated_apply_admin_v1($1,$2,$3,'123','ORD123','PAY1',50,'processed','accredited') v",[store,actor,o.order_id]),'applied');
+  assert.equal(await q(db,"select public.food_mp_isolated_apply_admin_v1($1,$2,$3,'123','ORD123','PAY1',50,'processed','accredited') v",[store,actor,o.order_id]),'duplicate');
+  await db.exec('reset role;set role anon');
+  await assert.rejects(db.query("select public.food_mp_isolated_record_failure_v1($1,$2,$3,'123','ORD123',$4,50)",[store,actor,o.order_id,snapshot.external_reference]));
+ }finally{await db.close()}
+});
+test('recusa não substitui pagamento já confirmado',async()=>{
+ const db=await setup();try{
+  await db.exec('set role service_role');const actor='44444444-4444-4444-8444-444444444444';
+  const o=await q(db,"select public.food_mp_isolated_create_v1($1,$2,'pix',gen_random_uuid()) v",[store,actor]);
+  const snapshot=await q(db,'select public.food_mp_isolated_reserve_v1($1,$2,$3) v',[store,actor,o.order_id]);
+  await q(db,"select public.food_mp_isolated_bind_v1($1,$2,$3,'ORD123') v",[store,actor,o.order_id]);
+  assert.equal(await q(db,"select public.food_mp_isolated_apply_admin_v1($1,$2,$3,'123','ORD123','PAY1',50,'processed','accredited') v",[store,actor,o.order_id]),'applied');
+  assert.equal(await q(db,"select public.food_mp_isolated_record_failure_v1($1,$2,$3,'123','ORD123',$4,50) v",[store,actor,o.order_id,snapshot.external_reference]),'conflict');
+ }finally{await db.close()}
+});
 test('pedido e estoque de teste são isolados, por loja, e começam pendentes',async()=>{
  const db=await setup();try{
   await db.exec('set role service_role');

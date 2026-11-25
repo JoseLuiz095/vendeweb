@@ -27,6 +27,13 @@ test('Pix usa apenas dados reservados e repetições consultam o mesmo pedido',a
  assert.equal((await handler(req({action:'pay',storeId:store,orderId:order}))).status,200);
  assert.equal(f.calls(),2);
 });
+test('recusa do Pix vinculada é submetida à verificação antes do registro',async()=>{
+ const f=fixture();let checked;
+ f.deps.transport=async()=>Response.json({...provider,status:'failed',status_detail:'failed'});
+ f.deps.reconcile=async(_store,_actor,_order,attempt)=>{checked=attempt.providerOrderId;return'review'};
+ const response=await makeIsolatedTestHandler(f.deps)(req({action:'pay',storeId:store,orderId:order}));
+ assert.equal(response.status,200);assert.equal((await response.json()).status,'failed');assert.equal(checked,'ORD123');
+});
 test('sem autenticação ou permissão não consulta provedor',async()=>{
  const f=fixture();f.deps.authenticate=async()=>null;
  assert.equal((await makeIsolatedTestHandler(f.deps)(req({action:'pay',storeId:store,orderId:order}))).status,401);assert.equal(f.calls(),0);
