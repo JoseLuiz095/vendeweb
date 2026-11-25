@@ -1,5 +1,6 @@
 import {useEffect,useRef,useState} from 'react';
 import {checkIsolatedPayment,createIsolatedTestOrder,getIsolatedCardConfig,payIsolatedCard} from '../../services/mercadoPagoIsolatedTestApi';
+import {watchCardForm} from '../../services/mercadoPagoCardReadiness';
 
 type BrickController={unmount:()=>Promise<void>|void};
 type BrickBuilder={create:(type:'cardPayment',id:string,settings:object)=>Promise<BrickController>};
@@ -36,12 +37,13 @@ export function MercadoPagoIsolatedCardPilot({storeId}:{storeId:string}){
  useEffect(()=>{
   if(!config||!orderId)return;
   let canceled=false;let controller:BrickController|undefined;
+  const readiness=watchCardForm(()=>{if(!canceled)setError('Não foi possível carregar o formulário de teste. Atualize a página para tentar novamente.');});
   void (async()=>{try{
    await sdk();if(canceled)return;
    const ctor=(window as unknown as {MercadoPago?:MercadoPagoConstructor}).MercadoPago;if(!ctor)throw new Error('Formulário de teste indisponível.');
    const created=await new ctor(config.publicKey,{locale:'pt-BR'}).bricks().create('cardPayment','mp-isolated-card-brick',{
     initialization:{amount:config.amount},
-    callbacks:{onReady:()=>{},onError:()=>{if(!canceled)setError('Não foi possível carregar o formulário de teste.');},
+    callbacks:{onReady:()=>{readiness.ready();if(!canceled)setError('');},onError:()=>{readiness.fail();},
      onSubmit:async(form:unknown,additional:unknown)=>{
       if(!form||typeof form!=='object'||!additional||typeof additional!=='object')throw new Error('Cartão de teste inválido.');
       const value=form as Record<string,unknown>,extra=additional as Record<string,unknown>;
@@ -52,8 +54,8 @@ export function MercadoPagoIsolatedCardPilot({storeId}:{storeId:string}){
      }},
    });
    if(canceled)await created.unmount();else controller=created;
-  }catch{if(!canceled)setError('Não foi possível carregar o formulário de teste.');}})();
-  return()=>{canceled=true;if(controller)void controller.unmount();};
+  }catch{readiness.fail();}})();
+  return()=>{canceled=true;readiness.dispose();if(controller)void controller.unmount();};
  },[config,orderId,storeId]);
  useEffect(()=>{
   if(!sent||!orderId||confirmation!=='waiting')return;
