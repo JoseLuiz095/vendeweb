@@ -1,3 +1,4 @@
+import { fitnessReconcileSql } from './fitness-reconcile-sql.mjs';
 import { testPaidBooking } from './fitness-paid-booking-test.mjs';
 import { testContent } from './fitness-content-test.mjs';
 import { PGlite } from '@electric-sql/pglite';
@@ -63,6 +64,27 @@ try {
     '20261103164300_food_fitness_content_delivery.sql',
     '20261103164842_food_fitness_paid_appointments.sql',
   ]){
+    if (process.env.FITNESS_RECONCILE === '1' && file === '20261030114215_service_professional_identity.sql') {
+      await db.exec(readFileSync('supabase/migrations/20261109015413_fitness_workout_editor_compat.sql','utf8'));
+      const before = await one("select md5(prosrc) hash from pg_proc where oid='food_business_private.public_offers(uuid)'::regprocedure");
+      const sentinelStore=randomUUID(), sentinelUser=randomUUID(), sentinelWorkout=randomUUID(), sentinelExercise=randomUUID();
+      await db.query('insert into auth.users(id) values($1)',[sentinelUser]);
+      await db.query("insert into food_stores(id,slug,name) values($1,'preservacao','Preservação')",[sentinelStore]);
+      await db.query("insert into food_fitness_workouts(id,store_id,title,level,source,description,created_by) values($1,$2,'Existente','basic','custom','',$3)",[sentinelWorkout,sentinelStore,sentinelUser]);
+      await db.query("insert into food_fitness_exercises(id,store_id,workout_id,position,name,sets,repetitions,rest_seconds,load_or_effort,instructions,alternative,day,media_key) values($1,$2,$3,1,'Existente',3,'10',60,'leve','orientação','alternativa','B','repdb:bench-press')",[sentinelExercise,sentinelStore,sentinelWorkout]);
+      await db.query("insert into food_fitness_private.workout_exercise_notes values($1,$2,'Nota privada existente')",[sentinelExercise,sentinelStore]);
+      const reconciliation=readFileSync('supabase/migrations/20261125185854_fitness_reconcile_installed_baseline.sql','utf8');
+      assert.equal(reconciliation,fitnessReconcileSql());
+      await db.exec(reconciliation);
+      assert.equal((await one('select day from food_fitness_exercises where id=$1',[sentinelExercise])).day,'B');
+      assert.equal((await one('select notes from food_fitness_private.workout_exercise_notes where exercise_id=$1',[sentinelExercise])).notes,'Nota privada existente');
+      assert.equal((await one("select md5(prosrc) hash from pg_proc where oid='food_business_private.public_offers_before_fitness(uuid)'::regprocedure")).hash, before.hash);
+      assert.equal((await one("select count(*)::int n from information_schema.columns where table_schema='public' and table_name='food_fitness_exercises' and column_name='professional_notes'")).n,0);
+      await assert.rejects(()=>db.exec(fitnessReconcileSql()), /parcialmente instalado/);
+      await db.exec('rollback');
+      console.log('OK reconciliação: baseline compatível, privacidade, projeção dos outros ramos e segunda aplicação bloqueada.');
+      break;
+    }
     try { await db.exec(readFileSync(`supabase/migrations/${file}`,'utf8')); }
     catch (error) { throw new Error(`Migração ${file}: ${error.message} (posição ${error.position ?? 'n/a'})`); }
   }
