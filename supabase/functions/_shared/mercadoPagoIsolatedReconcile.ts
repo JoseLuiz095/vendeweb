@@ -1,7 +1,7 @@
-import {decideMercadoPagoTestPix,decideMercadoPagoTestCard} from './mercadoPagoPixTest.ts';
+import {brlCents,decideMercadoPagoTestPix,decideMercadoPagoTestCard} from './mercadoPagoPixTest.ts';
 import type {ProviderTransport,SandboxConnection} from './mercadoPagoOrdersSandbox.ts';
 type Binding={storeId:string;localOrderId:string;providerOrderId:string;externalReference:string;sellerAccountId:string;expectedAmount:string;method:'pix'|'card';cardMethodId?:string;cardType?:'credit_card'|'debit_card';connection:SandboxConnection};
-type Dependencies={verifyTestSeller:(token:string,sellerId:string)=>Promise<boolean>;transport:ProviderTransport;apply:(binding:Omit<Binding,'connection'>,paymentId:string)=>Promise<'applied'|'duplicate'|'conflict'>};
+type Dependencies={verifyTestSeller:(token:string,sellerId:string)=>Promise<boolean>;transport:ProviderTransport;recordFailure?:(binding:Omit<Binding,'connection'>)=>Promise<'recorded'|'duplicate'|'conflict'>;apply:(binding:Omit<Binding,'connection'>,paymentId:string)=>Promise<'applied'|'duplicate'|'conflict'>};
 type ProviderOrder=Parameters<typeof decideMercadoPagoTestPix>[0]['providerOrder'];
 const object=(value:unknown):value is Record<string,unknown>=>!!value&&typeof value==='object'&&!Array.isArray(value);
 
@@ -18,6 +18,18 @@ export async function reconcileIsolatedTestOrder(binding:Binding,deps:Dependenci
   const input={notificationLiveMode:false,signedResourceId:binding.providerOrderId,authenticatedSellerId:c.sellerId,binding:{...binding,localPaymentStatus:'pending' as const},providerOrder:data as ProviderOrder};
   const result=binding.method==='pix'?decideMercadoPagoTestPix(input):binding.method==='card'&&binding.cardMethodId&&binding.cardType?decideMercadoPagoTestCard(input,{id:binding.cardMethodId,type:binding.cardType}):{action:'review' as const};
   if(result.action==='pending')return 'pending';
+  if(result.action==='review'&&'reason' in result&&result.reason==='provider_order_failed'&&deps.recordFailure){
+   const tx=object(data.transactions)?data.transactions:null;
+   const payments=Array.isArray(tx?.payments)?tx.payments:[];
+   const payment=payments.length===1&&object(payments[0])?payments[0]:null;
+   const method=object(payment?.payment_method)?payment.payment_method:null;
+   const expectedId=binding.method==='pix'?'pix':binding.cardMethodId;
+   const expectedType=binding.method==='pix'?'bank_transfer':binding.cardType;
+   if(payment&&method&&expectedId&&expectedType&&method.id===expectedId&&method.type===expectedType&&brlCents(payment.amount)===brlCents(binding.expectedAmount)){
+    const {connection:_connection,...safeBinding}=binding;
+    await deps.recordFailure(safeBinding);
+   }
+  }
   if(result.action!=='apply')return 'review';
   const {connection:_connection,...safeBinding}=binding;
   const applied=await deps.apply(safeBinding,result.paymentId);

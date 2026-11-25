@@ -41,6 +41,7 @@ export function makeIsolatedTestHandler(deps:Dependencies){return async(req:Requ
    const order=attempt.providerOrderId?await getSandboxPixOrder(attempt.connection,{id:attempt.providerOrderId,externalReference:attempt.snapshot.externalReference,total:attempt.snapshot.total},deps.transport):await createSandboxPixOrder(attempt.connection,attempt.snapshot,deps.transport);
    if(!await deps.authorize(actor,store))return reply(409,{error:'test_changed'});
    if(!attempt.providerOrderId&&!await deps.bind(store,actor,orderId,order.id))return reply(409,{error:'test_changed'});
+   if(order.status==='failed')await deps.reconcile(store,actor,orderId,{...attempt,providerOrderId:order.id});
    return reply(200,{id:order.id,status:order.status,statusDetail:order.statusDetail,qrCode:order.qrCode});
   }
   if(attempt.method!=='card'||attempt.providerOrderId)return reply(409,{error:'test_already_submitted'});
@@ -51,6 +52,7 @@ export function makeIsolatedTestHandler(deps:Dependencies){return async(req:Requ
   const order=await createSandboxCardOrder(attempt.connection,attempt.snapshot,{cardToken:card.cardToken,paymentMethodId:card.paymentMethodId,paymentType:card.paymentType,installments:card.installments},deps.transport);
   if(!await deps.authorize(actor,store))return reply(409,{error:'test_changed'});
   if(!await deps.bind(store,actor,orderId,order.id))return reply(409,{error:'test_changed'});
+  if(order.status==='failed')await deps.reconcile(store,actor,orderId,{...attempt,providerOrderId:order.id,cardMethodId:card.paymentMethodId,cardType:card.paymentType});
   return reply(200,{id:order.id,status:order.status,statusDetail:order.statusDetail});
  }catch(error){
   // Only controlled categories and HTTP status are logged; provider bodies and credentials are never logged.

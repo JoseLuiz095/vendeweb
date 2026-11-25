@@ -67,6 +67,7 @@ Deno.serve(async(req:Request)=>{
    if(!attempt.providerOrderId)return 'review';
    return await reconcileIsolatedTestOrder({storeId:store,localOrderId:order,providerOrderId:attempt.providerOrderId,externalReference:attempt.snapshot.externalReference,sellerAccountId:attempt.connection.sellerId,expectedAmount:attempt.snapshot.total,method:attempt.method,cardMethodId:attempt.cardMethodId,cardType:attempt.cardType,connection:attempt.connection},{
     verifyTestSeller,transport,
+    recordFailure:async binding=>await rpc('food_mp_isolated_record_failure_v1',{p_store:binding.storeId,p_actor:actor,p_order:binding.localOrderId,p_seller:binding.sellerAccountId,p_provider:binding.providerOrderId,p_reference:binding.externalReference,p_amount:binding.expectedAmount}),
     apply:async(binding,paymentId)=>await rpc('food_mp_isolated_apply_admin_v1',{p_store:binding.storeId,p_actor:actor,p_order:binding.localOrderId,p_seller:binding.sellerAccountId,p_provider:binding.providerOrderId,p_payment:paymentId,p_amount:binding.expectedAmount,p_status:'processed',p_detail:'accredited'}),
    });
   },
