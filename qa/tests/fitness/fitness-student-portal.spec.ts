@@ -10,17 +10,18 @@ async function mockStudent(page: Page, mediaKey = '', exercises?: Array<{
 }>) {
   await page.addInitScript(({user}) => {
     const exp = Math.floor(Date.now() / 1000) + 3600;
-    const payload = { sub: user, session_id: '40000000-0000-4000-8000-000000000001', role: 'authenticated', exp };
-    const token = 'header.' + btoa(JSON.stringify(payload)) + '.signature';
+    const payload = { sub: user, session_id: '40000000-0000-4000-8000-000000000001', role: 'authenticated', aal: 'aal1', exp };
+    const encode=(value:unknown)=>btoa(JSON.stringify(value)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+    const token = encode({alg:'HS256',typ:'JWT'}) + '.' + encode(payload) + '.synthetic-signature';
     localStorage.setItem('foodservice.fitness.student.auth.v1', JSON.stringify({
       access_token: token, refresh_token: 'test-refresh', expires_at: exp, expires_in: 3600,
-      token_type: 'bearer', user: { id: user, phone: '+5527999991234', aud: 'authenticated', app_metadata: {}, user_metadata: {} },
+      token_type: 'bearer', user: { id: user, phone: '+5527999991234', phone_confirmed_at:'2026-11-01T00:00:00Z', factors:[], aud: 'authenticated', app_metadata: {}, user_metadata: {} },
     }));
   }, {user});
   await page.route('https://*.supabase.co/**', route => {
     const path = new URL(route.request().url()).pathname;
     let result: unknown = [];
-    if (path === '/auth/v1/user') result = { id: user, phone: '+5527999991234', aud: 'authenticated', app_metadata: {}, user_metadata: {} };
+    if (path === '/auth/v1/user') result = { id: user, phone: '+5527999991234', phone_confirmed_at:'2026-11-01T00:00:00Z', factors:[], aud: 'authenticated', app_metadata: {}, user_metadata: {} };
     else if (path.endsWith('/food_fitness_student_status_v1')) result = { registered: true, store_id: store, client_id: client, name: 'Aluno fictício' };
     else if (path.endsWith('/food_fitness_student_session_v1')) result = { authorized: true };
     else if (path.endsWith('/food_fitness_offers_v1') || path.endsWith('/food_fitness_my_orders_v1')) result = [];
