@@ -1,4 +1,6 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import { professionalCredential } from '../utils/professionalCredential';
+import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
+import { useAuth } from '../contexts/AuthContext';
 import { restFetch } from '../lib/supabaseRest';
 import { businessApi, type BusinessRecord } from './api';
 import { fitnessApi, type FitnessWorkout } from '../services/fitnessApi';
@@ -8,7 +10,7 @@ const kindLabels: Record<FitnessOfferKind, string> = {
   workout: 'Ficha digital', assessment: 'Avaliação física', combo: 'Avaliação + ficha',
   nutrition_consult: 'Consulta nutricional', nutrition_plan: 'Plano alimentar personalizado',
 };
-type Staff = { user_id: string; name: string | null; kind: string | null; council: string | null; professional_active: boolean };
+type Staff = { user_id: string; name: string | null; kind: string | null; council: string | null; registration: string | null; professional_active: boolean };
 const blank: FitnessOfferInput = {
   kind: 'workout', name: '', description: '', price_cents: 0, workout_id: null,
   service_id: null, professional_user_id: '', published: false,
@@ -17,6 +19,9 @@ const money = (cents: number) => new Intl.NumberFormat('pt-BR', { style: 'curren
 const cents = (value: string) => Math.round(Number(value.replace(',', '.')) * 100);
 
 export function FitnessOffersAdmin({ store }: { store: string }) {
+  const {user,membership}=useAuth();
+  const activeStore=useRef(store);activeStore.current=store;
+  const requestVersion=useRef(0);
   const [offers, setOffers] = useState<FitnessOffer[]>([]);
   const [orders, setOrders] = useState<FitnessOfferOrder[]>([]);
   const [workouts, setWorkouts] = useState<FitnessWorkout[]>([]);
@@ -32,20 +37,22 @@ export function FitnessOffersAdmin({ store }: { store: string }) {
   const [orderFilter, setOrderFilter] = useState<'pending' | 'all'>('pending');
 
   const reload = useCallback(async () => {
+    const version=++requestVersion.current;
     const [nextOffers, nextOrders, nextWorkouts, nextServices, nextStaff] = await Promise.all([
       fitnessOffersApi.list(store, true), fitnessOffersApi.adminOrders(store), fitnessApi.listWorkouts(store),
       businessApi.operate(store, 'services.list'),
       restFetch<Staff[]>('rpc/food_service_professional_staff', { method: 'POST', body: { p_store: store } }),
     ]);
+    if(activeStore.current!==store||requestVersion.current!==version)return;
     setOffers(nextOffers); setOrders(nextOrders); setWorkouts(nextWorkouts);
     setServices(nextServices.items || []); setStaff(nextStaff.filter(item => item.professional_active));
     setLoaded(true);
   }, [store]);
   useEffect(() => {
     let active = true;
-    setOffers([]); setOrders([]); setDraft(blank); setError(''); setLoaded(false);
+    setOffers([]); setOrders([]); setWorkouts([]); setServices([]); setStaff([]); setDraft(blank); setError(''); setNotice(''); setBusy(false); setReviewing(false); setLoaded(false);
     void reload().catch(() => { if (active) setError('Não foi possível carregar ofertas e profissionais. Verifique a configuração do serviço e tente novamente.'); });
-    return () => { active = false; };
+    return () => { active = false; ++requestVersion.current; };
   }, [reload]);
 
   const save = async (event: FormEvent) => {
@@ -60,6 +67,7 @@ export function FitnessOffersAdmin({ store }: { store: string }) {
     try {
       const item={...draft,price_cents:cents(price)};
       const result=await fitnessOffersApi.save(store,{...item,published:false});
+      if(activeStore.current!==store)return;
       savedId=result.id;
       setDraft(current => ({...current, id: result.id, published: false}));
       const original=offers.find(offer=>offer.id===draft.id);
@@ -67,13 +75,15 @@ export function FitnessOffersAdmin({ store }: { store: string }) {
       if(!original||fields.some(key=>original[key]!==item[key]))await fitnessOffersApi.delivery(store,result.id,item);
       if(item.published)await fitnessOffersApi.save(store,{...item,id:result.id});
       try { await reload(); } catch { setError('A operação foi concluída, mas a lista não atualizou. Recarregue antes de repetir.'); setReviewing(false); return; }
+      if(activeStore.current!==store)return;
       setNotice(draft.published ? 'Oferta publicada. Confira a situação na lista de ofertas da loja.' : 'Oferta salva em rascunho.');
       setDraft(blank); setPrice(''); setReviewing(false);
     } catch (cause) {
+      if(activeStore.current!==store)return;
       setReviewing(false);
       setError(savedId ? `A oferta foi salva como rascunho, mas uma etapa posterior falhou. Confira a lista antes de tentar novamente. ${(cause as Error).message}` : (cause as Error).message);
     }
-    finally { setBusy(false); }
+    finally { if(activeStore.current===store)setBusy(false); }
   };
   const confirm = async (order: FitnessOfferOrder, action: 'confirm' | 'refund') => {
     if (busy || !window.confirm(action === 'confirm'
@@ -83,14 +93,20 @@ export function FitnessOffersAdmin({ store }: { store: string }) {
     try {
       await fitnessOffersApi.confirm(store, order.id, action);
       await reload();
+      if(activeStore.current!==store)return;
       setNotice(action === 'confirm' ? 'Pagamento confirmado e direito do aluno liberado.' : 'Compra reembolsada e acesso revisto.');
-    } catch (cause) { setError((cause as Error).message); }
-    finally { setBusy(false); }
+    } catch (cause) { if(activeStore.current===store)setError((cause as Error).message); }
+    finally { if(activeStore.current===store)setBusy(false); }
   };
   const needsWorkout = draft.kind === 'workout' || draft.kind === 'combo';
   const needsService = draft.kind !== 'workout';
   const professionalKind = draft.kind.startsWith('nutrition') ? 'nutrition' : 'training';
   const availableStaff = staff.filter(item => item.kind === professionalKind && item.council === (professionalKind === 'nutrition' ? 'CRN' : 'CREF'));
+  useEffect(()=>{
+    if(membership?.role!=='owner'||professionalKind!=='training')return;
+    const owner=staff.find(item=>item.user_id===user?.id&&item.kind==='training'&&item.council==='CREF');
+    if(owner)setDraft(current=>current.professional_user_id||current.id?current:{...current,professional_user_id:owner.user_id});
+  },[staff,user?.id,membership?.role,professionalKind,draft.kind,draft.id]);
   const approvedWorkouts = workouts.filter(item => item.status === 'approved' && item.professional?.user_id === draft.professional_user_id);
   const serviceKind = professionalKind;
   const activeServices = services.filter(item => item.active && item.kind === serviceKind && item.professional_user_id === draft.professional_user_id);
@@ -108,8 +124,8 @@ export function FitnessOffersAdmin({ store }: { store: string }) {
       <label>Tipo de oferta<select value={draft.kind} onChange={e => setDraft({ ...blank, kind: e.target.value as FitnessOfferKind })}>{Object.entries(kindLabels).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>
       <label>Nome *<input required minLength={3} maxLength={120} value={draft.name} onChange={e => setDraft({ ...draft, name: e.target.value })}/></label>
       <label>Preço em R$ *<input required inputMode="decimal" type="number" step="0.01" min="0.01" value={price} onChange={e => setPrice(e.target.value)}/></label>
-      <label>Responsável *<select required value={draft.professional_user_id} onChange={e => setDraft({ ...draft, professional_user_id: e.target.value, service_id: null, workout_id: null })}><option value="">Selecione</option>{availableStaff.map(item => <option key={item.user_id} value={item.user_id}>{item.name} · {item.council}</option>)}</select></label>
-      {availableStaff.length === 0 && <p className="fitness-wide business-message">Nenhum profissional ativo com {professionalKind === 'nutrition' ? 'CRN' : 'CREF'} foi encontrado para esta oferta. Confira o perfil profissional e o cadastro da equipe. <a href="/admin/operacao?tab=services">Gerenciar serviços</a></p>}
+      <label>Responsável *<select required value={draft.professional_user_id} onChange={e => setDraft({ ...draft, professional_user_id: e.target.value, service_id: null, workout_id: null })}><option value="">Selecione</option>{availableStaff.map(item => <option key={item.user_id} value={item.user_id}>{item.name}{professionalCredential(item.council, item.registration)}</option>)}</select></label>
+      {availableStaff.length === 0 && <p className="fitness-wide business-message">{professionalKind === 'nutrition' ? 'Nenhum profissional ativo com CRN foi encontrado para esta oferta.' : 'Nenhum responsável ativo de treinamento foi encontrado para esta oferta.'} Confira o perfil profissional e o cadastro da equipe. <a href="/admin/operacao?tab=services">Gerenciar serviços</a></p>}
       {needsWorkout && draft.professional_user_id && approvedWorkouts.length === 0 && <p className="fitness-wide business-message">Este responsável ainda não possui ficha aprovada. Crie e revise uma ficha antes de continuar. <a href="#treinos">Ir para fichas</a></p>}
       {needsService && draft.professional_user_id && activeServices.length === 0 && <p className="fitness-wide business-message">Nenhum serviço ativo foi encontrado para este responsável. <a href="/admin/operacao?tab=services">Gerenciar serviços</a></p>}
       {needsWorkout && <label>Ficha aprovada *<select required value={draft.workout_id || ''} onChange={e => setDraft({ ...draft, workout_id: e.target.value || null })}><option value="">Selecione</option>{approvedWorkouts.map(item => <option key={item.id} value={item.id}>{item.title}</option>)}</select></label>}

@@ -1,3 +1,4 @@
+import { professionalCredential } from '../utils/professionalCredential';
 import { useEffect, useRef, useState } from 'react';
 import { FitnessPaidBooking } from './FitnessPaidBooking';
 import { restFetch } from '../lib/supabaseRest';
@@ -52,7 +53,7 @@ export function FitnessOfferCheckout({ store, token, selected }: { store: string
     {offers.length === 0 ? <p className="business-muted">Ainda não há ofertas publicadas nesta loja.</p>
       : <div className="fitness-workout-list">{offers.filter(offer => !selected || offer.id === selected).map(offer => <article className="fitness-workout-card" key={offer.id}>
         <div className="business-card-heading"><h3>{offer.name}</h3><strong>{money(offer.price_cents)}</strong></div>
-        <p>{offer.description}</p><p>{offer.delivery_terms}</p>{offer.location_label&&<p>{offer.modality==='online'?'Online':'Local'}: {offer.location_label}</p>}<small>Responsável: {offer.professional_name} · {offer.professional_council}</small>
+        <p>{offer.description}</p><p>{offer.delivery_terms}</p>{offer.location_label&&<p>{offer.modality==='online'?'Online':'Local'}: {offer.location_label}</p>}<small>Responsável: {offer.professional_name}{professionalCredential(offer.professional_council, offer.professional_registration)}</small>
         <label className="fitness-check"><input type="checkbox" checked={Boolean(consent[offer.id])} onChange={e => setConsent(previous => ({ ...previous, [offer.id]: e.target.checked }))}/><span>Autorizo {offer.professional_name} a acompanhar esta compra e a ficha ou atendimento nesta loja. Posso revogar essa autorização nas preferências do aluno.</span></label>
         <button className="primary-button" disabled={busy || !consent[offer.id] || (!pix.pix_key && !pix.pix_copy_paste)} onClick={() => void buy(offer)}>{busy ? 'Aguarde…' : 'Gerar pedido Pix'}</button>
       </article>)}</div>}

@@ -4,6 +4,12 @@ import ts from 'typescript';
 
 const compile=path=>ts.transpileModule(readFileSync(path,'utf8'),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext}}).outputText;
 const moduleUrl=code=>`data:text/javascript;base64,${Buffer.from(code).toString('base64')}`;
+const {professionalCredential}=await import(moduleUrl(compile('src/utils/professionalCredential.ts')));
+assert.equal(professionalCredential('CREF',''),'');
+assert.equal(professionalCredential('CREF','   '),'');
+assert.equal(professionalCredential('CREF',undefined),'');
+assert.equal(professionalCredential('CREF','12345-G/ES'),' · CREF 12345-G/ES');
+assert.equal(professionalCredential('CRN','12345/ES'),' · CRN 12345/ES');
 const themeCode=compile('src/utils/storeVisualTheme.ts');
 const themeUrl=moduleUrl(themeCode);
 const segmentUrl=moduleUrl(compile('src/segments/businessSegments.ts').replace('../utils/storeVisualTheme',themeUrl));

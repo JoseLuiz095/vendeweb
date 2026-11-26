@@ -1,3 +1,4 @@
+import { testOwnerTraining } from './fitness-owner-training-test.mjs';
 import { fitnessReconcileSql } from './fitness-reconcile-sql.mjs';
 import { testPaidBooking } from './fitness-paid-booking-test.mjs';
 import { testContent } from './fitness-content-test.mjs';
@@ -89,6 +90,8 @@ try {
     catch (error) { throw new Error(`Migração ${file}: ${error.message} (posição ${error.position ?? 'n/a'})`); }
   }
 
+  await db.exec(readFileSync('supabase/migrations/20261126150208_food_fitness_owner_training_profile.sql','utf8'));
+
   const owner=randomUUID(), nutritionist=randomUUID(), student=randomUUID(), student2=randomUUID(), stranger=randomUUID(), unverified=randomUUID(), master=randomUUID(), manager=randomUUID(), store=randomUUID(), other=randomUUID(), plan=randomUUID();
   await db.query(`insert into auth.users(id,email,phone,phone_confirmed_at) values
     ($1,'owner@example.invalid',null,null),
@@ -117,7 +120,8 @@ try {
   const otherProfile=await rpc('food_business_initialize',[other,'fitness']);
   assert.equal(otherProfile.profile.primary_segment,'fitness');
   await rpc('food_fitness_set_professional',[other,owner,true]);
-  await rpc('food_service_professional_upsert',[store,owner,'Profissional Teste','training','CREF','000001-G/ES',true]);
+  await testOwnerTraining({db,rpc,session,store,other,owner,nutritionist,manager,student});
+  await rpc('food_service_professional_upsert',[store,owner,'Profissional Teste','training','CREF','',true]);
   await rpc('food_service_professional_upsert',[other,owner,'Profissional Loja 2','training','CREF','000002-G/ES',true]);
   await db.exec('reset role');
   await db.query("update food_store_subscriptions set billing_amount=0,due_day=null,next_due_date=null,expires_at=null,notes='FITNESS_PILOT_WAIVER: piloto sem cobrança' where store_id=$1",[store]);
@@ -366,6 +370,7 @@ try {
   const draftCombo=await rpc('food_fitness_offer_save_v1',[store,null,'combo','Avaliação e ficha','Pacote com avaliação e ficha.',10000,approved.id,service.id,owner,false]);
   assert.equal(draftCombo.published,false);
   assert.equal((await rpc('food_fitness_offers_v1',[store,false])).length,1);
+  assert.equal((await rpc('food_fitness_offers_v1',[store,false]))[0].professional_registration,'');
   assert.deepEqual(await rpc('food_fitness_offers_v1',[other,false]),[]);
   await session(student2);
   const purchase=await rpc('food_fitness_order_v1',[store,offer.id,randomUUID()]);
