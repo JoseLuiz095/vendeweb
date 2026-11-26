@@ -37,6 +37,7 @@
 @media(max-width:900px){
  .checkout-page-v44 .checkout-layout--premium{padding-bottom:100px}
  .checkout-page-v44 .checkout-step-actions{position:fixed;z-index:40;bottom:0;left:0;right:0;padding:10px 12px calc(10px + env(safe-area-inset-bottom));background:#fff;border-top:1px solid #e4e4df;box-shadow:0 -5px 20px rgba(0,0,0,.08)}
+ .checkout-page-v44.checkout-embedded .checkout-step-actions{position:static;z-index:auto;padding:0;background:transparent;border:0;box-shadow:none}
  .checkout-page-v44 .checkout-step-actions .checkout-mobile-final{display:flex;flex:1;justify-content:center}
  .checkout-page-v44 .checkout-summary .checkout-review-actions .checkout-submit{display:none}
  .checkout-page-v44 .checkout-summary--review{margin-top:0}
