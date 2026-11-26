@@ -4,7 +4,7 @@ type Method='pix'|'card';
 type PixResult={id:string;status:string;statusDetail:string;qrCode:string|null};
 export type TestCardToken={cardToken:string;paymentMethodId:string;paymentType:'credit_card'|'debit_card';installments:number;buyerEmail:string};
 async function invoke(body:{action:string;[key:string]:unknown}):Promise<unknown>{
- const {data,error}=await getSupabaseClient().functions.invoke('food-mercadopago-isolated-test',{body,timeout:20000});
+ const {data,error}=await getSupabaseClient().functions.invoke('food-mercadopago-isolated-test',{body,timeout:body.action==='compare_pix'?45000:20000});
  if(error){
   if(error.context instanceof Response){try{const detail:unknown=await error.context.clone().json();if(object(detail)&&detail.error==='test_buyer_mismatch')throw new Error('Use o e-mail da conta compradora de teste configurada para o piloto.');}catch(cause){if(cause instanceof Error&&cause.message==='Use o e-mail da conta compradora de teste configurada para o piloto.')throw cause;}}
   throw new Error(body.action==='pay'?'Não foi possível confirmar o resultado. Confira a tentativa antes de repetir.':'Não foi possível concluir a consulta de teste.');
@@ -21,6 +21,13 @@ export async function payIsolatedPix(storeId:string,orderId:string):Promise<PixR
  const data=await invoke({action:'pay',storeId,orderId});
  if(!object(data)||typeof data.id!=='string'||!/^[A-Za-z0-9_-]{1,128}$/.test(data.id)||typeof data.status!=='string'||typeof data.statusDetail!=='string'||!(data.qrCode===null||typeof data.qrCode==='string'&&data.qrCode.startsWith('000201')&&data.qrCode.length<=4096))throw new Error('Não foi possível consultar o Pix de teste.');
  return {id:data.id,status:data.status,statusDetail:data.statusDetail,qrCode:data.qrCode};
+}
+export async function compareTestCredentialPix(storeId:string,orderId:string):Promise<string>{
+ const data=await invoke({action:'compare_pix',storeId,orderId});
+ if(!object(data)||!['provider_order','provider_rejected'].includes(String(data.result))||!['invalid_users_involved','invalid_credentials','other'].includes(String(data.category)))throw new Error('Não foi possível verificar o teste de comparação.');
+ if(data.result==='provider_rejected')return `O provedor rejeitou a chamada de comparação (${data.category==='invalid_credentials'?'invalid_credentials':'erro de requisição'}).`;
+ if(typeof data.id!=='string'||!/^[A-Za-z0-9_-]{1,128}$/.test(data.id)||typeof data.status!=='string'||!['created','processing','action_required','processed','failed','canceled','expired','unknown'].includes(data.status))throw new Error('Resposta de comparação inválida.');
+ return `Conta de teste 3835760583, order ${data.id}: status no provedor ${data.status}${data.category==='invalid_users_involved'?' (invalid_users_involved)':''}. Este resultado não confirma o pagamento de um pedido da loja nem valida o OAuth.`;
 }
 export async function checkIsolatedPayment(storeId:string,orderId:string):Promise<'applied'|'duplicate'|'pending'|'review'>{
  const data=await invoke({action:'check',storeId,orderId});
