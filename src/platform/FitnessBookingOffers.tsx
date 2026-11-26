@@ -231,7 +231,7 @@ export function FitnessBookingOffers({query='',type='all'}:{query?:string;type?:
             <button className="secondary-button" disabled={busy||studentName.trim().length<2}>{busy?'Salvando…':'Continuar'}</button>
           </form>
           :studentBlockedReason?<div className="fitness-access-form">
-            <p role="alert">{studentBlockedReason==='SESSION_LIMIT'?'Já existe outra sessão Fitness autorizada para este aluno nesta loja. Peça ao Admin para liberar a troca e entre novamente pela área do aluno.':'Esta sessão Fitness foi revogada. Entre novamente por SMS após a liberação do Admin.'}</p>
+            <p role="alert">{studentBlockedReason==='SESSION_LIMIT'?'Já existe outra sessão Fitness autorizada para este aluno nesta loja. Peça ao Admin para liberar a troca e entre novamente pela área do aluno.':'Esta sessão Fitness foi revogada. Entre novamente pela área do aluno após a liberação do Admin.'}</p>
             <button type="button" className="secondary-button" disabled={busy} onClick={()=>void signOutStudent()}>Sair e entrar novamente</button>
           </div>
           :studentAccess&&studentIdentity?<form className="fitness-access-form" onSubmit={book}>
