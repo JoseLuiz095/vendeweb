@@ -62,7 +62,7 @@ export function MercadoPagoIsolatedCardPilot({storeId}:{storeId:string}){
      }},
    });
    if(canceled)await created.unmount();else controller=created;
-  }catch{readiness.fail();}})();
+  }catch(cause){console.warn('mp_card_brick_rejected',cardBrickErrorCategory(cause),comparison?'comparison':'oauth');readiness.fail();}})();
   return()=>{canceled=true;readiness.dispose();if(controller)void controller.unmount();};
  },[config,orderId,storeId,comparison]);
  useEffect(()=>{
@@ -84,7 +84,7 @@ export function MercadoPagoIsolatedCardPilot({storeId}:{storeId:string}){
   {!config&&!sent&&<button type="button" className="secondary-button" disabled={busy} onClick={()=>void compare()}>Verificar formulário com credencial de teste</button>}
   {orderId&&!config&&!sent&&<button type="button" className="secondary-button" disabled={busy} onClick={()=>void recover()}>Consultar tentativa anterior</button>}
   {error&&<small role="alert">{error}</small>}
-  {comparison&&<><small role="status">{ready?'Formulário de teste carregado. Esta comparação não envia pagamentos.':'Verificando formulário de teste. Esta comparação não envia pagamentos.'}</small><button type="button" className="secondary-button" onClick={reset}>Fechar comparação</button></>}
+  {comparison&&<><small role="status">{ready?'Formulário de teste carregado. Esta comparação não envia pagamentos.':error?'A comparação não conseguiu carregar o formulário.':'Verificando formulário de teste. Esta comparação não envia pagamentos.'}</small><button type="button" className="secondary-button" onClick={reset}>Fechar comparação</button></>}
   <div id="mp-isolated-card-brick" hidden={sent}/>
   {(sent||Boolean(orderId&&!config))&&<><small role="status">{sent?(confirmation==='paid'?'Pagamento de teste confirmado. Entrega permanece em aberto.':confirmation==='review'?'Teste em análise. Nenhum pagamento foi confirmado no pedido.':'Aguardando confirmação do pagamento de teste.'):''}</small><button type="button" className="secondary-button" disabled={busy} onClick={reset}>Preparar outro teste</button></>}
  </section>;
