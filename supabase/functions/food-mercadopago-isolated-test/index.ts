@@ -7,6 +7,7 @@ import {isVerifiedTestSeller} from '../_shared/mercadoPagoTestSeller.ts';
 import {testOrigins} from '../_shared/mpTestPreviewOrigin.ts';
 import {testBuyerEmail} from '../_shared/mercadoPagoTestBuyer.ts';
 import {inspectComparisonCredential} from '../_shared/mercadoPagoCredentialComparison.ts';
+import {runControlPix} from '../_shared/mercadoPagoControlPix.ts';
 
 // Disabled by default. Experimental local adapter: do not deploy until the
 // isolated schema, concurrency and provider verification have been reviewed.
@@ -41,6 +42,13 @@ Deno.serve(async(req:Request)=>{
   return isVerifiedTestSeller(JSON.parse(text+decoder.decode()),seller);
  };
  const handler=makeIsolatedTestHandler({
+  comparePix:async(store,actor,order,attempt)=>{
+   if(store!==DUOFORMA_PILOT_STORE||!await rpc('food_mp_test_oauth_authorize_v1',{p_actor:actor,p_store:store}))throw new Error('unavailable');
+   return await runControlPix({storeId:store,orderId:order,total:attempt.snapshot.total,accessToken:Deno.env.get('MP_TEST_COMPARISON_ACCESS_TOKEN')||''},async(endpoint,init)=>{
+    if(endpoint==='https://api.mercadolibre.com/users/me')return await fetch(endpoint,init);
+    return await transport(endpoint,init);
+   });
+  },
   verifyTestSeller,
   authenticate:async request=>{
    const jwt=request.headers.get('authorization')?.match(/^Bearer (.+)$/i)?.[1];if(!jwt)return null;
