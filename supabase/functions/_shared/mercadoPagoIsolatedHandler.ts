@@ -15,12 +15,18 @@ async function bounded(req:Request):Promise<unknown>{
 /** Test-only orchestration: callers must enforce pilot-only configuration, origin,
  * authenticated administrator, durable reservation, bounded transport and stored
  * test-token provenance. This handler never records real orders or marks paid. */
-export function makeIsolatedTestHandler(deps:Dependencies & {comparePix?:(store:string,actor:string,order:string,attempt:Attempt)=>Promise<unknown>}){return async(req:Request):Promise<Response>=>{
+export function makeIsolatedTestHandler(deps:Dependencies & {comparePix?:(store:string,actor:string,order:string,attempt:Attempt)=>Promise<unknown>;compareCardConfig?:(store:string,actor:string)=>Promise<unknown>}){return async(req:Request):Promise<Response>=>{
  if(req.method!=='POST')return reply(405,{error:'method_not_allowed'});
  try{
   const actor=await deps.authenticate(req);if(!actor)return reply(401,{error:'unauthorized'});
   const input=await bounded(req);if(!object(input)||typeof input.storeId!=='string'||!uuid.test(input.storeId))return reply(400,{error:'invalid_request'});
   const store=input.storeId;if(!await deps.authorize(actor,store))return reply(403,{error:'not_authorized'});
+  if(input.action==='compare_card_config'){
+   if(Object.keys(input).some(k=>!['action','storeId'].includes(k))||!deps.compareCardConfig)return reply(400,{error:'invalid_request'});
+   const result=await deps.compareCardConfig(store,actor);
+   if(!await deps.authorize(actor,store))return reply(409,{error:'test_changed'});
+   return reply(200,result);
+  }
   if(input.action==='create'){
    if(Object.keys(input).some(k=>!['action','storeId','requestId','method'].includes(k))||typeof input.requestId!=='string'||!uuid.test(input.requestId)||(input.method!=='pix'&&input.method!=='card'))return reply(400,{error:'invalid_request'});
    const order=await deps.create(store,actor,input.requestId,input.method);return order?reply(200,order):reply(409,{error:'test_unavailable'});
