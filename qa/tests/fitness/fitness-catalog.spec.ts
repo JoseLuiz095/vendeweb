@@ -14,6 +14,8 @@ for (const width of [320, 390, 768, 1280]) test(`Fitness examples separate ficti
   await mockStore(page, []);
   await page.goto('/fabriciofitness');
   await expect(page.getByRole('heading',{name:'Ofertas publicadas'})).toBeVisible();
+  await expect(page.getByRole('link',{name:'Área do aluno',exact:true})).toBeVisible();
+  await expect(page.getByRole('link',{name:'Área do aluno',exact:true})).toHaveAttribute('href',`/fitness/${store}/treinos`);
   await page.getByText('Conheça os exemplos',{exact:true}).click();
   await expect(page.getByRole('heading',{name:'Exemplos de treinos e atendimentos'})).toBeVisible();
   await expect(page.getByRole('heading',{name:'Como seria a leitura de um plano alimentar'})).toBeVisible();

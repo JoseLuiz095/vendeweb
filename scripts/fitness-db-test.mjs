@@ -314,6 +314,13 @@ try {
   const adminSessions=await rpc('food_fitness_student_session_admin_list_v1',[store]);
   assert.equal(adminSessions.students.length,2);
   assert.ok(adminSessions.students.every(item=>item.session_active));
+  await session(manager);
+  await assert.rejects(()=>rpc('food_fitness_student_session_admin_list_v1',[store]),'administrador também precisa de MFA');
+  await session(manager,'authenticated','aal2');
+  assert.equal((await one('select count(*)::int n from food_service_professionals where store_id=$1 and user_id=$2',[store,manager])).n,0);
+  assert.deepEqual(await rpc('food_fitness_student_session_admin_list_v1',[store]),adminSessions,'administrador sem perfil profissional consulta as mesmas sessões');
+  await session(owner,'authenticated','aal2');
+
 
   await session(owner);
   const otherService=(await rpc('food_business_operate',[other,'services.save',JSON.stringify({name:'Acompanhamento Loja 2',kind:'training',price_cents:5000,duration_minutes:60,active:true})])).item;
