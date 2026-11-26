@@ -12,7 +12,7 @@
 .checkout-step[hidden],.checkout-review-actions[hidden]{display:none!important}
 .checkout-flow-title{margin-bottom:0}
 .checkout-flow-progress{display:flex;list-style:none;padding:0;margin:0 0 4px;gap:0}
-.checkout-flow-progress li{position:relative;display:flex;align-items:center;gap:8px;flex:1;min-width:0;color:#68766e;font-size:.75rem}
+.checkout-flow-progress li{position:relative;display:flex;align-items:center;gap:8px;flex:1;min-width:0;color:#52645a;font-size:.875rem}
 .checkout-flow-progress li:not(:last-child)::after{content:'';height:1px;background:#d5ddd7;flex:1;margin:0 10px}
 .checkout-flow-progress li span{display:grid;place-items:center;flex:0 0 30px;height:30px;border:1px solid #c7d3ca;border-radius:50%;background:#fff;font-weight:800}
 .checkout-flow-progress li.is-active,.checkout-flow-progress li.is-complete{color:var(--food-store-primary,var(--green))}
@@ -27,7 +27,7 @@
 .checkout-review-details button{margin-top:12px;min-height:44px}
 @keyframes checkout-step-enter{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
 @media(max-width:900px){.checkout-summary:not(.checkout-summary--review){display:none}.checkout-layout--premium{padding-bottom:40px}.checkout-summary--review{order:initial}}
-@media(max-width:560px){.checkout-flow-progress li{display:grid;justify-items:center;text-align:center;gap:5px;font-size:.65rem}.checkout-flow-progress li:not(:last-child)::after{position:absolute;top:15px;left:calc(50% + 20px);width:calc(100% - 40px);margin:0}.checkout-flow-progress li b{line-height:1.25}.checkout-step-actions .primary-button{flex:1}.checkout-step-actions .secondary-button{min-width:90px}}
+@media(max-width:560px){.checkout-flow-progress li{display:grid;justify-items:center;text-align:center;gap:5px;font-size:.875rem}.checkout-flow-progress li:not(:last-child)::after{position:absolute;top:15px;left:calc(50% + 20px);width:calc(100% - 40px);margin:0}.checkout-flow-progress li b{line-height:1.25}.checkout-step-actions .primary-button{flex:1}.checkout-step-actions .secondary-button{min-width:90px}}
 @media(prefers-reduced-motion:reduce){.checkout-step:not([hidden]){animation:none}}
 
 .checkout-page-v44 .checkout-summary .checkout-review-actions .checkout-submit{display:flex;justify-content:center;width:100%;margin:12px 0}
