@@ -1,3 +1,4 @@
+import { testEmailAccess } from './fitness-email-access-test.mjs';
 import { testOwnerTraining } from './fitness-owner-training-test.mjs';
 import { fitnessReconcileSql } from './fitness-reconcile-sql.mjs';
 import { testPaidBooking } from './fitness-paid-booking-test.mjs';
@@ -24,8 +25,9 @@ try {
   await db.exec(`
     create role anon; create role authenticated; create role service_role bypassrls;
     create schema auth; create schema storage;
-    create table auth.users(id uuid primary key,email text,phone text,phone_confirmed_at timestamptz,raw_app_meta_data jsonb default '{}');
+    create table auth.users(id uuid primary key,email text,email_confirmed_at timestamptz,phone text,phone_confirmed_at timestamptz,raw_user_meta_data jsonb default '{}',raw_app_meta_data jsonb default '{}');
     create table auth.sessions(id uuid primary key,user_id uuid not null references auth.users(id),not_after timestamptz);
+    create table auth.mfa_factors(id uuid primary key,user_id uuid not null references auth.users(id),status text,factor_type text);
     create function auth.jwt() returns jsonb language sql stable as $$select coalesce(nullif(current_setting('request.jwt.claims',true),''),'{}')::jsonb$$;
     create function auth.uid() returns uuid language sql stable as $$select nullif(auth.jwt()->>'sub','')::uuid$$;
     create table public.food_stores(id uuid primary key default gen_random_uuid(),slug text unique,name text,active boolean default true,archived_at timestamptz,access_status text default 'online',approval_status text default 'approved',visual_theme jsonb default '{}',updated_at timestamptz default now(),pix_enabled boolean default false,pix_receipt_mode text default 'key',pix_key text,pix_copy_paste text,pix_holder_name text,city text,delivery_enabled boolean default true,pickup_enabled boolean default true,confirmation_payment_enabled boolean default true);
@@ -91,6 +93,7 @@ try {
   }
 
   await db.exec(readFileSync('supabase/migrations/20261126150208_food_fitness_owner_training_profile.sql','utf8'));
+  await db.exec(readFileSync('supabase/migrations/20261126154906_food_fitness_verified_email_access.sql','utf8'));
 
   const owner=randomUUID(), nutritionist=randomUUID(), student=randomUUID(), student2=randomUUID(), stranger=randomUUID(), unverified=randomUUID(), master=randomUUID(), manager=randomUUID(), store=randomUUID(), other=randomUUID(), plan=randomUUID();
   await db.query(`insert into auth.users(id,email,phone,phone_confirmed_at) values
@@ -414,6 +417,7 @@ try {
   assert.equal((await query('select * from food_fitness_workouts')).length,0);
   await testPaidBooking({db,rpc,session,store,other,owner,student,student2});
   await testContent({db,rpc,session,store,other,owner,nutritionist,student,student2,manager});
+  await testEmailAccess({db,rpc,session,store,other,owner,manager});
   console.log('OK Fitness: sessão por aluno/loja, MFA de Admin e isolamento entre alunos e lojas.');
 } finally {
   await db.close();

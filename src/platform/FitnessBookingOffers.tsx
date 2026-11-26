@@ -1,10 +1,9 @@
 import { professionalCredential } from '../utils/professionalCredential';
 import { InfoHint } from '../components/ui/InfoHint';
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
+import { Link } from 'react-router-dom';
 import type { Session } from '@supabase/supabase-js';
 import { useAuth } from '../contexts/AuthContext';
-import { TurnstileWidget } from '../components/ui/TurnstileWidget';
-import { appConfig } from '../lib/config';
 import { getFitnessStudentAuthClient } from '../lib/fitnessStudentAuth';
 import { useStore } from '../contexts/StoreContext';
 import { restFetch } from '../lib/supabaseRest';
@@ -24,14 +23,6 @@ const appointmentStatus:Record<string,string>={scheduled:'Agendado',confirmed:'C
 const identified=(service:Offer)=>Boolean(service.professional?.name?.trim()&&(
   service.kind==='training'?service.professional.council==='CREF':Boolean(service.professional.registration?.trim())&&(service.kind==='nutrition'?service.professional.council==='CRN':Boolean(service.professional.council))
 ));
-const normalizePhone=(raw:string):string|null=>{
-  const digits=raw.replace(/\D/g,'');
-  if(raw.trim().startsWith('+'))return digits.length>=8&&digits.length<=15?'+'+digits:null;
-  if(digits.startsWith('55')&&(digits.length===12||digits.length===13))return '+'+digits;
-  if(digits.length===10||digits.length===11)return '+55'+digits;
-  return null;
-};
-
 type StudentIdentity={client_id:string;name:string};
 
 export function FitnessBookingOffers({query='',type='all'}:{query?:string;type?:'all'|'products'|'services'|'consultations'|'content'}){
@@ -55,24 +46,19 @@ export function FitnessBookingOffers({query='',type='all'}:{query?:string;type?:
   const [slot,setSlot]=useState<FitnessSlot|null>(null);
   const [accepted,setAccepted]=useState(false);
   const [studentName,setStudentName]=useState('');
-  const [studentPhone,setStudentPhone]=useState('');
   const [studentSession,setStudentSession]=useState<Session|null>(null);
   const [studentIdentity,setStudentIdentity]=useState<StudentIdentity|null>(null);
   const [studentAccess,setStudentAccess]=useState(false);
   const [studentProfileRequired,setStudentProfileRequired]=useState(false);
   const [studentBlockedReason,setStudentBlockedReason]=useState('');
-  const [otpSent,setOtpSent]=useState(false);
-  const [otp,setOtp]=useState('');
-  const [captcha,setCaptcha]=useState('');
-  const [captchaReset,setCaptchaReset]=useState(0);
   const [busy,setBusy]=useState(false);
   const chosen=offers.find(item=>item.service.id===selected);
-  const isStoreStaff=memberships.some(item=>item.storeId===store);
+  const isStoreStaff=studentSession?.user.id===user?.id&&memberships.some(item=>item.storeId===store);
   const currentStudentToken=useCallback(async()=>{
     if(!studentAuth)throw new Error('Supabase não configurado.');
     const {data,error}=await studentAuth.auth.getSession();
     if(error)throw error;
-    if(!data.session?.access_token)throw new Error('Sua sessão Fitness expirou. Entre novamente por telefone.');
+    if(!data.session?.access_token)throw new Error('Sua sessão Fitness expirou. Entre novamente na área do aluno.');
     return data.session.access_token;
   },[studentAuth]);
 
@@ -95,7 +81,6 @@ export function FitnessBookingOffers({query='',type='all'}:{query?:string;type?:
         const token=await currentStudentToken();
         const status=await fitnessApi.studentStatus(store,token);
         if(!active)return;
-        setStudentPhone(studentSession.user.phone||'');
         if(!status.registered||!status.client_id){setStudentProfileRequired(true);return;}
         const identity={client_id:status.client_id,name:status.name||'Aluno'};
         const gate=await fitnessApi.studentSession(store,identity.client_id,'claim',token);
@@ -156,45 +141,18 @@ export function FitnessBookingOffers({query='',type='all'}:{query?:string;type?:
     return()=>{active=false;};
   },[store,studentSession?.access_token,studentAccess,isStoreStaff,refresh,currentStudentToken]);
 
-  const sendStudentCode=async(event:FormEvent)=>{
-    event.preventDefault();if(busy||!studentAuth)return;
-    const phone=normalizePhone(studentPhone);
-    if(!phone){setError('Informe um telefone válido com DDD.');return;}
-    if(!captcha){setError('Conclua a verificação anti-robô para receber o código.');return;}
-    setBusy(true);setError('');setNotice('');
-    try{
-      const {error:authError}=await studentAuth.auth.signInWithOtp({phone,options:{shouldCreateUser:true,captchaToken:captcha}});
-      if(authError)throw authError;
-      setStudentPhone(phone);setOtpSent(true);setOtp('');setCaptcha('');setCaptchaReset(value=>value+1);
-      setNotice('Código enviado por SMS. Confirme o telefone para continuar.');
-    }catch(cause){setError((cause as Error).message);setCaptcha('');setCaptchaReset(value=>value+1);}
-    finally{setBusy(false);}
-  };
-
-  const verifyStudentCode=async(event:FormEvent)=>{
-    event.preventDefault();if(busy||!studentAuth)return;
-    setBusy(true);setError('');setNotice('');
-    try{
-      const {data,error:verifyError}=await studentAuth.auth.verifyOtp({phone:normalizePhone(studentPhone)||studentPhone,token:otp,type:'sms'});
-      if(verifyError)throw verifyError;
-      if(!data.session)throw new Error('O código não abriu uma sessão. Solicite outro código.');
-      setStudentSession(data.session);setOtpSent(false);setOtp('');
-    }catch(cause){setError((cause as Error).message);}
-    finally{setBusy(false);}
-  };
-
   const registerStudentProfile=async(event:FormEvent)=>{
     event.preventDefault();if(!studentSession||busy)return;
     setBusy(true);setError('');setNotice('');
     try{
       const token=await currentStudentToken();
-      const verifiedPhone=studentSession.user.phone||'';
+      const verifiedPhone=studentSession.user.phone_confirmed_at?studentSession.user.phone||'':'';
       const created=await fitnessApi.registerStudent(store,studentName.trim(),verifiedPhone,token) as {client_id:string};
       const identity={client_id:created.client_id,name:studentName.trim()};
       const gate=await fitnessApi.studentSession(store,identity.client_id,'claim',token);
       setStudentIdentity(identity);setStudentAccess(gate.authorized);setStudentProfileRequired(false);
       setStudentBlockedReason(gate.authorized?'':gate.reason||'SESSION_REVOKED');
-      if(gate.authorized)setNotice('Telefone confirmado. Agora você pode reservar e consultar suas fichas nesta loja.');
+      if(gate.authorized)setNotice('Conta confirmada. Agora você pode reservar e consultar suas fichas nesta loja.');
     }catch(cause){setError((cause as Error).message);}
     finally{setBusy(false);}
   };
@@ -209,7 +167,7 @@ export function FitnessBookingOffers({query='',type='all'}:{query?:string;type?:
       }
       const {error:signOutError}=await studentAuth.auth.signOut({scope:'local'});
       if(signOutError)throw signOutError;
-      setStudentSession(null);setStudentIdentity(null);setStudentAccess(false);setStudentProfileRequired(false);setOtpSent(false);
+      setStudentSession(null);setStudentIdentity(null);setStudentAccess(false);setStudentProfileRequired(false);
     }catch(cause){setError((cause as Error).message);}
     finally{setBusy(false);}
   };
@@ -266,29 +224,18 @@ export function FitnessBookingOffers({query='',type='all'}:{query?:string;type?:
         <div className="fitness-policies"><h4>Regras antes da reserva</h4><p><strong>Cancelamento:</strong> {chosen.availability.cancel_policy}</p><p><strong>Reagendamento:</strong> {chosen.availability.reschedule_policy}</p></div>
         {!studentAuth?<p role="alert">O acesso ao Supabase não está configurado.</p>
           :isStoreStaff?<p className="business-muted">Esta conta administra a loja. Use a entrada de aluno para uma conta pessoal separada.</p>
-          :!studentSession?otpSent?<form className="fitness-access-form" onSubmit={verifyStudentCode}>
-            <p>Digite o código recebido por SMS. Nenhum e-mail ou senha é necessário.</p>
-            <label>Código de acesso<input required autoComplete="one-time-code" inputMode="numeric" minLength={4} maxLength={8} value={otp} onChange={event=>setOtp(event.target.value.replace(/\D/g,'').slice(0,8))}/></label>
-            <button className="secondary-button" disabled={busy||otp.trim().length<4}>{busy?'Verificando…':'Confirmar código'}</button>
-            <button type="button" className="text-link" disabled={busy} onClick={()=>{setOtpSent(false);setOtp('');setCaptcha('');}}>Solicitar outro código</button>
-          </form>:<form className="fitness-access-form" onSubmit={sendStudentCode}>
-            <p>Entre com seu telefone confirmado por SMS para reservar e consultar seus treinos. O mesmo acesso funciona no portal Fitness.</p>
-            <label>Telefone<input required type="tel" inputMode="tel" autoComplete="tel" placeholder="+55 11 99999-9999" value={studentPhone} onChange={event=>setStudentPhone(event.target.value)}/></label>
-            <TurnstileWidget siteKey={appConfig.turnstileSiteKey} action="fitness-student-phone" onToken={setCaptcha} resetSignal={captchaReset}/>
-            {!appConfig.turnstileSiteKey&&<small>A proteção anti-robô precisa ser configurada antes de enviar códigos.</small>}
-            <button className="secondary-button" disabled={busy||!captcha||!appConfig.turnstileSiteKey}>{busy?'Enviando…':'Receber código por SMS'}</button>
-          </form>
+          :!studentSession?<div className="fitness-access-form"><p>Entre na área do aluno para reservar e consultar seus treinos com sua conta.</p><Link className="primary-button" to={`/fitness/${store}/treinos`}>Entrar na área do aluno</Link></div>
           :studentProfileRequired?<form className="fitness-access-form" onSubmit={registerStudentProfile}>
-            <p>Telefone confirmado. Informe o nome que o profissional reconhecerá ao atribuir treinos.</p>
+            <p>Conta confirmada. Informe o nome que o profissional reconhecerá ao atribuir treinos.</p>
             <label>Seu nome<input required minLength={2} maxLength={120} autoComplete="name" value={studentName} onChange={event=>setStudentName(event.target.value)}/></label>
             <button className="secondary-button" disabled={busy||studentName.trim().length<2}>{busy?'Salvando…':'Continuar'}</button>
           </form>
           :studentBlockedReason?<div className="fitness-access-form">
-            <p role="alert">{studentBlockedReason==='SESSION_LIMIT'?'Já existe outra sessão Fitness autorizada para este aluno nesta loja. Peça ao Admin para liberar a troca e entre novamente por SMS.':'Esta sessão Fitness foi revogada. Entre novamente por SMS após a liberação do Admin.'}</p>
+            <p role="alert">{studentBlockedReason==='SESSION_LIMIT'?'Já existe outra sessão Fitness autorizada para este aluno nesta loja. Peça ao Admin para liberar a troca e entre novamente pela área do aluno.':'Esta sessão Fitness foi revogada. Entre novamente por SMS após a liberação do Admin.'}</p>
             <button type="button" className="secondary-button" disabled={busy} onClick={()=>void signOutStudent()}>Sair e entrar novamente</button>
           </div>
           :studentAccess&&studentIdentity?<form className="fitness-access-form" onSubmit={book}>
-            <p>Conta confirmada por telefone: <strong>{studentIdentity.name}</strong>.</p>
+            <p>Conta confirmada: <strong>{studentIdentity.name}</strong>.</p>
             <label className="fitness-check"><input type="checkbox" checked={accepted} onChange={e=>setAccepted(e.target.checked)}/><span>Li e aceito as regras de cancelamento e reagendamento exibidas acima.</span></label>
             <button className="primary-button" disabled={busy||!slot||!accepted}>{busy?'Confirmando no servidor…':'Confirmar reserva'}</button>
             <button type="button" className="text-link" disabled={busy} onClick={()=>void signOutStudent()}>Sair do Fitness</button>
@@ -304,6 +251,6 @@ export function FitnessBookingOffers({query='',type='all'}:{query?:string;type?:
       return <li key={item.id}><strong>{service?.service.name||'Acompanhamento'} · {dateTime(item.starts_at)}</strong><span>Situação: {appointmentStatus[item.status]||item.status}</span>{open&&<><div className="fitness-policies"><p><strong>Cancelamento:</strong> {item.cancel_policy||service?.availability.cancel_policy||'Consulte as condições informadas na reserva.'}</p><p><strong>Reagendamento:</strong> {item.reschedule_policy||service?.availability.reschedule_policy||'Consulte as condições informadas na reserva.'}</p></div><div className="fitness-appointment-actions"><button type="button" className="secondary-button" disabled={busy} onClick={()=>void cancel(item)}>Cancelar reserva</button>{service&&service.availability.slots.length>0&&<><label>Novo horário<select value={newSlot[item.id]||''} onChange={event=>setNewSlot(current=>({...current,[item.id]:event.target.value}))}><option value="">Selecione</option>{service.availability.slots.map(option=><option key={`${option.starts_at}:${option.professional_id}`} value={`${option.starts_at}:${option.professional_id}`}>{dateTime(option.starts_at)}</option>)}</select></label><button type="button" className="secondary-button" disabled={busy||!newSlot[item.id]} onClick={()=>void reschedule(item)}>Reagendar</button></>}</div></>}</li>;
     })}</ul>}</div>}
     {studentSession&&studentAccess&&studentIdentity&&!isStoreStaff&&<FitnessStudentWorkouts store={store} accessToken={studentSession.access_token}/>}
-    {user&&!isStoreStaff&&<FitnessStudentPreferences store={store} userId={user.id}/>} 
+    {studentSession&&studentAccess&&!isStoreStaff&&<FitnessStudentPreferences store={store} userId={studentSession.user.id} token={studentSession.access_token}/>}
   </section>;
 }
