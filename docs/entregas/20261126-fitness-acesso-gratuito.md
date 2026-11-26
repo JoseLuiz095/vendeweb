@@ -30,6 +30,6 @@ O ciclo anterior registrou 5,859 GB de tráfego em cache para franquia de 5 GB. 
 
 Há testes locais de identidade, telefone não confirmado, MFA, sessão única/expirada/revogada, isolamento, consentimento e compra simulada. Há testes de interface para login, recuperação assistida, MFA, métodos indisponíveis, SMS legado, responsividade e preservação da sessão administrativa. Registrar o resultado efetivo do CI antes do merge.
 
-Aplicação da migration, publicação da interface e teste com José Luiz precisam ser comprovados separadamente. Pagamento bancário e liberação automática em produção permanecem sem homologação.
+A migration `20261126194316_food_fitness_verified_email_access.sql` foi aplicada via Supabase em 26/11/2026. O arquivo foi alinhado à versão efetivamente registrada pelo serviço, preservando integralmente o SQL validado. Publicação da interface e teste com José Luiz precisam ser comprovados separadamente. Pagamento bancário e liberação automática em produção permanecem sem homologação.
 
 O histórico global de migrations possui divergências já identificadas. Esta entrega não executa db push nem repara indiscriminadamente o histórico do projeto compartilhado.

@@ -93,7 +93,7 @@ try {
   }
 
   await db.exec(readFileSync('supabase/migrations/20261126150208_food_fitness_owner_training_profile.sql','utf8'));
-  await db.exec(readFileSync('supabase/migrations/20261126154906_food_fitness_verified_email_access.sql','utf8'));
+  await db.exec(readFileSync('supabase/migrations/20261126194316_food_fitness_verified_email_access.sql','utf8'));
 
   const owner=randomUUID(), nutritionist=randomUUID(), student=randomUUID(), student2=randomUUID(), stranger=randomUUID(), unverified=randomUUID(), master=randomUUID(), manager=randomUUID(), store=randomUUID(), other=randomUUID(), plan=randomUUID();
   await db.query(`insert into auth.users(id,email,phone,phone_confirmed_at) values
