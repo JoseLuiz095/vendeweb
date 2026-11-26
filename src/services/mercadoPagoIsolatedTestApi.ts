@@ -39,6 +39,11 @@ export async function getIsolatedCardConfig(storeId:string,orderId:string):Promi
  if(!object(data)||typeof data.publicKey!=='string'||!/^[A-Za-z0-9_-]{1,256}$/.test(data.publicKey)||data.amount!=='50.00')throw new Error('Cartão de teste indisponível. Confira a conexão da conta de teste.');
  return {publicKey:data.publicKey,amount:50};
 }
+export async function getComparisonCardConfig(storeId:string):Promise<{publicKey:string;amount:number}>{
+ const data=await invoke({action:'compare_card_config',storeId});
+ if(!object(data)||typeof data.publicKey!=='string'||!/^[A-Za-z0-9_-]{1,256}$/.test(data.publicKey)||data.amount!=='50.00')throw new Error('Comparação de cartão indisponível.');
+ return {publicKey:data.publicKey,amount:50};
+}
 export async function payIsolatedCard(storeId:string,orderId:string,card:TestCardToken):Promise<void>{
  const data=await invoke({action:'pay',storeId,orderId,card:{cardToken:card.cardToken,paymentMethodId:card.paymentMethodId,paymentType:card.paymentType,installments:card.installments,buyerEmail:card.buyerEmail}});
  if(!object(data)||typeof data.id!=='string'||!/^[A-Za-z0-9_-]{1,128}$/.test(data.id))throw new Error('Não foi possível enviar o cartão de teste.');
