@@ -15,7 +15,7 @@ async function bounded(req:Request):Promise<unknown>{
 /** Test-only orchestration: callers must enforce pilot-only configuration, origin,
  * authenticated administrator, durable reservation, bounded transport and stored
  * test-token provenance. This handler never records real orders or marks paid. */
-export function makeIsolatedTestHandler(deps:Dependencies){return async(req:Request):Promise<Response>=>{
+export function makeIsolatedTestHandler(deps:Dependencies & {comparePix?:(store:string,actor:string,order:string,attempt:Attempt)=>Promise<unknown>}){return async(req:Request):Promise<Response>=>{
  if(req.method!=='POST')return reply(405,{error:'method_not_allowed'});
  try{
   const actor=await deps.authenticate(req);if(!actor)return reply(401,{error:'unauthorized'});
@@ -25,9 +25,15 @@ export function makeIsolatedTestHandler(deps:Dependencies){return async(req:Requ
    if(Object.keys(input).some(k=>!['action','storeId','requestId','method'].includes(k))||typeof input.requestId!=='string'||!uuid.test(input.requestId)||(input.method!=='pix'&&input.method!=='card'))return reply(400,{error:'invalid_request'});
    const order=await deps.create(store,actor,input.requestId,input.method);return order?reply(200,order):reply(409,{error:'test_unavailable'});
   }
-  if((input.action!=='pay'&&input.action!=='check'&&input.action!=='card_config')||Object.keys(input).some(k=>!['action','storeId','orderId','card'].includes(k))||typeof input.orderId!=='string'||!uuid.test(input.orderId))return reply(400,{error:'invalid_request'});
+  if((input.action!=='pay'&&input.action!=='check'&&input.action!=='card_config'&&input.action!=='compare_pix')||Object.keys(input).some(k=>!['action','storeId','orderId','card'].includes(k))||typeof input.orderId!=='string'||!uuid.test(input.orderId))return reply(400,{error:'invalid_request'});
   const orderId=input.orderId,attempt=await deps.reserve(store,actor,orderId);if(!attempt)return reply(409,{error:'test_unavailable'});
   if(!await deps.verifyTestSeller(attempt.connection.accessToken,attempt.connection.sellerId))return reply(409,{error:'test_unavailable'});
+  if(input.action==='compare_pix'){
+   if(input.card!==undefined||attempt.method!=='pix'||!deps.comparePix)return reply(409,{error:'test_unavailable'});
+   const result=await deps.comparePix(store,actor,orderId,attempt);
+   if(!await deps.authorize(actor,store))return reply(409,{error:'test_changed'});
+   return reply(200,result);
+  }
   if(input.action==='card_config'){
    if(input.card!==undefined||attempt.method!=='card'||attempt.providerOrderId||typeof attempt.connection.publicKey!=='string'||!/^[A-Za-z0-9_-]{1,256}$/.test(attempt.connection.publicKey))return reply(409,{error:'test_unavailable'});
    return reply(200,{publicKey:attempt.connection.publicKey,amount:attempt.snapshot.total});
