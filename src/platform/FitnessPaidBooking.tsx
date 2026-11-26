@@ -1,3 +1,4 @@
+import { professionalCredential } from '../utils/professionalCredential';
 import { useState } from 'react';
 import { fitnessApi, type FitnessSlot } from '../services/fitnessApi';
 import { fitnessOffersApi, type FitnessOfferOrder } from '../services/fitnessOffersApi';
@@ -15,7 +16,7 @@ export function FitnessPaidBooking({store,token,order,onChange}:{store:string;to
   const load=async()=>{if(!contract?.service_id)return;await run(async()=>{const result=await fitnessApi.listSlots(store,contract.service_id!,from,14);setSlots(result.slots.filter(slot=>slot.professional_id===contract.professional_user_id&&new Date(slot.starts_at).getTime()>=Date.now()+(contract.lead_minutes??60)*60000));setSearched(true);});};
   return <div className="fitness-paid-booking">
     {order.fulfillment_state&&<strong>{fulfillmentLabels[order.fulfillment_state]}</strong>}
-    {contract?.professional&&<p>{contract.professional.name} · {contract.professional.council} {contract.professional.registration}</p>}
+    {contract?.professional&&<p>{contract.professional.name}{professionalCredential(contract.professional.council, contract.professional.registration)}</p>}
     {contract?.location_label&&<p><strong>{contract.modality==='online'?'Online':'Local'}:</strong> {contract.location_label}</p>}
     {contract?.arrival_instructions&&<p>{contract.arrival_instructions}</p>}
     {appointment&&<p>{dateTime(appointment.starts_at)} · {appointment.status==='cancelled'?'Cancelado':appointment.status==='completed'?'Concluído':'Confirmado'}</p>}

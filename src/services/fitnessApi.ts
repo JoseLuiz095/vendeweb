@@ -47,6 +47,7 @@ export type FitnessBlockInput = {
 };
 
 export const fitnessApi = {
+  ensureOwnerTraining: (store:string) => restFetch<{created:boolean;available:boolean}>('rpc/food_fitness_ensure_owner_training', {method:'POST',body:{p_store:store}}),
   status: (store:string) => restFetch<FitnessStatus>('rpc/food_fitness_status', {
     method: 'POST', body: {p_store:store},
   }),

@@ -50,6 +50,8 @@ export default function FitnessAdminPage() {
   const [priceConfirmed,setPriceConfirmed]=useState(false);
   const [agendaDate,setAgendaDate]=useState('');
   const [agendaSettingsOpen,setAgendaSettingsOpen]=useState(false);
+  const ownerTraining=membership?.role==='owner'&&business?.profile?.primary_segment==='fitness'&&moduleIsActive(business,'training');
+  const prepareOwner=useCallback(async()=>{if(ownerTraining)await fitnessApi.ensureOwnerTraining(store);},[store,ownerTraining]);
   const professional=status?.professionals.some(item=>item.user_id===user?.id&&item.active)===true;
   const selectedService=services.find(item=>item.id===serviceId);
   const selectedTerm=status?.terms.find(item=>item.service_id===serviceId);
@@ -57,6 +59,7 @@ export default function FitnessAdminPage() {
 
   const reload=useCallback(async()=>{
     if(!store)return;
+    await prepareOwner();
     const [nextStatus,nextServices]=await Promise.all([
       fitnessApi.status(store),
       businessApi.operate(store,'services.list',{limit:200}),
@@ -65,13 +68,14 @@ export default function FitnessAdminPage() {
     if(!Array.isArray(nextStatus.professionals)||!Array.isArray(nextStatus.windows)||!Array.isArray(nextStatus.blocks)||!Array.isArray(nextStatus.terms)||!Array.isArray(nextStatus.appointments))throw new Error('A agenda não retornou uma resposta válida.');
     setStatus(nextStatus);
     setServices(nextServices.items || []);
-  },[store]);
+  },[store,prepareOwner]);
 
   useEffect(()=>{
     let current=true;
     setStatus(null);setServices([]);setError('');setNotice('');setAgendaDate('');setAgendaSettingsOpen(false);setLoading(true);
     if(!store){setLoading(false);return;}
-    Promise.all([fitnessApi.status(store),businessApi.operate(store,'services.list',{limit:200})])
+    if(businessLoading)return;
+    prepareOwner().then(()=>Promise.all([fitnessApi.status(store),businessApi.operate(store,'services.list',{limit:200})]))
       .then(([nextStatus,nextServices])=>{if(current){
         if(!Array.isArray(nextStatus.professionals)||!Array.isArray(nextStatus.windows)||!Array.isArray(nextStatus.blocks)||!Array.isArray(nextStatus.terms)||!Array.isArray(nextStatus.appointments))throw new Error('A agenda não retornou uma resposta válida.');
         setStatus(nextStatus);setServices(nextServices.items || []);
@@ -79,7 +83,7 @@ export default function FitnessAdminPage() {
       .catch(cause=>{if(current)setError((cause as Error).message);})
       .finally(()=>{if(current)setLoading(false);});
     return()=>{current=false;};
-  },[store]);
+  },[store,businessLoading,prepareOwner]);
 
   const reloadStudentSessions=useCallback(async()=>{
     if(!store)return;
@@ -92,7 +96,7 @@ export default function FitnessAdminPage() {
   useEffect(()=>{
     let current=true;
     setStudentSessions([]);setStudentSessionsError('');
-    if(!store)return;
+    if(!store||loading||!professional)return;
     void fitnessApi.listStudentSessions(store).then(result=>{
       if(current){
         if(!Array.isArray(result.students))throw new Error('O servidor não retornou os alunos Fitness esperados.');
@@ -100,7 +104,7 @@ export default function FitnessAdminPage() {
       }
     }).catch(cause=>{if(current)setStudentSessionsError((cause as Error).message);});
     return()=>{current=false;};
-  },[store,user?.id]);
+  },[store,user?.id,loading,professional]);
 
   const run=async(action:()=>Promise<unknown>,message:string):Promise<boolean>=>{
     if(busy)return false;
@@ -172,7 +176,7 @@ export default function FitnessAdminPage() {
       {appointments.length>=200&&<p className="business-muted">A consulta retorna até 200 registros; outros atendimentos podem não aparecer.</p>}
       {moduleIsActive(business,'training')&&<p><a href="#ofertas-fitness">Consultar pedidos e ofertas Fitness</a> · Um pedido não significa que o horário esteja confirmado.</p>}
     </section>}
-    <section className="business-card"><div className="business-card-heading"><h2>Perfil profissional</h2><span className={`business-badge ${professional?'is-active':''}`}>{professional?'Ativo':'Pendente'}</span></div><p>{professional?'Sua conta está vinculada como profissional desta loja.':'Ative sua conta como Personal Trainer desta loja antes de oferecer horários.'}</p>{!professional&&<button className="primary-button" disabled={busy||!user} onClick={()=>void run(()=>fitnessApi.setProfessional(store,user!.id,true),'Perfil profissional ativado no servidor.')}>Ativar meu perfil profissional</button>}</section>
+    <section className="business-card"><div className="business-card-heading"><h2>Perfil profissional</h2><span className={`business-badge ${professional?'is-active':''}`}>{professional?'Ativo':'Pendente'}</span></div><p>{professional?'Sua conta é responsável pelos atendimentos desta loja. O registro profissional pode ser atualizado em Gerenciar serviços.':'Ative sua conta como Personal Trainer desta loja antes de oferecer horários.'}</p>{!professional&&<button className="primary-button" disabled={busy||!user} onClick={()=>void run(()=>fitnessApi.setProfessional(store,user!.id,true),'Perfil profissional ativado no servidor.')}>Ativar meu perfil profissional</button>}</section>
     <nav className="fitness-admin-nav" aria-label="Áreas do Fitness">{moduleIsActive(business,'training')&&<><a href="#treinos">Criar e atribuir treinos</a><a href="#ofertas-fitness">Ofertas e pagamentos</a></>}{moduleIsActive(business,'appointments')&&<a href="#agenda-fitness">Agenda</a>}{moduleIsActive(business,'training')&&<a href="/admin/operacao?tab=clients">Cadastrar alunos</a>}</nav>
     {moduleIsActive(business,'training')&&<div id="treinos"><FitnessWorkouts store={store} professional={professional}/></div>}
     {moduleIsActive(business,'training')&&<div id="ofertas-fitness"><FitnessOffersAdmin store={store}/></div>}
