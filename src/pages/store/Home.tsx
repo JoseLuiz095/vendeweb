@@ -2,7 +2,7 @@ import { ChevronRight, Search, Sparkles, Truck } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useCart } from '../../contexts/CartContext';
 import Checkout from './Checkout';
-import { useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { normalizeText } from '../../utils/text';
 import { ProductCard } from '../../components/ProductCard';
 import { StoreHeader } from '../../components/StoreHeader';
@@ -68,7 +68,7 @@ function StorefrontHome(){
   if(loading)return <div className="page-center"><LoadingState label={traditionalPresentation?'Carregando cardápio...':'Carregando catálogo...'}/></div>;
   if(error)return <div className="container page-center"><ErrorState message={error} onRetry={()=>void reloadPublic()}/></div>;
   if(segment.id==='fitness')return <>
-    <header className="container fitness-store-header"><div className="fitness-store-intro"><span className="eyebrow">FITNESS E BEM-ESTAR</span><h1>{settings.name}</h1>{(settings.city || settings.state) && <p className="fitness-store-location">{[settings.city,settings.state].filter(Boolean).join(' · ')}</p>}<p>Conheça os treinos, serviços e conteúdos disponíveis nesta loja.</p><a href="#cardapio" className="fitness-store-explore">Explorar opções <ChevronRight size={18} aria-hidden="true"/></a></div></header>
+    <header className="container fitness-store-header"><div className="fitness-store-intro"><span className="eyebrow">FITNESS E BEM-ESTAR</span><h1>{settings.name}</h1>{(settings.city || settings.state) && <p className="fitness-store-location">{[settings.city,settings.state].filter(Boolean).join(' · ')}</p>}<p>Conheça os treinos, serviços e conteúdos disponíveis nesta loja.</p><div className="business-actions"><a href="#cardapio" className="fitness-store-explore">Explorar opções <ChevronRight size={18} aria-hidden="true"/></a><Link className="secondary-button" to={`/fitness/${settings.id}/treinos`}>Área do aluno</Link></div></div></header>
     <section id="cardapio" className="container storefront-body">
       <div className="fitness-discovery" role="search"><label className="fitness-catalog-search"><Search size={19}/><span className="sr-only">Buscar no catálogo</span><input type="search" value={query} onChange={event=>setQuery(event.target.value)} placeholder="Buscar treino, músculo, equipamento ou serviço"/></label><label className="fitness-type-select">Tipo<select value={fitnessType} onChange={event=>setFitnessType(event.target.value as typeof fitnessType)}><option value="all">Tudo</option><option value="products">Treinos e produtos</option><option value="services">Serviços</option><option value="consultations">Consultas com agenda</option><option value="content">Conteúdos</option></select></label></div>
       <FitnessCatalog products={activeProducts} categories={categories} query={query} visible={fitnessType==='all'||fitnessType==='products'}/><FitnessBookingOffers query={query} type={fitnessType}/>
