@@ -51,3 +51,8 @@ verify_jwt = false
 # HMAC-authenticated provider callback; disabled by application gates by default.
 [functions.food-mercadopago-webhook-test]
 verify_jwt = false
+
+# Public request creation uses Turnstile; files require an expiring capability.
+# Disabled in handler until PRINTING3D_PUBLIC_ENABLED=true.
+[functions.food-printing3d-public]
+verify_jwt = false
