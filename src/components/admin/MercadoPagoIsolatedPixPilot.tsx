@@ -1,6 +1,6 @@
 import {useEffect,useRef,useState} from 'react';
 import PixCopyButton from '../PixCopyButton';
-import {checkIsolatedPayment,createIsolatedTestOrder,payIsolatedPix,compareTestCredentialPix} from '../../services/mercadoPagoIsolatedTestApi';
+import {checkIsolatedPayment,createIsolatedTestOrder,payIsolatedPix,compareTestCredentialPix,compareOAuthCanonicalPix} from '../../services/mercadoPagoIsolatedTestApi';
 
 /** Administrative pilot only; do not render in public checkout. */
 export function MercadoPagoIsolatedPixPilot({storeId}:{storeId:string}){
@@ -25,6 +25,12 @@ export function MercadoPagoIsolatedPixPilot({storeId}:{storeId:string}){
   catch(e){setError(e instanceof Error?e.message:'Não foi possível comparar as credenciais.');}
   finally{running.current=false;setBusy(false);}
  };
+ const compareOAuth=async()=>{
+  if(running.current)return;running.current=true;setBusy(true);setError('');
+  try{const order=orderId||await createIsolatedTestOrder(storeId,getRequestId(),'pix');setComparison(await compareOAuthCanonicalPix(storeId,order));}
+  catch(e){setError(e instanceof Error?e.message:'Não foi possível comparar o OAuth.');}
+  finally{running.current=false;setBusy(false);}
+ };
  useEffect(()=>{
   if(!orderId||confirmation!=='waiting')return;
   let canceled=false,timer:ReturnType<typeof setTimeout>|undefined,attempts=0;
@@ -39,6 +45,8 @@ export function MercadoPagoIsolatedPixPilot({storeId}:{storeId:string}){
   {error&&<small role="alert">{error}</small>}
   <div><button type="button" className="secondary-button" disabled={busy} onClick={()=>void compare()}>Comparar Pix com credencial de teste</button></div>
   <small>Comparação independente de R$ 50,00 com a conta de teste 3835760583. Não altera a conexão OAuth nem confirma pedidos da loja.</small>
+  <div><button type="button" className="secondary-button" disabled={busy} onClick={()=>void compareOAuth()}>Comparar Pix com vendedora conectada</button></div>
+  <small>Usa a vendedora de teste conectada e o comprador de exemplo do Mercado Pago. Não confirma pedidos da loja.</small>
   {comparison&&<small role="status">{comparison}</small>}
   {result&&<><small role="status">{confirmation==='paid'?'Pagamento de teste confirmado. Entrega permanece em aberto.':result.status==='failed'?'O Mercado Pago recusou o pagamento de teste. Nenhum pagamento foi confirmado.':confirmation==='review'?'Teste em análise. Nenhum pagamento foi confirmado no pedido.':'Aguardando confirmação do pagamento de teste.'}</small>{result.qrCode&&<PixCopyButton value={result.qrCode} label="Pix de teste" compact/>}</>}
  </section>;

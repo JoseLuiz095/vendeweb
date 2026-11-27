@@ -22,7 +22,7 @@ function sdk():Promise<void>{
 /** Administrative pilot only. Card fields are rendered by Mercado Pago. */
 export function MercadoPagoIsolatedCardPilot({storeId}:{storeId:string}){
  const [busy,setBusy]=useState(false),[error,setError]=useState(''),[orderId,setOrderId]=useState('');
- const [config,setConfig]=useState<{publicKey:string;amount:number}|null>(null),[sent,setSent]=useState(false);
+ const [config,setConfig]=useState<{publicKey:string;amount:number;buyerEmail?:string}|null>(null),[sent,setSent]=useState(false);
  const [confirmation,setConfirmation]=useState<'waiting'|'paid'|'review'>('waiting');
  const [comparison,setComparison]=useState(false),[ready,setReady]=useState(false);
  const running=useRef(false);const storageKey=`vendeweb.mp-test-card.${storeId}`;
@@ -49,15 +49,16 @@ export function MercadoPagoIsolatedCardPilot({storeId}:{storeId:string}){
    await sdk();if(canceled)return;
    const ctor=(window as unknown as {MercadoPago?:MercadoPagoConstructor}).MercadoPago;if(!ctor)throw new Error('Formulário de teste indisponível.');
    const created=await new ctor(config.publicKey,{locale:'pt-BR'}).bricks().create('cardPayment','mp-isolated-card-brick',{
-    initialization:{amount:config.amount},
+    initialization:{amount:config.amount,...(config.buyerEmail?{payer:{email:config.buyerEmail}}:{})},
     callbacks:{onReady:()=>{readiness.ready();if(!canceled){setReady(true);setError('');}},onError:(cause:unknown)=>{console.warn('mp_card_brick_error',cardBrickErrorCategory(cause),comparison?'comparison':'oauth');readiness.fail();},
      onSubmit:async(form:unknown,additional:unknown)=>{
       if(comparison)throw new Error('Comparação apenas de carregamento.');
       if(!form||typeof form!=='object'||!additional||typeof additional!=='object')throw new Error('Cartão de teste inválido.');
       const value=form as Record<string,unknown>,extra=additional as Record<string,unknown>;
       const payer=value.payer&&typeof value.payer==='object'&&!Array.isArray(value.payer)?value.payer as Record<string,unknown>:{};
-      if(typeof value.token!=='string'||typeof value.payment_method_id!=='string'||typeof payer.email!=='string'||(extra.paymentTypeId!=='credit_card'&&extra.paymentTypeId!=='debit_card')||typeof value.installments!=='number'){if(!canceled)setError('Confira os dados do cartão e do comprador de teste.');throw new Error('Cartão de teste inválido.');}
-      try{await payIsolatedCard(storeId,orderId,{cardToken:value.token,paymentMethodId:value.payment_method_id,paymentType:extra.paymentTypeId,installments:value.installments,buyerEmail:payer.email});if(!canceled){setSent(true);setError('');}}
+      const buyerEmail=typeof payer.email==='string'?payer.email:config.buyerEmail;
+      if(typeof value.token!=='string'||typeof value.payment_method_id!=='string'||typeof buyerEmail!=='string'||(extra.paymentTypeId!=='credit_card'&&extra.paymentTypeId!=='debit_card')||typeof value.installments!=='number'){if(!canceled)setError('Confira os dados do cartão e do comprador de teste.');throw new Error('Cartão de teste inválido.');}
+      try{await payIsolatedCard(storeId,orderId,{cardToken:value.token,paymentMethodId:value.payment_method_id,paymentType:extra.paymentTypeId,installments:value.installments,buyerEmail});if(!canceled){setSent(true);setError('');}}
       catch(cause){if(!canceled)setError(cause instanceof Error&&cause.message==='Use o e-mail da conta compradora de teste configurada para o piloto.'?cause.message:'Não foi possível confirmar o resultado. Confira a tentativa antes de repetir.');throw new Error('Pagamento de teste indisponível.');}
      }},
    });
