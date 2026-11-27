@@ -10,17 +10,18 @@ async function mockStudent(page: Page, mediaKey = '', exercises?: Array<{
 }>) {
   await page.addInitScript(({user}) => {
     const exp = Math.floor(Date.now() / 1000) + 3600;
-    const payload = { sub: user, session_id: '40000000-0000-4000-8000-000000000001', role: 'authenticated', exp };
-    const token = 'header.' + btoa(JSON.stringify(payload)) + '.signature';
+    const payload = { sub: user, session_id: '40000000-0000-4000-8000-000000000001', role: 'authenticated', aal: 'aal1', exp };
+    const encode=(value:unknown)=>btoa(JSON.stringify(value)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+    const token = encode({alg:'HS256',typ:'JWT'}) + '.' + encode(payload) + '.synthetic-signature';
     localStorage.setItem('foodservice.fitness.student.auth.v1', JSON.stringify({
       access_token: token, refresh_token: 'test-refresh', expires_at: exp, expires_in: 3600,
-      token_type: 'bearer', user: { id: user, phone: '+5527999991234', aud: 'authenticated', app_metadata: {}, user_metadata: {} },
+      token_type: 'bearer', user: { id: user, phone: '+5527999991234', phone_confirmed_at:'2026-11-01T00:00:00Z', factors:[], aud: 'authenticated', app_metadata: {}, user_metadata: {} },
     }));
   }, {user});
   await page.route('https://*.supabase.co/**', route => {
     const path = new URL(route.request().url()).pathname;
     let result: unknown = [];
-    if (path === '/auth/v1/user') result = { id: user, phone: '+5527999991234', aud: 'authenticated', app_metadata: {}, user_metadata: {} };
+    if (path === '/auth/v1/user') result = { id: user, phone: '+5527999991234', phone_confirmed_at:'2026-11-01T00:00:00Z', factors:[], aud: 'authenticated', app_metadata: {}, user_metadata: {} };
     else if (path.endsWith('/food_fitness_student_status_v1')) result = { registered: true, store_id: store, client_id: client, name: 'Aluno fictício' };
     else if (path.endsWith('/food_fitness_student_session_v1')) result = { authorized: true };
     else if (path.endsWith('/food_fitness_offers_v1') || path.endsWith('/food_fitness_my_orders_v1')) result = [];
@@ -131,4 +132,73 @@ test('indica quando a ilustração de execução não carrega',async({page})=>{
   await page.goto(`/fitness/${store}/treinos`);
   await expect(page.getByText('Imagem indisponível. Consulte as instruções do profissional.')).toBeVisible();
   await expect(page.getByRole('img',{name:'Supino reto com barra · posição principal do movimento'})).toBeVisible();
+});
+
+test('Fitness timers: execução independente, pausa e aviso único de descanso', async ({page}) => {
+  await page.clock.install();
+  await page.addInitScript(() => { Object.defineProperty(navigator,'vibrate',{configurable:true,value:(pattern:unknown)=>{ (window as Window & {qaVibrations?:unknown[]}).qaVibrations??=[];(window as Window & {qaVibrations:unknown[]}).qaVibrations.push(pattern);return true; }}); });
+  await mockStudent(page);
+  await page.goto(`/fitness/${store}/treinos`);
+  await page.getByLabel('Vibrar ao terminar o descanso').check();
+  await page.getByRole('button',{name:'Iniciar execução',exact:true}).click();
+  await page.clock.fastForward(2100);
+  await page.getByRole('button',{name:'Pausar execução',exact:true}).click();
+  const execution=page.getByRole('timer',{name:/Tempo de execução/});
+  const paused=await execution.textContent();
+  await page.clock.fastForward(4000);
+  await expect(execution).toHaveText(paused!);
+  await expect(page.getByRole('timer',{name:'Descanso: 0 segundos restantes',exact:true})).toBeVisible();
+  await page.getByRole('button',{name:'Marcar série 1 concluída'}).click();
+  await expect(page.getByRole('timer',{name:'Descanso: 2 segundos restantes',exact:true})).toBeVisible();
+  await page.clock.fastForward(2100);
+  await expect(page.getByText('✓ Descanso concluído',{exact:true})).toBeVisible();
+  await expect(execution).toHaveText(paused!);
+  await page.clock.fastForward(4000);
+  expect(await page.evaluate(()=>(window as Window & {qaVibrations?:unknown[]}).qaVibrations?.filter(Array.isArray).length)).toBe(1);
+  await page.getByRole('button',{name:'Entendi',exact:true}).click();
+  await expect(page.getByText('✓ Descanso concluído',{exact:true})).toHaveCount(0);
+  await page.getByRole('button',{name:'Zerar execução',exact:true}).click();
+  await expect(execution).toHaveText('0:00');
+});
+
+test('Fitness timers: preserva dias intercalados, ordem e séries sem alertas antigos', async ({page}) => {
+  await page.clock.install();
+  const exercise=(id:string,day:string,position:number)=>({id,day,position,name:`Movimento ${id}`,sets:2,repetitions:'8',rest_seconds:2,load_or_effort:'Leve',instructions:'Orientação revisada.',alternative:'Alternativa revisada.',media_key:''});
+  await mockStudent(page,'',[exercise('A1','A',1),exercise('B1','B',2),exercise('A2','A',3),exercise('B2','B',4)]);
+  await page.goto(`/fitness/${store}/treinos`);
+  await expect(page.getByRole('heading',{name:'Movimento A1'})).toBeVisible();
+  await page.getByRole('button',{name:'Marcar série 1 concluída'}).click();
+  await page.getByRole('button',{name:'Iniciar execução',exact:true}).click();
+  await page.clock.fastForward(1000);
+  await page.getByRole('button',{name:'Próximo exercício'}).click();
+  await expect(page.getByRole('heading',{name:'Movimento A2'})).toBeVisible();
+  await expect(page.getByRole('timer',{name:'Tempo de execução: 0 segundos',exact:true})).toHaveText('0:00');
+  await page.clock.fastForward(3000);
+  await expect(page.getByText('✓ Descanso concluído',{exact:true})).toHaveCount(0);
+  await page.getByLabel('Dia de treino').selectOption('B');
+  await expect(page.getByRole('heading',{name:'Movimento B1'})).toBeVisible();
+  await page.getByRole('button',{name:'Próximo exercício'}).click();
+  await expect(page.getByRole('heading',{name:'Movimento B2'})).toBeVisible();
+  await page.getByLabel('Dia de treino').selectOption('A');
+  await expect(page.getByRole('heading',{name:'Movimento A1'})).toBeVisible();
+  await expect(page.getByText('1 de 4 séries marcadas nesta sessão · Dia A')).toBeVisible();
+});
+
+test('Fitness timers: aviso funciona sem vibração e descanso cancelado não alerta', async ({page}) => {
+  await page.clock.install();
+  await page.addInitScript(()=>Object.defineProperty(navigator,'vibrate',{configurable:true,value:undefined}));
+  await mockStudent(page);
+  await page.goto(`/fitness/${store}/treinos`);
+  await expect(page.getByLabel(/Vibrar ao terminar o descanso/)).toBeDisabled();
+  await page.getByRole('button',{name:'Marcar série 1 concluída'}).click();
+  await page.getByRole('button',{name:'Pausar descanso',exact:true}).click();
+  await page.clock.fastForward(4000);
+  await expect(page.getByText('✓ Descanso concluído',{exact:true})).toHaveCount(0);
+  await page.getByRole('button',{name:'Continuar descanso',exact:true}).click();
+  await page.getByRole('button',{name:'Encerrar descanso',exact:true}).click();
+  await page.clock.fastForward(4000);
+  await expect(page.getByText('✓ Descanso concluído',{exact:true})).toHaveCount(0);
+  await page.getByRole('button',{name:'Marcar série 2 concluída'}).click();
+  await page.clock.fastForward(2100);
+  await expect(page.getByText('✓ Descanso concluído',{exact:true})).toBeVisible();
 });

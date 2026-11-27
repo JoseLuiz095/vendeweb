@@ -173,3 +173,23 @@ test('desmarcar salvamento remove dados anteriores e mantém a escolha após rec
  expect(await page.evaluate(storeId=>document.cookie.includes(`foodweb_customer_profile_v1_${storeId}=`),STORE)).toBe(false);
  expect(await page.evaluate(storeId=>localStorage.getItem(`foodweb_recent_order_v1:${storeId}`),STORE)).toBeNull();
 });
+
+test('checkout incorporado mantém menu inferior livre e uma única navegação do carrinho',async({page})=>{
+ await page.setViewportSize({width:390,height:844});
+ await mockBackend(page); await pickup(page);
+ await page.goto('/doce-lua?ponto=trabalho');
+ await page.locator('.product-card-shell').first().getByRole('button',{name:'Adicionar Brigadeiro teste',exact:true}).click();
+ const navigation=page.getByRole('navigation',{name:'Navegação da loja'});
+ await expect(navigation).toBeVisible();
+ await expect(navigation.getByRole('link',{name:/Carrinho/})).toBeVisible();
+ await expect(page.locator('.mobile-cart-dock')).toHaveCount(0);
+ const embedded=page.locator('#continuar-pedido .checkout-embedded');
+ await embedded.getByRole('button',{name:/Retirada Buscar/}).click();
+ await embedded.getByLabel('Nome',{exact:true}).fill('Cliente visitante');
+ await embedded.getByLabel(/WhatsApp \/ telefone/).fill('11999999999');
+ const actions=embedded.locator('.checkout-step-actions');
+ await expect(actions).toBeVisible();
+ await expect(actions).toHaveCSS('position','static');
+ await actions.getByRole('button',{name:/Continuar/}).click();
+ await expect(embedded.getByRole('heading',{name:'Pagamento e revisão'})).toBeVisible();
+});

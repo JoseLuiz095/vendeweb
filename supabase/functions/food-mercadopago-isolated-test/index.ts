@@ -42,6 +42,11 @@ Deno.serve(async(req:Request)=>{
   return isVerifiedTestSeller(JSON.parse(text+decoder.decode()),seller);
  };
  const handler=makeIsolatedTestHandler({
+  compareCardConfig:async(store,actor)=>{
+   const accessToken=Deno.env.get('MP_TEST_COMPARISON_ACCESS_TOKEN')||'',publicKey=Deno.env.get('MP_TEST_COMPARISON_PUBLIC_KEY')||'';
+   if(store!==DUOFORMA_PILOT_STORE||!await rpc('food_mp_test_oauth_authorize_v1',{p_actor:actor,p_store:store})||!/^[A-Za-z0-9_-]{1,256}$/.test(publicKey)||!await verifyTestSeller(accessToken,'3835760583'))throw new Error('unavailable');
+   return {publicKey,amount:'50.00'};
+  },
   comparePix:async(store,actor,order,attempt)=>{
    if(store!==DUOFORMA_PILOT_STORE||!await rpc('food_mp_test_oauth_authorize_v1',{p_actor:actor,p_store:store}))throw new Error('unavailable');
    return await runControlPix({storeId:store,orderId:order,total:attempt.snapshot.total,accessToken:Deno.env.get('MP_TEST_COMPARISON_ACCESS_TOKEN')||''},async(endpoint,init)=>{
