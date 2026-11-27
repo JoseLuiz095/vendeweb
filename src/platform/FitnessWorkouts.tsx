@@ -114,21 +114,28 @@ export function FitnessWorkouts({store,professional}:{store:string;professional:
 export function FitnessStudentWorkouts({store,accessToken}:{store:string;accessToken?:string}) {
   const [workouts,setWorkouts]=useState<FitnessWorkout[]>([]);
   const [loading,setLoading]=useState(true);
+  const [selectedWorkout,setSelectedWorkout]=useState('');
   const [error,setError]=useState('');
   useEffect(()=>{
     let active=true;
-    setLoading(true);setError('');setWorkouts([]);
+    setLoading(true);setError('');setWorkouts([]);setSelectedWorkout('');
     void fitnessApi.listWorkouts(store,accessToken)
       .then(rows=>{if(!Array.isArray(rows))throw new Error('Resposta inválida do servidor.');if(active)setWorkouts(rows);})
       .catch(cause=>{if(active)setError((cause as Error).message);})
       .finally(()=>{if(active)setLoading(false);});
     return()=>{active=false;};
   },[store,accessToken]);
+  const workout=workouts.find(item=>item.id===selectedWorkout)||workouts[0];
   return <section className="business-card fitness-workouts" aria-label="Minhas fichas de treino">
     <h2>Minhas fichas de treino</h2>
-    {loading?<p role="status">Consultando fichas atribuídas…</p>:error?<p role="alert">Não foi possível consultar suas fichas: {error}</p>:workouts.length===0?<p>Nenhuma ficha foi atribuída pelo Personal Trainer.</p>:<div className="fitness-workout-list">{workouts.map(workout=><article className="fitness-workout-card" key={workout.id}>
-      <h3>{levels[workout.level]} · {workout.title}</h3><p>{workout.description}</p>{workout.professional&&<p className="business-provider">Responsável: <strong>{workout.professional.name}</strong>{professionalCredential(workout.professional.council, workout.professional.registration)}</p>}
+    {loading?<p role="status">Consultando fichas atribuídas…</p>:error?<p role="alert">Não foi possível consultar suas fichas: {error}</p>:workouts.length===0?<p>Nenhuma ficha foi atribuída pelo Personal Trainer.</p>:workout&&<div className="fitness-workout-list">
+      {workouts.length>1&&<label>Ficha de treino<select value={workout.id} onChange={event=>setSelectedWorkout(event.target.value)}>{workouts.map(item=><option key={item.id} value={item.id}>{item.title} · {levels[item.level]}</option>)}</select></label>}
+      <article className="fitness-workout-card" key={workout.id}>
+      <h3>{levels[workout.level]} · {workout.title}</h3>
+      {workout.professional&&<p className="business-provider">Responsável: <strong>{workout.professional.name}</strong>{professionalCredential(workout.professional.council, workout.professional.registration)}</p>}
       <FitnessWorkoutSession workout={workout}/>
-    </article>)}</div>}
+      {workout.description&&<details><summary>Sobre esta ficha</summary><p>{workout.description}</p></details>}
+      </article>
+    </div>}
   </section>;
 }
