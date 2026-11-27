@@ -23,7 +23,7 @@ function sdk():Promise<void>{
 export function MercadoPagoIsolatedCardPilot({storeId}:{storeId:string}){
  const [busy,setBusy]=useState(false),[error,setError]=useState(''),[orderId,setOrderId]=useState('');
  const [config,setConfig]=useState<{publicKey:string;amount:number;buyerEmail?:string}|null>(null),[sent,setSent]=useState(false);
- const [confirmation,setConfirmation]=useState<'waiting'|'paid'|'review'>('waiting');
+ const [confirmation,setConfirmation]=useState<'waiting'|'paid'|'review'|'failed'>('waiting');
  const [comparison,setComparison]=useState(false),[ready,setReady]=useState(false);
  const running=useRef(false);const storageKey=`vendeweb.mp-test-card.${storeId}`;
  const begin=async()=>{
@@ -58,7 +58,7 @@ export function MercadoPagoIsolatedCardPilot({storeId}:{storeId:string}){
       const payer=value.payer&&typeof value.payer==='object'&&!Array.isArray(value.payer)?value.payer as Record<string,unknown>:{};
       const buyerEmail=typeof payer.email==='string'?payer.email:config.buyerEmail;
       if(typeof value.token!=='string'||typeof value.payment_method_id!=='string'||typeof buyerEmail!=='string'||(extra.paymentTypeId!=='credit_card'&&extra.paymentTypeId!=='debit_card')||typeof value.installments!=='number'){if(!canceled)setError('Confira os dados do cartão e do comprador de teste.');throw new Error('Cartão de teste inválido.');}
-      try{await payIsolatedCard(storeId,orderId,{cardToken:value.token,paymentMethodId:value.payment_method_id,paymentType:extra.paymentTypeId,installments:value.installments,buyerEmail});if(!canceled){setSent(true);setError('');}}
+      try{const result=await payIsolatedCard(storeId,orderId,{cardToken:value.token,paymentMethodId:value.payment_method_id,paymentType:extra.paymentTypeId,installments:value.installments,buyerEmail});if(!canceled){setConfirmation(result==='failed'?'failed':'waiting');setSent(true);setError('');}}
       catch(cause){if(!canceled)setError(cause instanceof Error&&cause.message==='Use o e-mail da conta compradora de teste configurada para o piloto.'?cause.message:'Não foi possível confirmar o resultado. Confira a tentativa antes de repetir.');throw new Error('Pagamento de teste indisponível.');}
      }},
    });
@@ -87,6 +87,6 @@ export function MercadoPagoIsolatedCardPilot({storeId}:{storeId:string}){
   {error&&<small role="alert">{error}</small>}
   {comparison&&<><small role="status">{ready?'Formulário de teste carregado. Esta comparação não envia pagamentos.':error?'A comparação não conseguiu carregar o formulário.':'Verificando formulário de teste. Esta comparação não envia pagamentos.'}</small><button type="button" className="secondary-button" onClick={reset}>Fechar comparação</button></>}
   <div id="mp-isolated-card-brick" hidden={sent}/>
-  {(sent||Boolean(orderId&&!config))&&<><small role="status">{sent?(confirmation==='paid'?'Pagamento de teste confirmado. Entrega permanece em aberto.':confirmation==='review'?'Teste em análise. Nenhum pagamento foi confirmado no pedido.':'Aguardando confirmação do pagamento de teste.'):''}</small><button type="button" className="secondary-button" disabled={busy} onClick={reset}>Preparar outro teste</button></>}
+  {(sent||Boolean(orderId&&!config))&&<><small role="status">{sent?(confirmation==='paid'?'Pagamento de teste confirmado. Entrega permanece em aberto.':confirmation==='failed'?'O Mercado Pago recusou o pagamento de teste. Nenhum pagamento foi confirmado.':confirmation==='review'?'Teste em análise. Nenhum pagamento foi confirmado no pedido.':'Aguardando confirmação do pagamento de teste.'):''}</small><button type="button" className="secondary-button" disabled={busy} onClick={reset}>Preparar outro teste</button></>}
  </section>;
 }
