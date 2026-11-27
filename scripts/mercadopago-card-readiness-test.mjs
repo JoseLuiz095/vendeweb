@@ -1,6 +1,11 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {watchCardForm} from '../src/services/mercadoPagoCardReadiness.ts';
+import {cardBrickErrorCategory,watchCardForm} from '../src/services/mercadoPagoCardReadiness.ts';
+
+test('classifica apenas códigos conhecidos sem expor mensagens ou dados privados',()=>{
+ for(const error of ['fields_setup_failed',{code:'fields_setup_failed'},{cause:'fields_setup_failed'},{cause:{code:'fields_setup_failed'}}])assert.equal(cardBrickErrorCategory(error),'fields_setup_failed');
+ for(const error of [null,'secret',{code:'secret'},{cause:{code:'secret'}},{message:'secret'}])assert.equal(cardBrickErrorCategory(error),'unknown');
+});
 
 test('avisa quando o formulário não fica pronto dentro do prazo', async()=>{
  let failures=0;

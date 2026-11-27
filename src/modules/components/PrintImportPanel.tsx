@@ -1,0 +1,15 @@
+import { useRef, useState } from 'react';
+import { importPrintFile, type PrintImport } from '../printImport';
+import type { PrintPlan, PrintSource } from '../printing3d';
+
+export default function PrintImportPanel({onApply}:{onApply:(plan:PrintPlan,source:PrintSource,description:string)=>void}) {
+  const [data,setData]=useState<PrintImport>();const [plate,setPlate]=useState('');const [error,setError]=useState('');const [busy,setBusy]=useState(false);
+  const sequence=useRef(0);
+  const selected=data?.plates.find(p=>p.id===plate);
+  return <section className="print-import"><h4>Importar do Bambu Studio / slicer</h4><p>Fatie no Bambu Studio e exporte o arquivo fatiado (.gcode.3mf), ou use G-code com estimativas. O arquivo é lido neste navegador, sem executar comandos ou enviá-lo à impressora.</p><label>Arquivo fatiado<input type="file" accept=".3mf,.gcode" disabled={busy} onChange={async e=>{const file=e.target.files?.[0];if(!file)return;const n=++sequence.current;setBusy(true);setError('');setData(undefined);try{const next=await importPrintFile(file);if(n===sequence.current){setData(next);setPlate(next.plates[0].id);}}catch(err){if(n===sequence.current)setError(err instanceof Error?err.message:'Não foi possível ler o arquivo.');}finally{if(n===sequence.current)setBusy(false);}e.target.value='';}}/></label>{busy&&<p role="status">Lendo metadados…</p>}{error&&<p role="alert">{error}</p>}
+    {data&&selected&&<><label>Mesa fatiada<select value={plate} onChange={e=>setPlate(e.target.value)}>{data.plates.map(p=><option key={p.id} value={p.id}>Mesa {p.id} · {p.name}</option>)}</select></label><p>Tempo estimado: {selected.hours===null?'não disponível':`${selected.hours.toLocaleString('pt-BR',{maximumFractionDigits:3})} h`} · Peso estimado: {selected.grams===null?'não disponível':`${selected.grams} g`} · Impressora: {selected.printer||'não informada'}</p>{selected.filaments.map((f,n)=><p key={n}>Filamento {f.slot}: {f.type||'tipo ausente'} · {f.color||'cor ausente'} · {f.grams===null?'peso ausente':`${f.grams} g`}</p>)}{(selected.hours===null||selected.grams===null||selected.filaments.some(f=>f.grams===null))&&<p role="status" className="print-alert">Há valores ausentes neste arquivo. Complete peso e tempo manualmente após importar. Zero no formulário não representa medição real.</p>}<p>Importe uma mesa por trabalho. Informe quantas peças ela produz e associe os insumos. Tempo e peso continuam estimativas; confirme o consumo após a impressão.</p><button type="button" className="button" onClick={()=>{
+      const materials=selected.filaments.length?selected.filaments.map(f=>({inventory_item_id:'',quantity:f.grams??0,unit:'g' as const,basis:'batch' as const})) : selected.grams!==null?[{inventory_item_id:'',quantity:selected.grams,unit:'g' as const,basis:'batch' as const}]:[];
+      onApply({hours:selected.hours??0,time_basis:'batch',materials},{sha256:data.sha256,plate:selected.id,filename:data.filename,format:data.format,printer:selected.printer,filaments:selected.filaments,estimated_hours:selected.hours,estimated_grams:selected.grams},selected.name);
+    }}>Preencher previsão com esta mesa</button></>}
+  </section>;
+}

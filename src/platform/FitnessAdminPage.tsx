@@ -96,7 +96,7 @@ export default function FitnessAdminPage() {
   useEffect(()=>{
     let current=true;
     setStudentSessions([]);setStudentSessionsError('');
-    if(!store||loading||!professional)return;
+    if(!store||loading)return;
     void fitnessApi.listStudentSessions(store).then(result=>{
       if(current){
         if(!Array.isArray(result.students))throw new Error('O servidor não retornou os alunos Fitness esperados.');
@@ -104,7 +104,7 @@ export default function FitnessAdminPage() {
       }
     }).catch(cause=>{if(current)setStudentSessionsError((cause as Error).message);});
     return()=>{current=false;};
-  },[store,user?.id,loading,professional]);
+  },[store,user?.id,loading]);
 
   const run=async(action:()=>Promise<unknown>,message:string):Promise<boolean>=>{
     if(busy)return false;

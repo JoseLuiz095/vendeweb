@@ -1,5 +1,6 @@
 import {createSandboxPixOrder,getSandboxPixOrder,SandboxOrdersError,type ProviderTransport,type SandboxConnection,type PixSnapshot} from './mercadoPagoOrdersSandbox.ts';
 import {createSandboxCardOrder} from './mercadoPagoCardSandbox.ts';
+import {testBuyerEmail} from './mercadoPagoTestBuyer.ts';
 
 type Attempt={connection:SandboxConnection;snapshot:PixSnapshot;method:'pix'|'card';cardMethodId?:string;cardType?:'credit_card'|'debit_card';providerOrderId:string|null};
 type Dependencies={authenticate:(request:Request)=>Promise<string|null>;authorize:(actor:string,store:string)=>Promise<boolean>;create:(store:string,actor:string,requestId:string,method:'pix'|'card')=>Promise<{orderId:string}|null>;reserve:(store:string,actor:string,order:string)=>Promise<Attempt|null>;verifyTestSeller:(token:string,seller:string)=>Promise<boolean>;prepareCard:(store:string,actor:string,order:string,methodId:string,type:'credit_card'|'debit_card')=>Promise<boolean>;bind:(store:string,actor:string,order:string,providerId:string)=>Promise<boolean>;reconcile:(store:string,actor:string,order:string,attempt:Attempt)=>Promise<'applied'|'duplicate'|'pending'|'review'>;transport:ProviderTransport};
@@ -15,19 +16,31 @@ async function bounded(req:Request):Promise<unknown>{
 /** Test-only orchestration: callers must enforce pilot-only configuration, origin,
  * authenticated administrator, durable reservation, bounded transport and stored
  * test-token provenance. This handler never records real orders or marks paid. */
-export function makeIsolatedTestHandler(deps:Dependencies & {comparePix?:(store:string,actor:string,order:string,attempt:Attempt)=>Promise<unknown>}){return async(req:Request):Promise<Response>=>{
+export function makeIsolatedTestHandler(deps:Dependencies & {comparePix?:(store:string,actor:string,order:string,attempt:Attempt)=>Promise<unknown>;compareOAuthPix?:(store:string,actor:string,order:string,attempt:Attempt)=>Promise<unknown>;compareCardConfig?:(store:string,actor:string)=>Promise<unknown>}){return async(req:Request):Promise<Response>=>{
  if(req.method!=='POST')return reply(405,{error:'method_not_allowed'});
  try{
   const actor=await deps.authenticate(req);if(!actor)return reply(401,{error:'unauthorized'});
   const input=await bounded(req);if(!object(input)||typeof input.storeId!=='string'||!uuid.test(input.storeId))return reply(400,{error:'invalid_request'});
   const store=input.storeId;if(!await deps.authorize(actor,store))return reply(403,{error:'not_authorized'});
+  if(input.action==='compare_card_config'){
+   if(Object.keys(input).some(k=>!['action','storeId'].includes(k))||!deps.compareCardConfig)return reply(400,{error:'invalid_request'});
+   const result=await deps.compareCardConfig(store,actor);
+   if(!await deps.authorize(actor,store))return reply(409,{error:'test_changed'});
+   return reply(200,result);
+  }
   if(input.action==='create'){
    if(Object.keys(input).some(k=>!['action','storeId','requestId','method'].includes(k))||typeof input.requestId!=='string'||!uuid.test(input.requestId)||(input.method!=='pix'&&input.method!=='card'))return reply(400,{error:'invalid_request'});
    const order=await deps.create(store,actor,input.requestId,input.method);return order?reply(200,order):reply(409,{error:'test_unavailable'});
   }
-  if((input.action!=='pay'&&input.action!=='check'&&input.action!=='card_config'&&input.action!=='compare_pix')||Object.keys(input).some(k=>!['action','storeId','orderId','card'].includes(k))||typeof input.orderId!=='string'||!uuid.test(input.orderId))return reply(400,{error:'invalid_request'});
+  if((input.action!=='pay'&&input.action!=='check'&&input.action!=='card_config'&&input.action!=='compare_pix'&&input.action!=='compare_oauth_pix')||Object.keys(input).some(k=>!['action','storeId','orderId','card'].includes(k))||typeof input.orderId!=='string'||!uuid.test(input.orderId))return reply(400,{error:'invalid_request'});
   const orderId=input.orderId,attempt=await deps.reserve(store,actor,orderId);if(!attempt)return reply(409,{error:'test_unavailable'});
   if(!await deps.verifyTestSeller(attempt.connection.accessToken,attempt.connection.sellerId))return reply(409,{error:'test_unavailable'});
+  if(input.action==='compare_oauth_pix'){
+   if(input.card!==undefined||attempt.method!=='pix'||!deps.compareOAuthPix)return reply(409,{error:'test_unavailable'});
+   const result=await deps.compareOAuthPix(store,actor,orderId,attempt);
+   if(!await deps.authorize(actor,store))return reply(409,{error:'test_changed'});
+   return reply(200,result);
+  }
   if(input.action==='compare_pix'){
    if(input.card!==undefined||attempt.method!=='pix'||!deps.comparePix)return reply(409,{error:'test_unavailable'});
    const result=await deps.comparePix(store,actor,orderId,attempt);
@@ -36,7 +49,10 @@ export function makeIsolatedTestHandler(deps:Dependencies & {comparePix?:(store:
   }
   if(input.action==='card_config'){
    if(input.card!==undefined||attempt.method!=='card'||attempt.providerOrderId||typeof attempt.connection.publicKey!=='string'||!/^[A-Za-z0-9_-]{1,256}$/.test(attempt.connection.publicKey))return reply(409,{error:'test_unavailable'});
-   return reply(200,{publicKey:attempt.connection.publicKey,amount:attempt.snapshot.total});
+   const buyerEmail=testBuyerEmail(attempt.snapshot.payerEmail);
+   if(!buyerEmail)return reply(409,{error:'test_unavailable'});
+   if(!await deps.authorize(actor,store))return reply(409,{error:'test_changed'});
+   return reply(200,{publicKey:attempt.connection.publicKey,amount:attempt.snapshot.total,buyerEmail});
   }
   if(input.action==='check'){
    if(input.card!==undefined||!attempt.providerOrderId)return reply(409,{error:'test_unavailable'});

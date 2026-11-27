@@ -1,8 +1,8 @@
 import { ChevronRight, Search, Sparkles, Truck } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { useCart } from '../../contexts/CartContext';
 import Checkout from './Checkout';
-import { useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { normalizeText } from '../../utils/text';
 import { ProductCard } from '../../components/ProductCard';
 import { StoreHeader } from '../../components/StoreHeader';
@@ -20,6 +20,7 @@ import { PickupPointSelector, PointStockNotice } from './PickupPointSelector';
 import { pointStock, usePickupAvailability } from './usePickupAvailability';
 import { storefrontAvailabilityRank } from '../../utils/storefrontAvailability';
 import { getWhatsAppUrl } from '../../utils/whatsapp';
+const PrintCustomRequest=lazy(()=>import('../../modules/components/PrintCustomRequest'));
 
 export default function Home(){
   if (typeof window !== 'undefined' && isFoodWebMarketingRoot(window.location.pathname, window.location.hostname)) return <Landing/>;
@@ -68,7 +69,7 @@ function StorefrontHome(){
   if(loading)return <div className="page-center"><LoadingState label={traditionalPresentation?'Carregando cardápio...':'Carregando catálogo...'}/></div>;
   if(error)return <div className="container page-center"><ErrorState message={error} onRetry={()=>void reloadPublic()}/></div>;
   if(segment.id==='fitness')return <>
-    <header className="container fitness-store-header"><div className="fitness-store-intro"><span className="eyebrow">FITNESS E BEM-ESTAR</span><h1>{settings.name}</h1>{(settings.city || settings.state) && <p className="fitness-store-location">{[settings.city,settings.state].filter(Boolean).join(' · ')}</p>}<p>Conheça os treinos, serviços e conteúdos disponíveis nesta loja.</p><a href="#cardapio" className="fitness-store-explore">Explorar opções <ChevronRight size={18} aria-hidden="true"/></a></div></header>
+    <header className="container fitness-store-header"><div className="fitness-store-intro"><span className="eyebrow">FITNESS E BEM-ESTAR</span><h1>{settings.name}</h1>{(settings.city || settings.state) && <p className="fitness-store-location">{[settings.city,settings.state].filter(Boolean).join(' · ')}</p>}<p>Conheça os treinos, serviços e conteúdos disponíveis nesta loja.</p><div className="business-actions"><a href="#cardapio" className="fitness-store-explore">Explorar opções <ChevronRight size={18} aria-hidden="true"/></a><Link className="secondary-button" to={`/fitness/${settings.id}/treinos`}>Área do aluno</Link></div></div></header>
     <section id="cardapio" className="container storefront-body">
       <div className="fitness-discovery" role="search"><label className="fitness-catalog-search"><Search size={19}/><span className="sr-only">Buscar no catálogo</span><input type="search" value={query} onChange={event=>setQuery(event.target.value)} placeholder="Buscar treino, músculo, equipamento ou serviço"/></label><label className="fitness-type-select">Tipo<select value={fitnessType} onChange={event=>setFitnessType(event.target.value as typeof fitnessType)}><option value="all">Tudo</option><option value="products">Treinos e produtos</option><option value="services">Serviços</option><option value="consultations">Consultas com agenda</option><option value="content">Conteúdos</option></select></label></div>
       <FitnessCatalog products={activeProducts} categories={categories} query={query} visible={fitnessType==='all'||fitnessType==='products'}/><FitnessBookingOffers query={query} type={fitnessType}/>
@@ -91,7 +92,8 @@ function StorefrontHome(){
       <PublicBusinessOffers query={traditionalPresentation?'':query} type={traditionalPresentation?'all':catalogType}/>
       {!traditionalPresentation&&<>{pointSelection}</>}
       {!traditionalPresentation&&(catalogType==='all'||catalogType==='products')&&<section className="segment-catalog-intro" aria-label={`Catálogo de ${segment.label}`}><div><span className="eyebrow">{segment.heroEyebrow}</span><h2>{segment.heroTitle}</h2><p>{segment.heroDescription}</p></div><a href="#catalogo-produtos" className="segment-catalog-intro__link">Explorar {segment.catalogLabel.toLocaleLowerCase('pt-BR')} <ChevronRight size={17}/></a></section>}
-      {segment.id==='printing3d' && settings.showWhatsApp !== false && settings.whatsapp.replace(/\D/g,'').length >= 10 && <section className="segment-custom-quote" aria-label="Projeto personalizado"><div><h2>Tem uma ideia para imprimir?</h2><p>Converse com a loja e envie os detalhes ou o arquivo pelo WhatsApp. A loja combinará preço e prazo com você.</p><small>A conversa não cria um pedido automaticamente.</small></div><a href={getWhatsAppUrl(settings.whatsapp, `Olá, ${settings.name}! Gostaria de um orçamento para uma impressão 3D personalizada.`)} target="_blank" rel="noopener noreferrer">Pedir orçamento no WhatsApp <ChevronRight size={17}/></a></section>}
+      {segment.id==='printing3d' && import.meta.env.VITE_PRINTING3D_PUBLIC_ENABLED==='true' && <Suspense fallback={<p>Carregando projetos personalizados…</p>}><PrintCustomRequest key={settings.id} store={settings.id}/></Suspense>}
+      {segment.id==='printing3d' && settings.showWhatsApp !== false && settings.whatsapp.replace(/\D/g,'').length >= 10 && <section className="segment-custom-quote" aria-label="Contato para projeto personalizado"><div><h2>Prefere conversar com a loja?</h2><p>Combine os detalhes do seu projeto pelo WhatsApp.</p><small>A conversa não cria um pedido automaticamente.</small></div><a href={getWhatsAppUrl(settings.whatsapp, `Olá, ${settings.name}! Gostaria de um orçamento para uma impressão 3D personalizada.`)} target="_blank" rel="noopener noreferrer">Pedir orçamento no WhatsApp <ChevronRight size={17}/></a></section>}
       {!traditionalPresentation&&<>{orderGuide}</>}
 
       {(traditionalPresentation||catalogType==='all'||catalogType==='products')&&<div className="food-discovery-bar">

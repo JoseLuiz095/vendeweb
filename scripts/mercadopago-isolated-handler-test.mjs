@@ -7,6 +7,12 @@ const snapshot={total:'50.00',externalReference:'isolated1',idempotencyKey:'c53c
 const provider={id:'ORD123',user_id:'123',country_code:'BRA',external_reference:'isolated1',total_amount:'50.00',status:'action_required',status_detail:'waiting_transfer',transactions:{payments:[{id:'PAY123',amount:'50.00',payment_method:{id:'pix',type:'bank_transfer',qr_code:'000201-test'}}]}};
 const req=body=>new Request('https://test.example',{method:'POST',headers:{authorization:'Bearer example'},body:JSON.stringify(body)});
 function fixture(){let bound=null,calls=0;const deps={authenticate:async()=> 'actor',authorize:async(_actor,id)=>id===store,create:async()=>({orderId:order}),reserve:async()=>({connection,snapshot,method:'pix',providerOrderId:bound}),verifyTestSeller:async()=>true,prepareCard:async()=>true,bind:async(_s,_actor,_o,id)=>{bound=id;return true;},reconcile:async()=> 'applied',transport:async()=>{calls++;return Response.json(provider)}};return{deps,calls:()=>calls};}
+test('consulta da chave pública de comparação exige usuário e loja autorizados',async()=>{
+ const f=fixture();let calls=0;const deps={...f.deps,compareCardConfig:async()=>{calls++;return {publicKey:'public',amount:'50.00'}}};const h=makeIsolatedTestHandler(deps);
+ assert.equal((await h(req({action:'compare_card_config',storeId:store}))).status,200);
+ assert.equal((await h(req({action:'compare_card_config',storeId:store,other:true}))).status,400);
+ deps.authorize=async()=>false;assert.equal((await h(req({action:'compare_card_config',storeId:store}))).status,403);assert.equal(calls,1);
+});
 test('comparação exige autorização e reserva; não vincula nem reconcilia a conta alternativa',async()=>{
  const f=fixture();let comparisons=0;
  const deps={...f.deps,comparePix:async()=>{comparisons++;return {result:'provider_order',status:'failed'};},bind:async()=>{throw Error('must not bind')},reconcile:async()=>{throw Error('must not apply')}};
@@ -85,8 +91,25 @@ test('consulta só confirma uma cobrança já vinculada e não retorna dados pri
  const response=await h(req({action:'check',storeId:store,orderId:order}));
  assert.deepEqual(await response.json(),{result:'applied'});
 });
-test('configuração de cartão retorna somente chave pública da conta autorizada',async()=>{
- const f=fixture();f.deps.reserve=async()=>({connection:{...connection,publicKey:'TEST-public-key'},snapshot,method:'card',providerOrderId:null});
+test('configuração retorna comprador de teste somente à loja autorizada',async()=>{
+ const f=fixture();f.deps.reserve=async()=>({connection:{...connection,publicKey:'TEST-public-key'},snapshot:{...snapshot,payerEmail:'test_user123@testuser.com'},method:'card',providerOrderId:null});
  const h=makeIsolatedTestHandler(f.deps);const r=await h(req({action:'card_config',storeId:store,orderId:order}));
- assert.equal(r.status,200);assert.deepEqual(await r.json(),{publicKey:'TEST-public-key',amount:'50.00'});
+ assert.equal(r.status,200);assert.deepEqual(await r.json(),{publicKey:'TEST-public-key',amount:'50.00',buyerEmail:'test_user123@testuser.com'});
+ f.deps.authorize=async()=>false;assert.equal((await h(req({action:'card_config',storeId:store,orderId:order}))).status,403);
+});
+test('configuração recusa comprador real e revogação durante verificação',async()=>{
+ const f=fixture();f.deps.reserve=async()=>({connection:{...connection,publicKey:'TEST-public-key'},snapshot:{...snapshot,payerEmail:'buyer@example.com'},method:'card',providerOrderId:null});
+ const h=makeIsolatedTestHandler(f.deps);assert.equal((await h(req({action:'card_config',storeId:store,orderId:order}))).status,409);
+ f.deps.reserve=async()=>({connection:{...connection,publicKey:'TEST-public-key'},snapshot:{...snapshot,payerEmail:'test_user123@testuser.com'},method:'card',providerOrderId:null});
+ let authorized=true;f.deps.authorize=async()=>authorized;f.deps.verifyTestSeller=async()=>{authorized=false;return true};
+ assert.equal((await h(req({action:'card_config',storeId:store,orderId:order}))).status,409);
+});
+
+test('comparação OAuth exige autenticação e seller verificado e não vincula nem confirma pedidos',async()=>{
+ const f=fixture();let calls=0;
+ const deps={...f.deps,compareOAuthPix:async(_s,_a,_o,attempt)=>{calls++;assert.equal(attempt.connection.sellerId,'123');return {result:'provider_order',status:'failed'}},bind:async()=>{throw Error('must not bind')},reconcile:async()=>{throw Error('must not apply')}};
+ const h=makeIsolatedTestHandler(deps),body={action:'compare_oauth_pix',storeId:store,orderId:order};
+ assert.equal((await h(req(body))).status,200);assert.equal(calls,1);
+ deps.verifyTestSeller=async()=>false;assert.equal((await h(req(body))).status,409);assert.equal(calls,1);
+ deps.verifyTestSeller=async()=>true;deps.authorize=async()=>false;assert.equal((await h(req(body))).status,403);assert.equal(calls,1);
 });

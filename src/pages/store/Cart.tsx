@@ -15,7 +15,7 @@ import { pointStock, usePickupAvailability } from './usePickupAvailability';
 import { canAddWithoutOptions, cartLineLimit } from '../../utils/cartAvailability';
 
 export default function Cart() {
-  const { items, subtotal, addItem, updateQuantity, removeItem, validateAgainstProducts } = useCart();
+  const { items, subtotal, totalItems, addItem, updateQuantity, removeItem, validateAgainstProducts } = useCart();
   const { products, settings, loading, storeBasePath } = useStore();
   const pickup = usePickupAvailability();
   const insufficient = pickup.selectedPoint && pickup.availability ? items.filter((item) => {
@@ -103,9 +103,9 @@ export default function Cart() {
       </section>
       <aside className="order-summary cart-navigation-layer">
         <span className="eyebrow">RESUMO</span>
-        <div className="summary-total"><span>Subtotal</span><strong>{currency.format(subtotal)}</strong></div>
+        <div className="summary-total" aria-live="polite"><span>Subtotal ({totalItems} {totalItems === 1 ? 'item' : 'itens'})</span><strong>{currency.format(subtotal)}</strong></div>
         {settings.minimumOrder > 0 && <div className={`minimum-order ${minimumMissing > 0 ? 'warning' : ''}`}><span>Pedido mínimo: {currency.format(settings.minimumOrder)}</span>{minimumMissing > 0 && <strong>Faltam {currency.format(minimumMissing)}</strong>}</div>}
-        {pickup.selectedPoint ? <p>Retirada em <strong>{pickup.selectedPoint.name}</strong>. Sem taxa de entrega.</p> : settings.deliveryEnabled ? <p>Taxa de entrega calculada ao escolher o bairro.{settings.pickupEnabled && ' Retirada sem taxa.'}</p> : <p>Retirada sem taxa de entrega.</p>}
+        {pickup.selectedPoint ? <p>Se escolher retirada em <strong>{pickup.selectedPoint.name}</strong>, não há taxa de entrega.{settings.deliveryEnabled && ' Para entrega, o valor será informado na finalização.'}</p> : settings.deliveryEnabled ? <p>Taxa de entrega calculada ao escolher a área de entrega.{settings.pickupEnabled && ' Retirada sem taxa.'}</p> : settings.pickupEnabled ? <p>Retirada sem taxa de entrega.</p> : <p>Consulte a loja sobre as opções disponíveis.</p>}
         {insufficient.length > 0 && <p className="store-point-stock store-point-stock--warning" role="alert">Há itens sem saldo suficiente no ponto escolhido. {settings.deliveryEnabled ? 'No checkout, escolha delivery ou altere o ponto de retirada.' : 'Ajuste as quantidades ou selecione outro ponto.'}</p>}
         {minimumMissing > 0 || pickupOnlyShortage ? <button type="button" className="primary-button cart-continue-button" disabled><AlertCircle size={18}/>{pickupOnlyShortage ? 'Ajuste o estoque do ponto' : 'Complete o pedido'}</button> : <Link className="primary-button cart-continue-button" to={storefrontPath(storeBasePath, '/finalizar')}>{insufficient.length ? 'Escolher delivery' : 'Continuar'} <ArrowRight size={18}/></Link>}
       </aside>

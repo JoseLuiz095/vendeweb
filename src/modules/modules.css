@@ -74,3 +74,7 @@
 .rental-asset { border-top:1px solid #dedee4; padding:.5rem 0; }.rental-maintenance { margin-top:1.5rem; }
 .rental-history { padding-left:1.3rem; }.rental-history li { padding:.6rem 0; border-bottom:1px solid #dedee4; }.rental-history p { font-size:.85rem; margin:.3rem 0; }
 @media(max-width:600px) { .rental-workspace .rental-summary { grid-template-columns:repeat(2,minmax(0,1fr)); }.rental-workspace .module-card { padding:.8rem; }.rental-period { padding:.8rem; }.rental-workspace { padding:.8rem; } }
+.print-import{padding:16px;border:1px solid var(--border,#dce1e8);border-radius:12px;background:var(--surface,#fff);margin:16px 0}
+.print-public-request{margin:24px 0}.print-public-request form{margin-top:20px}.print-public-fields{min-width:0;border:0;padding:0;margin:0}.print-public-fields details{padding:16px 0}.print-public-fields legend{font-weight:700;margin-bottom:12px}
+.print-public-request p,.print-import p,.print-job p{overflow-wrap:anywhere}.print-public-request textarea{min-height:120px}.print-public-request input[type=file],.print-import input[type=file]{width:100%;min-width:0;max-width:100%}.print-public-request .module-check{align-items:flex-start}
+.print-cost-breakdown>div{display:flex;justify-content:space-between;gap:16px;padding:5px 0}.print-cost-breakdown dt{overflow-wrap:anywhere}.print-cost-breakdown dd{margin:0;white-space:nowrap}

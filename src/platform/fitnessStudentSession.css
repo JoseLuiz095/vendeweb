@@ -1,0 +1,28 @@
+.fitness-session-app{display:grid;gap:12px;min-width:0}
+.fitness-session-app .fitness-day-heading{display:flex;gap:16px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+.fitness-session-app .fitness-day-heading label{max-width:220px;flex:1;min-width:130px}
+.fitness-session-app .fitness-day-heading>span,.fitness-session-progress{font-size:.85rem;color:var(--muted)}
+.fitness-session-app progress{display:block;width:100%;height:8px;accent-color:var(--food-store-primary,#245b41)}
+.fitness-session-app .fitness-session-focus{min-width:0;display:grid;gap:14px}
+.fitness-session-app .fitness-session-focus>h4{font-size:1.35rem;margin:6px 0}
+.fitness-session-app .fitness-session-metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:0;text-align:center}
+.fitness-session-app .fitness-session-metrics>div{padding:12px 4px;border-radius:14px;background:var(--surface-alt,#f0f5f1);min-width:0}
+.fitness-session-app .fitness-session-metrics dt{font-size:.78rem;color:var(--muted)}
+.fitness-session-app .fitness-session-metrics dd{font-weight:700;font-size:1.4rem;margin:5px 0;overflow-wrap:anywhere}
+.fitness-session-app .fitness-session-metrics dd small{font-size:.85rem}
+.fitness-session-app .fitness-session-load{display:flex;gap:12px;justify-content:space-between;flex-wrap:wrap;margin:0}
+.fitness-series-dots{display:flex;flex-wrap:wrap;gap:8px}
+.fitness-series-dots span{display:grid;place-items:center;border-radius:50%;width:36px;height:36px;background:var(--surface-alt,#edf2ed);font-weight:600}
+.fitness-series-dots .is-done{background:var(--food-store-primary,#245b41);color:#fff}
+.fitness-session-app .fitness-complete-set{width:100%;min-height:48px}
+.fitness-session-app details{padding:8px 0}.fitness-session-app summary{min-height:36px;cursor:pointer}
+.fitness-session-app .fitness-session-note{font-size:.78rem;margin:0}
+.fitness-session-timers{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;min-width:0}
+.fitness-session-timers>*{min-width:0}.fitness-session-timers button{min-height:44px;white-space:normal;overflow-wrap:anywhere}
+.fitness-session-timers [role=timer],.fitness-session-timers output{font-size:1.7rem;font-variant-numeric:tabular-nums;display:block}
+.fitness-session-timers .fitness-rest-finished{grid-column:1/-1;background:#e4f3e9;color:#153e27;border:2px solid #2d8052;padding:18px;border-radius:14px}
+.fitness-timer-card{padding:12px;border:1px solid #cfddd2;border-radius:12px;background:#fff}.fitness-timer-card h5{font-size:1rem;margin:0 0 8px}.fitness-timer-preference,.fitness-timer-limit{grid-column:1/-1}.fitness-timer-limit{font-size:.78rem}.fitness-timer-card .fitness-session-actions{margin-top:12px}.fitness-timer-card .business-muted{font-size:.78rem}
+@media(max-width:420px){.fitness-session-timers{grid-template-columns:1fr}.fitness-session-app .fitness-session-metrics dd{font-size:1.2rem}}
+/* A ficha selecionada ocupa a largura disponível, sem uma coluna vazia ao lado. */
+.fitness-workouts[aria-label="Minhas fichas de treino"] .fitness-workout-list{grid-template-columns:minmax(0,1fr)}
+.fitness-workouts[aria-label="Minhas fichas de treino"] .fitness-workout-list>label{display:grid;gap:6px}
