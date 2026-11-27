@@ -84,3 +84,7 @@ Base inicial: `JoseLuiz095/vendeweb`, main `13bf16277696303018c017b20814245af004
 Não foi instalada ponte MQTT, Spoolman, Home Assistant ou GPU. Não há geração automática de STL. Importação não repõe automaticamente o estoque de peças prontas; associação ao produto identifica a produção. Produtos com baixa automática por ficha exigem revisão antes da associação, para prevenir consumo duplo. A cotação de cada trabalho usa um snapshot; registrar consumo não reajusta o preço acordado.
 
 Se precisar recuar a exposição pública, desabilitar a flag do servidor e reconstruir a vitrine com a flag pública desligada; manter os dados e o histórico. Não remover colunas/tabelas ou executar rollback destrutivo.
+
+## Revisão de código
+
+PR em rascunho: https://github.com/JoseLuiz095/vendeweb/pull/276 — branch codex/impressao3d-fluxo-integrado-20261127, commit inicial 759a491bf3a6db87c2830fe6a396d64b93dfcd14. Os 28 arquivos enviados foram conferidos por SHA Git contra os arquivos locais. Sem merge; o documento não autoriza tratar a homologação como concluída.
