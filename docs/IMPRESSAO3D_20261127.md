@@ -88,3 +88,13 @@ Se precisar recuar a exposição pública, desabilitar a flag do servidor e reco
 ## Revisão de código
 
 PR em rascunho: https://github.com/JoseLuiz095/vendeweb/pull/276 — branch codex/impressao3d-fluxo-integrado-20261127, commit inicial 759a491bf3a6db87c2830fe6a396d64b93dfcd14. Os 28 arquivos enviados foram conferidos por SHA Git contra os arquivos locais. Sem merge; o documento não autoriza tratar a homologação como concluída.
+
+## Publicação autorizada — 27/11/2026
+
+O usuário autorizou publicar após a entrega acima. Esta seção atualiza o estado histórico das seções anteriores.
+
+- A PR #276 foi integrada na main pelo merge `5b57d1cc0003e711128140c449f3dcad797975ce`. Impressão 3D, Vendas e estoque (incluindo a suíte de interface existente) e Aluguel concluíram com sucesso no GitHub.
+- A migration revisada foi aplicada no projeto `elttryavkeartoxgdgse`, registrada pelo ambiente como `20261127202641 / food_printing3d_workflow`. As funções públicas de escrita permanecem exclusivas do serviço; histórico por loja e capabilities conservam RLS. Confirmados: 0 trabalhos, 0 registros e 14 insumos antes/depois; nenhum consumo ou pedido foi criado para publicar.
+- A liberação do formulário passa a ser o padrão desta versão. `VITE_PRINTING3D_PUBLIC_ENABLED=false` e `PRINTING3D_PUBLIC_ENABLED=false` continuam disponíveis para desligar a exposição. Captcha, origem autorizada, limite de chamadas, validade e escopo da capability continuam obrigatórios.
+- O formulário consulta a disponibilidade do servidor ao abrir. Se a IA não estiver configurada, informa a limitação e permite enviar ideia/anexos para revisão sem oferecer um botão de IA funcional indevidamente. A consulta não divulga chaves nem realiza uma chamada paga à IA.
+- Testes locais desta liberação: 10 testes de importação/cálculo/handler e 74 verificações em PostgreSQL descartável aprovados; TypeScript aprovado. Publicação e verificação HTTP da função e do formulário estão em andamento e serão registradas no encerramento.

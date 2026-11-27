@@ -27,7 +27,8 @@ export function createPrinting3dPublicHandler(deps:Dependencies) {
     if(!origins.has(origin))return reply({error:'Origem não autorizada.'},403);
     if(req.method==='OPTIONS')return new Response(null,{status:204,headers});
     if(req.method!=='POST')return reply({error:'Método não permitido.'},405);
-    if(deps.env('PRINTING3D_PUBLIC_ENABLED')!=='true')return reply({error:'Solicitações pelo site ainda não estão disponíveis. Use o contato da loja.'},503);
+    // Production release is enabled; an explicit false remains the operational off switch.
+    if(deps.env('PRINTING3D_PUBLIC_ENABLED')==='false')return reply({error:'Solicitações pelo site ainda não estão disponíveis. Use o contato da loja.'},503);
     const url=deps.env('SUPABASE_URL')||'',service=deps.env('SUPABASE_SERVICE_ROLE_KEY')||'';
     if(!url||!service)return reply({error:'Serviço indisponível.'},503);
     try{
@@ -38,7 +39,7 @@ export function createPrinting3dPublicHandler(deps:Dependencies) {
       if(multipart){const form=await new Response(bytes,{headers:{'Content-Type':contentType}}).formData();const entry=form.get('file');if(!(entry instanceof File))return reply({error:'Escolha o arquivo.'},400);file=entry;body=Object.fromEntries([...form.entries()].filter(([key])=>key!=='file'));}
       else body=JSON.parse(new TextDecoder().decode(bytes));
       const action=body.action,store=body.store_id;
-      if(!['create','upload','assist'].includes(action)||!uuid.test(store||''))return reply({error:'Solicitação inválida.'},400);
+      if(!['capabilities','create','upload','assist'].includes(action)||!uuid.test(store||''))return reply({error:'Solicitação inválida.'},400);
       // A trusted proxy header is optional. Unknown clients share a strict bucket.
       const ip=req.headers.get('cf-connecting-ip')||req.headers.get('x-real-ip')||'unknown';
       for(const identity of [`print3d-ip:${ip}`,`print3d-store:${store}`,...(action==='assist'?['print3d-ai-global']:[])]){
@@ -47,6 +48,7 @@ export function createPrinting3dPublicHandler(deps:Dependencies) {
       const {data:profile,error:profileError}=await admin.from('food_business_profiles').select('store_id').eq('store_id',store).eq('primary_segment','printing3d').maybeSingle();
       const {data:gate,error:gateError}=await admin.rpc('food_printing3d_public_available_v1',{p_store:store});
       if(profileError||!profile||gateError||gate!==true)return reply({error:'Solicitações indisponíveis nesta loja.'},403);
+      if(action==='capabilities')return reply({release:'printing3d-20261127',requests_available:Boolean(deps.env('TURNSTILE_SECRET_KEY')),assistance_available:Boolean(deps.env('OPENAI_API_KEY')&&deps.env('OPENAI_MODEL'))});
       if(action==='create'||action==='assist'){
         const secret=deps.env('TURNSTILE_SECRET_KEY');if(!secret||typeof body.turnstileToken!=='string'||!body.turnstileToken)return reply({error:'Conclua a verificação de segurança.'},400);
         const verify=await deps.fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify',{method:'POST',body:new URLSearchParams({secret,response:body.turnstileToken}),signal:AbortSignal.timeout(10000)});
