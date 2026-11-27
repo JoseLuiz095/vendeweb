@@ -30,3 +30,32 @@ test('402 remains a refused provider order and does not report settlement',async
  const result=await runControlPix(input,async(url,init)=>response(url.endsWith('/users/me')?identity:init.method==='POST'?{data:failed,errors:[{code:'invalid_users_involved'}]}:failed,init.method==='POST'?402:200));
  assert.equal(result.status,'failed');assert.equal(result.category,'invalid_users_involved');assert(!('paid' in result));
 });
+
+test('OAuth control uses the verified connected seller, canonical payer, and a separate stable retry key',async()=>{
+ const {runOAuthControlPix}=await import('../supabase/functions/_shared/mercadoPagoControlPix.ts');
+ const keys=[];const seller='3840680792';const candidate={...order,user_id:seller,external_reference:`oauthcontrol_${input.orderId}`};
+ const transport=async(url,init)=>{
+  assert.equal(init.headers.Authorization,'Bearer private-token');
+  if(url.endsWith('/users/me'))return response({...identity,id:Number(seller)});
+  if(init.method==='POST'){keys.push(init.headers['X-Idempotency-Key']);const body=JSON.parse(init.body);assert.deepEqual(body.payer,{email:'test_payer@example.com',first_name:'APRO'});return response(candidate);}
+  return response(candidate);
+ };
+ const out=await runOAuthControlPix({...input,sellerId:seller},transport);
+ assert.equal(out.status,'processed');assert(!('paid' in out));
+ await runOAuthControlPix({...input,sellerId:seller},transport);
+ assert.equal(keys[0],keys[1]);assert.equal(keys[0],`oauthcontrol_${input.orderId}`);
+ assert.notEqual(keys[0],`control_3835760583_${input.orderId}`);
+});
+test('OAuth control rejects a seller mismatch and never posts with unverified identity',async()=>{
+ const {runOAuthControlPix}=await import('../supabase/functions/_shared/mercadoPagoControlPix.ts');
+ let calls=0;
+ await assert.rejects(runOAuthControlPix({...input,sellerId:'3840680792'},async(url,init)=>{calls++;assert.equal(init.method,'GET');return response(identity)}));
+ assert.equal(calls,1);
+});
+
+test('OAuth control reports provider refusal without binding or treating it as paid',async()=>{
+ const {runOAuthControlPix}=await import('../supabase/functions/_shared/mercadoPagoControlPix.ts');
+ const seller='3840680792';const failed={...order,user_id:seller,external_reference:`oauthcontrol_${input.orderId}`,status:'failed'};
+ const out=await runOAuthControlPix({...input,sellerId:seller},async(url,init)=>response(url.endsWith('/users/me')?{...identity,id:Number(seller)}:init.method==='POST'?{data:failed,errors:[{code:'invalid_users_involved'}]}:failed,init.method==='POST'?402:200));
+ assert.equal(out.status,'failed');assert.equal(out.category,'invalid_users_involved');assert(!('paid' in out));
+});
