@@ -32,6 +32,7 @@
     "design:context": "node .agents/skills/impeccable/scripts/context.mjs --target src/App.tsx",
     "test:critical": "node scripts/critical-flow.mjs",
     "test:modules": "node scripts/test-modules.mjs",
+    "test:printing3d": "node --test scripts/printing3d-import-test.mjs scripts/printing3d-public-handler-test.mjs && node scripts/printing3d-workflow-db-test.mjs",
     "qa:modules": "npm --prefix qa run test:modules",
     "check:env": "node scripts/check-env.mjs",
     "qa:setup": "npm --prefix qa install && npm --prefix qa run browser:install",

@@ -1,0 +1,22 @@
+name: Impressão 3D
+on:
+  pull_request:
+    paths: ['src/modules/**', 'src/services/printing3dPublicApi.ts', 'src/pages/store/Home.tsx', 'supabase/functions/**/printing3d*', 'supabase/functions/food-printing3d-public/**', 'supabase/migrations/*printing3d*', 'scripts/printing3d*', '.github/workflows/printing3d.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  regression:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: node --test scripts/printing3d-import-test.mjs scripts/printing3d-public-handler-test.mjs
+      - run: node scripts/printing3d-workflow-db-test.mjs
+      - run: npm run test:cart && npm run test:critical
+      - run: npm run build

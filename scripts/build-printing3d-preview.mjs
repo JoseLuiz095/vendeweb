@@ -1,0 +1,10 @@
+import { build } from 'vite';
+import react from '@vitejs/plugin-react';
+import { readFileSync,writeFileSync,mkdirSync } from 'node:fs';
+import path from 'node:path';
+const outDir='qa/test-results/printing3d-preview';
+await build({configFile:false,plugins:[react()],base:'./',build:{outDir,emptyOutDir:false,cssCodeSplit:false,rollupOptions:{input:'qa/printing3d-harness.html',output:{inlineDynamicImports:true}}}});
+const file=path.join(outDir,'qa/printing3d-harness.html');let html=readFileSync(file,'utf8');
+html=html.replace(/<script type="module"[^>]*src="([^"]+)"[^>]*><\/script>/g,(_all,src)=>'<script type="module">'+readFileSync(path.resolve(path.dirname(file),src),'utf8').replace(/<\/script/gi,'<\\/script')+'</script>');
+html=html.replace(/<link[^>]*href="([^"]+\.css)"[^>]*>/g,(_all,src)=>'<style>'+readFileSync(path.resolve(path.dirname(file),src),'utf8')+'</style>');
+mkdirSync(outDir,{recursive:true});writeFileSync(path.join(outDir,'printing3d.html'),html);console.log('Standalone preview: '+path.resolve(outDir,'printing3d.html'));
