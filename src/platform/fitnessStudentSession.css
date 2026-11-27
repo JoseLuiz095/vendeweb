@@ -23,3 +23,6 @@
 .fitness-session-timers .fitness-rest-finished{grid-column:1/-1;background:#e4f3e9;color:#153e27;border:2px solid #2d8052;padding:18px;border-radius:14px}
 .fitness-timer-card{padding:12px;border:1px solid #cfddd2;border-radius:12px;background:#fff}.fitness-timer-card h5{font-size:1rem;margin:0 0 8px}.fitness-timer-preference,.fitness-timer-limit{grid-column:1/-1}.fitness-timer-limit{font-size:.78rem}.fitness-timer-card .fitness-session-actions{margin-top:12px}.fitness-timer-card .business-muted{font-size:.78rem}
 @media(max-width:420px){.fitness-session-timers{grid-template-columns:1fr}.fitness-session-app .fitness-session-metrics dd{font-size:1.2rem}}
+/* A ficha selecionada ocupa a largura disponível, sem uma coluna vazia ao lado. */
+.fitness-workouts[aria-label="Minhas fichas de treino"] .fitness-workout-list{grid-template-columns:minmax(0,1fr)}
+.fitness-workouts[aria-label="Minhas fichas de treino"] .fitness-workout-list>label{display:grid;gap:6px}
