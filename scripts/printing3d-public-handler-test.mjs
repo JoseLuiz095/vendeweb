@@ -6,11 +6,11 @@ const compiled=ts.transpileModule(readFileSync('supabase/functions/_shared/print
 const {createPrinting3dPublicHandler,validPrintAttachment}=await import('data:text/javascript;base64,'+Buffer.from(compiled).toString('base64'));
 const store='10000000-0000-4000-8000-000000000001',id='20000000-0000-4000-8000-000000000001',origin='https://www.vendeweb.com.br';
 const payload={action:'assist',store_id:store,description:'Uma caixinha azul com tampa de encaixe',consent:true,turnstileToken:'test-captcha'};
-function setup({enabled=true,captcha=true,gate=true,limit=false,ai=true,model=true,registerError=false}={}){
+function setup({enabled=true,captcha=true,gate=true,limit=false,ai=true,model=true,registerError=false,environmentFlag=true}={}){
   const calls=[],rpc=[],storage=[];
   const query={select:()=>query,eq:()=>query,maybeSingle:async()=>({data:{store_id:store}})};
   const client={from:()=>query,rpc:async(name,args)=>{rpc.push({name,args});return name==='food_modules_rate_limit'?{error:limit?{message:'limit'}:null}:name==='food_printing3d_public_available_v1'?{data:gate}:args.p_action==='authorize_upload'?{data:{prefix:`org/${store}/${id}/`}}:args.p_action==='file_register'&&registerError?{error:{code:'P0001'}}:{data:{id}};},storage:{from:()=>({upload:async(path,data,options)=>{storage.push({action:'upload',path,data,options});return{error:null};},remove:async paths=>{storage.push({action:'remove',paths});return{error:null};}})}};
-  const handler=createPrinting3dPublicHandler({env:key=>({PRINTING3D_PUBLIC_ENABLED:String(enabled),SUPABASE_URL:'https://example.invalid',SUPABASE_SERVICE_ROLE_KEY:'private-service-secret',TURNSTILE_SECRET_KEY:'private-turnstile',OPENAI_API_KEY:ai?'private-ai-secret':'',OPENAI_MODEL:model?'configured-vision-model':''})[key],client:()=>client,fetch:async(url,init)=>{calls.push({url,body:init?.body&&typeof init.body==='string'?JSON.parse(init.body):init?.body});return new Response(JSON.stringify(String(url).includes('siteverify')?{success:captcha,hostname:'www.vendeweb.com.br',action:'print3d'}:{output_text:'Objeto: caixa azul. Medidas e modelagem precisam de revisão.'}),{status:200});}});
+  const handler=createPrinting3dPublicHandler({env:key=>({PRINTING3D_PUBLIC_ENABLED:environmentFlag?String(enabled):undefined,SUPABASE_URL:'https://example.invalid',SUPABASE_SERVICE_ROLE_KEY:'private-service-secret',TURNSTILE_SECRET_KEY:'private-turnstile',OPENAI_API_KEY:ai?'private-ai-secret':'',OPENAI_MODEL:model?'configured-vision-model':''})[key],client:()=>client,fetch:async(url,init)=>{calls.push({url,body:init?.body&&typeof init.body==='string'?JSON.parse(init.body):init?.body});return new Response(JSON.stringify(String(url).includes('siteverify')?{success:captcha,hostname:'www.vendeweb.com.br',action:'print3d'}:{output_text:'Objeto: caixa azul. Medidas e modelagem precisam de revisão.'}),{status:200});}});
   const request=async(body=payload,headers={})=>{const response=await handler(new Request('https://edge.example.invalid',{method:'POST',headers:{Origin:origin,...(body instanceof FormData?{}:{'Content-Type':'application/json'}),...headers},body:body instanceof FormData?body:JSON.stringify(body)}));return{status:response.status,body:await response.json()};};return{request,calls,rpc,storage};
 }
 test('public endpoint is gated and verifies origin, rate, store, captcha and consent before AI',async()=>{
@@ -36,4 +36,9 @@ test('uploads use a capability, deterministic content hash, private bucket and s
 test('rejects script payloads disguised as models or images',async()=>{
   for(const extension of ['stl','obj','png','3mf','pdf','exe'])assert.equal(validPrintAttachment(new TextEncoder().encode('<html><script>bad()</script></html>'),extension),false);
   const s=setup();const r=await s.request({...payload,photo:{mime:'image/png',data:btoa('not a png')}});assert.equal(r.status,400);assert.equal(s.calls.filter(c=>c.url.includes('openai')).length,0);
+});
+test('production capabilities work without an environment override, expose no credentials and keep the off switch',async()=>{
+  const s=setup({environmentFlag:false,ai:false});const result=await s.request({action:'capabilities',store_id:store});
+  assert.equal(result.status,200);assert.equal(result.body.requests_available,true);assert.equal(result.body.assistance_available,false);assert.equal(s.calls.length,0);assert.doesNotMatch(JSON.stringify(result.body),/private-|secret|api_key|token/);
+  const disabled=setup({enabled:false});assert.equal((await disabled.request({action:'capabilities',store_id:store})).status,503);
 });

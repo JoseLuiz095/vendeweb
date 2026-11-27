@@ -53,6 +53,6 @@ verify_jwt = false
 verify_jwt = false
 
 # Public request creation uses Turnstile; files require an expiring capability.
-# Disabled in handler until PRINTING3D_PUBLIC_ENABLED=true.
+# Production release enabled; PRINTING3D_PUBLIC_ENABLED=false disables requests.
 [functions.food-printing3d-public]
 verify_jwt = false
